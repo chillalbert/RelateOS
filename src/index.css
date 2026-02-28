@@ -6,6 +6,8 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 body {
   @apply font-sans bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100;
 }

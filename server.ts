@@ -6,15 +6,24 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import db from './db';
 import dotenv from 'dotenv';
+import { GoogleGenAI, Type } from "@google/genai";
 
 dotenv.config();
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 // --- Database Migrations ---
 try {
   db.exec('ALTER TABLE groups ADD COLUMN target_amount REAL DEFAULT 500');
-} catch (e) {
-  // Column probably already exists
-}
+} catch (e) {}
+
+try {
+  db.exec('ALTER TABLE users ADD COLUMN appearance TEXT DEFAULT "light"');
+} catch (e) {}
+
+try {
+  db.exec('ALTER TABLE users ADD COLUMN notification_settings TEXT DEFAULT \'{"birthdays":true,"tasks":true,"groups":true}\'');
+} catch (e) {}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'relateos-secret';
 const PORT = 3000;
@@ -46,7 +55,7 @@ async function startServer() {
       const hashedPassword = await bcrypt.hash(password, 10);
       const result = db.prepare('INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)').run(email, hashedPassword, name);
       const token = jwt.sign({ id: result.lastInsertRowid, email, name }, JWT_SECRET);
-      res.json({ token, user: { id: result.lastInsertRowid, email, name } });
+      res.json({ token, user: { id: result.lastInsertRowid, email, name, appearance: 'light', notification_settings: { birthdays: true, tasks: true, groups: true } } });
     } catch (err: any) {
       res.status(400).json({ error: err.message });
     }
@@ -59,12 +68,81 @@ async function startServer() {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     const token = jwt.sign({ id: user.id, email: user.email, name: user.name }, JWT_SECRET);
-    res.json({ token, user: { id: user.id, email: user.email, name: user.name, personality: user.reminder_personality } });
+    res.json({ token, user: { 
+      id: user.id, 
+      email: user.email, 
+      name: user.name, 
+      personality: user.reminder_personality,
+      appearance: user.appearance,
+      notification_settings: JSON.parse(user.notification_settings || '{"birthdays":true,"tasks":true,"groups":true}')
+    } });
   });
 
   app.patch('/api/user/settings', authenticate, (req: any, res) => {
     const { personality } = req.body;
     db.prepare('UPDATE users SET reminder_personality = ? WHERE id = ?').run(personality, req.user.id);
+    res.json({ success: true });
+  });
+
+  app.patch('/api/user/password', authenticate, async (req: any, res) => {
+    const { currentPassword, newPassword } = req.body;
+    const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.id) as any;
+    if (!user || !(await bcrypt.compare(currentPassword, user.password_hash))) {
+      return res.status(401).json({ error: 'Invalid current password' });
+    }
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashedPassword, req.user.id);
+    res.json({ success: true });
+  });
+
+  app.patch('/api/user/appearance', authenticate, (req: any, res) => {
+    const { appearance } = req.body;
+    db.prepare('UPDATE users SET appearance = ? WHERE id = ?').run(appearance, req.user.id);
+    res.json({ success: true });
+  });
+
+  app.patch('/api/user/notification-settings', authenticate, (req: any, res) => {
+    const { notification_settings } = req.body;
+    db.prepare('UPDATE users SET notification_settings = ? WHERE id = ?').run(JSON.stringify(notification_settings), req.user.id);
+    res.json({ success: true });
+  });
+
+  // --- Notifications Routes ---
+  app.get('/api/notifications', authenticate, (req: any, res) => {
+    // Check for birthdays first
+    const today = new Date();
+    const people = db.prepare('SELECT id, name, birthday FROM people WHERE user_id = ?').all(req.user.id) as any[];
+    
+    people.forEach(person => {
+      const bday = new Date(person.birthday);
+      if (bday.getMonth() === today.getMonth() && bday.getDate() === today.getDate()) {
+        // Check if notification already exists for today
+        const existing = db.prepare(`
+          SELECT id FROM notifications 
+          WHERE user_id = ? AND type = 'birthday' AND link = ? 
+          AND date(created_at) = date('now')
+        `).get(req.user.id, `/person/${person.id}`);
+        
+        if (!existing) {
+          db.prepare(`
+            INSERT INTO notifications (user_id, type, title, message, link)
+            VALUES (?, 'birthday', 'Birthday Today!', ?, ?)
+          `).run(req.user.id, `It's ${person.name}'s birthday today! Don't forget to reach out.`, `/person/${person.id}`);
+        }
+      }
+    });
+
+    const notifications = db.prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 50').all(req.user.id);
+    res.json(notifications);
+  });
+
+  app.patch('/api/notifications/:id/read', authenticate, (req: any, res) => {
+    db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
+    res.json({ success: true });
+  });
+
+  app.delete('/api/notifications/:id', authenticate, (req: any, res) => {
+    db.prepare('DELETE FROM notifications WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
     res.json({ success: true });
   });
 
@@ -222,6 +300,131 @@ async function startServer() {
     db.prepare('INSERT INTO group_contributions (group_id, user_id, amount, status) VALUES (?, ?, ?, ?)')
       .run(req.params.id, req.user.id, amount, 'completed');
     res.json({ success: true });
+  });
+
+  // --- AI Routes ---
+  app.post('/api/ai/birthday-message', authenticate, async (req: any, res) => {
+    const { relationship, yearsKnown, memories, tone, length } = req.body;
+    const prompt = `
+      Generate a birthday message for a ${relationship} I've known for ${yearsKnown} years.
+      Context/Memories: ${memories.join(', ')}
+      Tone: ${tone}
+      Length: ${length}
+      
+      Provide the response in JSON format with the following fields:
+      - shortText: A quick SMS style message.
+      - instagramCaption: A caption for a post.
+      - cardMessage: A longer, more thoughtful message for a physical card.
+      - voiceScript: A script for a voice message.
+    `;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              shortText: { type: Type.STRING },
+              instagramCaption: { type: Type.STRING },
+              cardMessage: { type: Type.STRING },
+              voiceScript: { type: Type.STRING },
+            },
+            required: ["shortText", "instagramCaption", "cardMessage", "voiceScript"]
+          }
+        }
+      });
+      res.json(JSON.parse(response.text || '{}'));
+    } catch (error: any) {
+      console.error("AI Generation Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/ai/recovery-plan', authenticate, async (req: any, res) => {
+    const { daysLate, relationship } = req.body;
+    const prompt = `
+      I missed a birthday for a ${relationship} by ${daysLate} days.
+      Generate a "Late but Legendary" recovery plan.
+      
+      Provide the response in JSON format with:
+      - apologyMessage: A sincere but charming apology.
+      - recoveryGiftIdeas: 3 gift ideas that make up for being late.
+      - followUpPlan: A 48-hour checklist to fix the relationship.
+    `;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              apologyMessage: { type: Type.STRING },
+              recoveryGiftIdeas: { type: Type.ARRAY, items: { type: Type.STRING } },
+              followUpPlan: { type: Type.ARRAY, items: { type: Type.STRING } },
+            },
+            required: ["apologyMessage", "recoveryGiftIdeas", "followUpPlan"]
+          }
+        }
+      });
+      res.json(JSON.parse(response.text || '{}'));
+    } catch (error: any) {
+      console.error("AI Recovery Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/ai/gift-suggestions', authenticate, async (req: any, res) => {
+    const { interests, budget, relationship } = req.body;
+    const prompt = `
+      Find the best gift ideas for a ${relationship} with these interests: ${interests}.
+      The current budget is $${budget}.
+      
+      Provide the response in JSON format with:
+      - suggestions: An array of objects, each with:
+        - title: Name of the product.
+        - price: Estimated price.
+        - reason: Why it's a good fit.
+        - searchUrl: A Google Search URL to find/buy this product.
+    `;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              suggestions: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    title: { type: Type.STRING },
+                    price: { type: Type.STRING },
+                    reason: { type: Type.STRING },
+                    searchUrl: { type: Type.STRING },
+                  },
+                  required: ["title", "price", "reason", "searchUrl"]
+                }
+              }
+            },
+            required: ["suggestions"]
+          }
+        }
+      });
+      res.json(JSON.parse(response.text || '{}'));
+    } catch (error: any) {
+      console.error("AI Gift Suggestion Error:", error);
+      res.status(500).json({ error: error.message });
+    }
   });
 
   // --- WebSocket for Real-time Collaboration ---

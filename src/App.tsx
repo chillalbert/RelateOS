@@ -9,6 +9,7 @@ import Analytics from './pages/Analytics';
 import GroupPlanning from './pages/GroupPlanning';
 import People from './pages/People';
 import Settings from './pages/Settings';
+import Notifications from './pages/Notifications';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { token, isLoading } = useAuth();
@@ -16,24 +17,41 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   return token ? <>{children}</> : <Navigate to="/login" />;
 };
 
+const ThemeHandler = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+
+  React.useEffect(() => {
+    if (user?.appearance === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [user?.appearance]);
+
+  return <>{children}</>;
+};
+
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/add" element={<PrivateRoute><AddPerson /></PrivateRoute>} />
-          <Route path="/people" element={<PrivateRoute><People /></PrivateRoute>} />
-          <Route path="/person/:id" element={<PrivateRoute><PersonProfile /></PrivateRoute>} />
-          <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
-          <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
-          <Route path="/groups/create" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
-          <Route path="/groups/:id" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </Router>
+      <ThemeHandler>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+            <Route path="/add" element={<PrivateRoute><AddPerson /></PrivateRoute>} />
+            <Route path="/people" element={<PrivateRoute><People /></PrivateRoute>} />
+            <Route path="/person/:id" element={<PrivateRoute><PersonProfile /></PrivateRoute>} />
+            <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
+            <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+            <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
+            <Route path="/groups/create" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
+            <Route path="/groups/:id" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </Router>
+      </ThemeHandler>
     </AuthProvider>
   );
 }

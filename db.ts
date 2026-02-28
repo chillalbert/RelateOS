@@ -11,7 +11,21 @@ db.exec(`
     password_hash TEXT NOT NULL,
     name TEXT NOT NULL,
     reminder_personality TEXT DEFAULT 'chill',
+    appearance TEXT DEFAULT 'light',
+    notification_settings TEXT DEFAULT '{"birthdays":true,"tasks":true,"groups":true}',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    type TEXT NOT NULL, -- 'birthday', 'task', 'group'
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    link TEXT,
+    is_read INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id)
   );
 
   CREATE TABLE IF NOT EXISTS people (

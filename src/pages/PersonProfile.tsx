@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDate, getDaysUntil, getRelationshipScore, cn } from '../lib/utils';
-import { generateBirthdayMessage } from '../services/geminiService';
+import { generateBirthdayMessage, generateRecoveryPlan } from '../services/geminiService';
 
 export default function PersonProfile() {
   const { id } = useParams();
@@ -210,7 +210,7 @@ export default function PersonProfile() {
       memories: memories.slice(0, 5),
       tone: 'heartfelt',
       length: 'medium'
-    });
+    }, token!);
     setAiMessage(message);
     setIsGenerating(false);
   };
@@ -225,12 +225,10 @@ export default function PersonProfile() {
 
   const handleRecovery = async () => {
     setIsRecovering(true);
-    // In a real app, we'd call the Gemini service
-    const plan = {
-      apologyMessage: "I am so incredibly sorry I missed your special day. You mean the world to me and I dropped the ball.",
-      recoveryGiftIdeas: ["Surprise weekend brunch", "Handwritten letter + Favorite Coffee", "The 'Legendary Late' Gift Box"],
-      followUpPlan: ["Send apology text immediately", "Call this evening", "Schedule makeup dinner"]
-    };
+    const plan = await generateRecoveryPlan({
+      daysLate,
+      relationship: person.category
+    }, token!);
     setRecoveryPlan(plan);
     setIsRecovering(false);
   };
@@ -409,6 +407,14 @@ export default function PersonProfile() {
           )}
         </AnimatePresence>
 
+        <button 
+          onClick={() => setShowMemoryForm(true)}
+          className="w-full flex items-center justify-center gap-2 p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl font-bold shadow-sm hover:scale-[1.02] transition-transform"
+        >
+          <Plus size={18} className="text-emerald-500" />
+          Log a Memory
+        </button>
+
         {/* Planning Checklist (Project Manager) */}
         <section className="space-y-4">
           <div className="flex justify-between items-center">
@@ -511,19 +517,17 @@ export default function PersonProfile() {
                 exit={{ opacity: 0, y: -10 }}
                 className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4"
               >
-                <div className="grid grid-cols-3 gap-2">
-                  {['gift', 'joke', 'milestone'].map(type => (
-                    <button
-                      key={type}
-                      onClick={() => setNewMemory({ ...newMemory, type })}
-                      className={cn(
-                        "py-2 rounded-xl text-[10px] font-bold uppercase transition-all",
-                        newMemory.type === type ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-zinc-50 dark:bg-zinc-800 text-zinc-400"
-                      )}
-                    >
-                      {type}
-                    </button>
-                  ))}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-zinc-400">Memory Type</label>
+                  <select
+                    value={newMemory.type}
+                    onChange={(e) => setNewMemory({ ...newMemory, type: e.target.value })}
+                    className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none text-sm appearance-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="gift">Gift</option>
+                    <option value="joke">Joke</option>
+                    <option value="milestone">Milestone</option>
+                  </select>
                 </div>
                 <textarea 
                   value={newMemory.content}

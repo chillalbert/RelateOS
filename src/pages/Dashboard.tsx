@@ -52,21 +52,24 @@ export default function Dashboard() {
   const { user, token } = useAuth();
   const [people, setPeople] = React.useState<any[]>([]);
   const [analytics, setAnalytics] = React.useState<any>(null);
+  const [notifications, setNotifications] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   const fetchPeople = async () => {
     try {
-      const [peopleRes, analyticsRes] = await Promise.all([
+      const [peopleRes, analyticsRes, notifRes] = await Promise.all([
         fetch('/api/people', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/analytics', { headers: { Authorization: `Bearer ${token}` } })
+        fetch('/api/analytics', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/notifications', { headers: { Authorization: `Bearer ${token}` } })
       ]);
 
-      if (!peopleRes.ok || !analyticsRes.ok) {
+      if (!peopleRes.ok || !analyticsRes.ok || !notifRes.ok) {
         throw new Error('Failed to fetch dashboard data');
       }
 
       const peopleData = await peopleRes.json();
       const analyticsData = await analyticsRes.json();
+      const notifData = await notifRes.json();
       
       // Fetch tasks for each person to show in planning overview
       const peopleWithTasks = await Promise.all(peopleData.map(async (p: any) => {
@@ -77,6 +80,7 @@ export default function Dashboard() {
 
       setPeople(peopleWithTasks);
       setAnalytics(analyticsData);
+      setNotifications(notifData);
     } catch (err) {
       console.error(err);
     } finally {
@@ -87,6 +91,8 @@ export default function Dashboard() {
   React.useEffect(() => {
     fetchPeople();
   }, [token]);
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   const toggleTask = async (taskId: number, completed: boolean) => {
     try {
@@ -123,9 +129,12 @@ export default function Dashboard() {
           <p className="text-zinc-500 text-sm">Welcome back, {user?.name}</p>
         </div>
         <div className="flex gap-3">
-          <button className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800">
+          <Link to="/notifications" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 relative">
             <Bell size={20} />
-          </button>
+            {unreadCount > 0 && (
+              <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white dark:border-zinc-900 rounded-full" />
+            )}
+          </Link>
           <button className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800">
             <Search size={20} />
           </button>

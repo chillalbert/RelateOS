@@ -85,7 +85,7 @@ export default function GroupPlanning() {
       interests: group.person_notes || 'General interests',
       budget: totalContributed || 50,
       relationship: group.person_category || 'Friend'
-    });
+    }, token!);
     if (suggestions) setAiSuggestions(suggestions.suggestions);
     setIsGeneratingSuggestions(false);
   };

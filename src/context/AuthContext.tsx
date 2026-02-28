@@ -5,6 +5,12 @@ interface User {
   email: string;
   name: string;
   personality?: string;
+  appearance?: 'light' | 'dark';
+  notification_settings?: {
+    birthdays: boolean;
+    tasks: boolean;
+    groups: boolean;
+  };
 }
 
 interface AuthContextType {
