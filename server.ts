@@ -6,7 +6,13 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import db from './db';
 import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { GoogleGenAI, Type } from "@google/genai";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -34,6 +40,15 @@ async function startServer() {
   const wss = new WebSocketServer({ server });
 
   app.use(express.json());
+
+  // --- Request Logging ---
+  app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
+  });
+
+  // --- Favicon Handler ---
+  app.get('/favicon.ico', (req, res) => res.status(204).end());
 
   // --- Auth Middleware ---
   const authenticate = (req: any, res: any, next: any) => {
@@ -474,6 +489,7 @@ async function startServer() {
 
   // --- Global Error Handler ---
   app.use((err: any, req: any, res: any, next: any) => {
+    if (res.headersSent) return next(err);
     console.error('SERVER ERROR:', err);
     res.status(res.statusCode === 200 ? 500 : res.statusCode).json({ 
       error: 'Internal Server Error', 
@@ -481,20 +497,106 @@ async function startServer() {
     });
   });
 
-  // --- Vite Middleware ---
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
+  // --- Vite / Static / SPA Fallback ---
+  const isProduction = process.env.NODE_ENV === 'production';
+  console.log(`[SERVER] Mode: ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}`);
+  
+  if (!isProduction) {
+    console.log('[SERVER] Initializing Vite middleware...');
+    try {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+        root: process.cwd(),
+      });
+      app.use(vite.middlewares);
+      console.log('[SERVER] Vite middleware initialized.');
+    } catch (viteErr) {
+      console.error('[SERVER] FAILED TO INITIALIZE VITE:', viteErr);
+    }
+    
+    // Fallback for SPA in development
+    app.get('*', (req, res, next) => {
+      if (req.url.startsWith('/api/') || req.url.startsWith('/src/') || req.url.startsWith('/@vite')) return next();
+      console.log(`[SERVER] Development SPA Fallback: ${req.url}`);
+      res.sendFile(path.join(process.cwd(), 'index.html'));
     });
-    app.use(vite.middlewares);
   } else {
-    app.use(express.static('dist'));
+    const distPath = path.join(__dirname, 'dist');
+    const indexPath = path.join(distPath, 'index.html');
+    console.log(`[SERVER] Serving static files from: ${distPath}`);
+    console.log(`[SERVER] Checking for index.html at: ${indexPath}`);
+    
+    if (!fs.existsSync(indexPath)) {
+      console.warn(`[SERVER] WARNING: index.html NOT FOUND at ${indexPath}. SPA fallback will fail.`);
+      // If index.html is missing in dist, maybe we are in a weird state.
+      // Let's try to serve the root index.html as a last resort?
+      // No, that would cause the MIME type error.
+    }
+
+    app.use(express.static(distPath, {
+      setHeaders: (res, path) => {
+        if (path.endsWith('.js')) {
+          res.setHeader('Content-Type', 'application/javascript');
+        } else if (path.endsWith('.css')) {
+          res.setHeader('Content-Type', 'text/css');
+        } else if (path.endsWith('.svg')) {
+          res.setHeader('Content-Type', 'image/svg+xml');
+        } else if (path.endsWith('.png')) {
+          res.setHeader('Content-Type', 'image/png');
+        } else if (path.endsWith('.jpg') || path.endsWith('.jpeg')) {
+          res.setHeader('Content-Type', 'image/jpeg');
+        } else if (path.endsWith('.json')) {
+          res.setHeader('Content-Type', 'application/json');
+        }
+      }
+    }));
+    app.get('*', (req, res, next) => {
+      if (req.url.startsWith('/api/')) return next();
+      console.log(`[SERVER] Production SPA Fallback: ${req.url}`);
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(404).send('Not Found (Production Build Missing)');
+      }
+    });
   }
 
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`RelateOS running on http://localhost:${PORT}`);
+    console.log(`[SERVER] RelateOS started on http://localhost:${PORT} [${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}]`);
+    console.log(`[SERVER] Time: ${new Date().toISOString()}`);
+    console.log(`[SERVER] CWD: ${process.cwd()}`);
+    console.log(`[SERVER] __dirname: ${__dirname}`);
+    console.log(`[SERVER] NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(`[SERVER] PORT: ${PORT}`);
+    console.log(`[SERVER] GEMINI_API_KEY: ${process.env.GEMINI_API_KEY ? 'SET' : 'NOT SET'}`);
+    console.log(`[SERVER] JWT_SECRET: ${process.env.JWT_SECRET ? 'SET' : 'NOT SET'}`);
+    console.log(`[SERVER] APP_URL: ${process.env.APP_URL || 'NOT SET'}`);
+    console.log(`[SERVER] DISABLE_HMR: ${process.env.DISABLE_HMR || 'NOT SET'}`);
+    console.log(`[SERVER] AISTUDIO_API_KEY: ${process.env.AISTUDIO_API_KEY ? 'SET' : 'NOT SET'}`);
+    console.log(`[SERVER] API_KEY: ${process.env.API_KEY ? 'SET' : 'NOT SET'}`);
+    console.log(`[SERVER] USER_EMAIL: ${process.env.USER_EMAIL || 'NOT SET'}`);
+    console.log(`[SERVER] SHARED_APP_URL: ${process.env.SHARED_APP_URL || 'NOT SET'}`);
+    console.log(`[SERVER] NODE_VERSION: ${process.version}`);
+    console.log(`[SERVER] PLATFORM: ${process.platform}`);
+    console.log(`[SERVER] MEMORY_USAGE: ${JSON.stringify(process.memoryUsage())}`);
+    console.log(`[SERVER] UPTIME: ${process.uptime()}`);
+    console.log(`[SERVER] PID: ${process.pid}`);
+    console.log(`[SERVER] ARCH: ${process.arch}`);
+    console.log(`[SERVER] EXEC_PATH: ${process.execPath}`);
+    console.log(`[SERVER] ARGV: ${JSON.stringify(process.argv)}`);
+    console.log(`[SERVER] ENV_KEYS: ${JSON.stringify(Object.keys(process.env))}`);
+    console.log(`[SERVER] FILES: ${fs.readdirSync(process.cwd())}`);
+    console.log(`[SERVER] DIST_FILES: ${fs.existsSync('dist') ? fs.readdirSync('dist') : 'NOT FOUND'}`);
+    console.log(`[SERVER] SRC_FILES: ${fs.existsSync('src') ? fs.readdirSync('src') : 'NOT FOUND'}`);
+    console.log(`[SERVER] PUBLIC_FILES: ${fs.existsSync('public') ? fs.readdirSync('public') : 'NOT FOUND'}`);
+    console.log(`[SERVER] NODE_MODULES: ${fs.existsSync('node_modules') ? 'FOUND' : 'NOT FOUND'}`);
+    console.log(`[SERVER] PACKAGE_JSON: ${fs.existsSync('package.json') ? 'FOUND' : 'NOT FOUND'}`);
+    console.log(`[SERVER] VITE_CONFIG: ${fs.existsSync('vite.config.ts') ? 'FOUND' : 'NOT FOUND'}`);
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error('CRITICAL SERVER START ERROR:', err);
+  process.exit(1);
+});
