@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Bell, Shield, Moon, LogOut, ChevronRight, Sparkles, X, Check, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import Navigation from '../components/Navigation';
 import { db, auth } from '../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
@@ -179,6 +180,8 @@ export default function Settings() {
         <p className="text-center text-[10px] text-zinc-400 font-bold uppercase tracking-widest">RelateOS v1.0.4</p>
       </div>
 
+      <Navigation />
+
       {/* Password Modal */}
       <AnimatePresence>
         {showPasswordModal && (
@@ -218,7 +221,7 @@ export default function Settings() {
                       type="password"
                       required
                       className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
-                      value={passwordData.currentPassword}
+                      value={passwordData.currentPassword || ''}
                       onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
                     />
                   </div>
@@ -228,7 +231,7 @@ export default function Settings() {
                       type="password"
                       required
                       className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
-                      value={passwordData.newPassword}
+                      value={passwordData.newPassword || ''}
                       onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                     />
                   </div>
@@ -238,7 +241,7 @@ export default function Settings() {
                       type="password"
                       required
                       className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
-                      value={passwordData.confirmPassword}
+                      value={passwordData.confirmPassword || ''}
                       onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                     />
                   </div>

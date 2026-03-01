@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ArrowLeft, Users, Send, Plus, Vote, DollarSign, Shield, ChevronUp, Sparkles, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import Navigation from '../components/Navigation';
 import { generateGiftSuggestions } from '../services/geminiService';
 import { db } from '../lib/firebase';
 import { doc, getDoc, updateDoc, collection, addDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, getDocs } from 'firebase/firestore';
@@ -21,6 +22,10 @@ export default function GroupPlanning() {
   const [contributionAmount, setContributionAmount] = React.useState('25');
   const [aiSuggestions, setAiSuggestions] = React.useState<any[]>([]);
   const [isGeneratingSuggestions, setIsGeneratingSuggestions] = React.useState(false);
+  const [isJoining, setIsJoining] = React.useState(false);
+  const [inviteCode, setInviteCode] = React.useState('');
+  const [joinError, setJoinError] = React.useState('');
+  const [isJoiningLoading, setIsJoiningLoading] = React.useState(false);
 
   React.useEffect(() => {
     if (!id || !firebaseUser) return;
@@ -77,6 +82,43 @@ export default function GroupPlanning() {
     });
     if (suggestions) setAiSuggestions(suggestions);
     setIsGeneratingSuggestions(false);
+  };
+
+  const handleJoinGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firebaseUser || !inviteCode.trim()) return;
+    
+    setIsJoiningLoading(true);
+    setJoinError('');
+    
+    try {
+      const groupsRef = collection(db, 'groups');
+      const q = query(groupsRef, where('invite_code', '==', inviteCode.trim().toUpperCase()));
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        setJoinError('Invalid invite code. Please check and try again.');
+        setIsJoiningLoading(false);
+        return;
+      }
+      
+      const groupDoc = querySnapshot.docs[0];
+      const groupData = groupDoc.data();
+      
+      // Add user to members if not already there
+      if (!groupData.members?.includes(firebaseUser.uid)) {
+        await updateDoc(doc(db, 'groups', groupDoc.id), {
+          members: arrayUnion(firebaseUser.uid)
+        });
+      }
+      
+      navigate(`/groups/${groupDoc.id}`);
+    } catch (err) {
+      console.error(err);
+      setJoinError('An error occurred while joining the group.');
+    } finally {
+      setIsJoiningLoading(false);
+    }
   };
 
   const handleCreateGroup = async (e: React.FormEvent) => {
@@ -161,29 +203,88 @@ export default function GroupPlanning() {
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
         <header className="p-6 flex items-center justify-between bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800">
           <button onClick={() => navigate(-1)} className="p-2 -ml-2"><ArrowLeft size={24} /></button>
-          <h1 className="text-lg font-bold">Create Planning Group</h1>
+          <h1 className="text-lg font-bold">{isJoining ? 'Join Planning Group' : 'Create Planning Group'}</h1>
           <div className="w-10" />
         </header>
-        <form onSubmit={handleCreateGroup} className="p-6 space-y-6 max-w-lg mx-auto">
-          <div className="p-6 bg-emerald-500 text-white rounded-3xl space-y-2 shadow-xl shadow-emerald-500/20">
-            <Shield size={32} />
-            <h2 className="text-xl font-bold">Social Surprise Mode</h2>
-            <p className="text-sm opacity-90">Collaborate with friends in secret. The birthday person will never know.</p>
+        
+        <div className="p-6 max-w-lg mx-auto space-y-8">
+          <div className="flex p-1 bg-zinc-200 dark:bg-zinc-800 rounded-2xl">
+            <button 
+              onClick={() => setIsJoining(false)}
+              className={cn(
+                "flex-1 py-3 text-sm font-bold rounded-xl transition-all",
+                !isJoining ? "bg-white dark:bg-zinc-700 shadow-sm" : "text-zinc-500"
+              )}
+            >
+              Create New
+            </button>
+            <button 
+              onClick={() => setIsJoining(true)}
+              className={cn(
+                "flex-1 py-3 text-sm font-bold rounded-xl transition-all",
+                isJoining ? "bg-white dark:bg-zinc-700 shadow-sm" : "text-zinc-500"
+              )}
+            >
+              Join Existing
+            </button>
           </div>
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-xs font-bold uppercase text-zinc-400">Group Name</label>
-              <input name="name" required className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800" placeholder="e.g. Sarah's 30th Crew" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold uppercase text-zinc-400">Secret Code Name</label>
-              <input name="code_name" className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800" placeholder="e.g. Project Cupcake" />
-            </div>
-          </div>
-          <button type="submit" className="w-full py-5 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-2xl font-bold text-lg shadow-xl">
-            Start Planning
-          </button>
-        </form>
+
+          {!isJoining ? (
+            <form onSubmit={handleCreateGroup} className="space-y-6">
+              <div className="p-6 bg-emerald-500 text-white rounded-3xl space-y-2 shadow-xl shadow-emerald-500/20">
+                <Shield size={32} />
+                <h2 className="text-xl font-bold">Social Surprise Mode</h2>
+                <p className="text-sm opacity-90">Collaborate with friends in secret. The birthday person will never know.</p>
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-zinc-400">Group Name</label>
+                  <input name="name" required className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800" placeholder="e.g. Sarah's 30th Crew" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-zinc-400">Secret Code Name</label>
+                  <input name="code_name" className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800" placeholder="e.g. Project Cupcake" />
+                </div>
+              </div>
+              <button type="submit" className="w-full py-5 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-2xl font-bold text-lg shadow-xl">
+                Start Planning
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleJoinGroup} className="space-y-6">
+              <div className="p-6 bg-zinc-900 text-white rounded-3xl space-y-2 shadow-xl">
+                <Users size={32} className="text-emerald-500" />
+                <h2 className="text-xl font-bold">Join the Crew</h2>
+                <p className="text-sm opacity-90 text-zinc-400">Enter the 6-character invite code shared by your friends to join the planning group.</p>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-zinc-400">Invite Code</label>
+                  <input 
+                    value={inviteCode || ''}
+                    onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                    required 
+                    maxLength={6}
+                    className="w-full p-5 text-center text-2xl font-mono font-bold tracking-widest rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 uppercase" 
+                    placeholder="XXXXXX" 
+                  />
+                </div>
+                {joinError && (
+                  <p className="text-sm text-red-500 font-medium text-center">{joinError}</p>
+                )}
+              </div>
+              
+              <button 
+                type="submit" 
+                disabled={isJoiningLoading || inviteCode.length < 6}
+                className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-bold text-lg shadow-xl shadow-emerald-500/20 disabled:opacity-50"
+              >
+                {isJoiningLoading ? 'Joining...' : 'Join Group'}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     );
   }
@@ -353,7 +454,7 @@ export default function GroupPlanning() {
 
           <div className="flex gap-2">
             <input 
-              value={newIdea}
+              value={newIdea || ''}
               onChange={(e) => setNewIdea(e.target.value)}
               className="flex-1 p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800"
               placeholder="Suggest something..."
@@ -367,6 +468,7 @@ export default function GroupPlanning() {
           </div>
         </section>
       </div>
+      <Navigation />
     </div>
   );
 }

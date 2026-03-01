@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
+import Navigation from '../components/Navigation';
 import { getDaysUntil, formatDate, cn, getRelationshipScore } from '../lib/utils';
 import { Gift, MessageSquare } from 'lucide-react';
 import { db } from '../lib/firebase';
@@ -136,6 +137,9 @@ export default function Dashboard() {
           <p className="text-zinc-500 text-sm">Welcome back, {user?.name}</p>
         </div>
         <div className="flex gap-3">
+          <Link to="/groups/create" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800" title="Join Group">
+            <Users size={20} />
+          </Link>
           <Link to="/notifications" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 relative">
             <Bell size={20} />
             {unreadCount > 0 && (
@@ -384,13 +388,7 @@ export default function Dashboard() {
       </section>
 
       {/* Navigation Bar */}
-      <nav className="fixed bottom-6 left-4 right-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 rounded-full p-2 flex justify-around items-center shadow-2xl z-50">
-        <Link to="/" className="p-3 text-emerald-500"><Calendar size={24} /></Link>
-        <Link to="/people" className="p-3 text-zinc-400 hover:text-zinc-900 dark:hover:text-white"><Users size={24} /></Link>
-        <Link to="/add" className="p-4 bg-zinc-900 text-white rounded-full -mt-12 shadow-xl hover:scale-105 transition-transform"><Plus size={28} /></Link>
-        <Link to="/analytics" className="p-3 text-zinc-400 hover:text-zinc-900 dark:hover:text-white"><BarChart3 size={24} /></Link>
-        <Link to="/settings" className="p-3 text-zinc-400 hover:text-zinc-900 dark:hover:text-white"><Settings size={24} /></Link>
-      </nav>
+      <Navigation />
     </div>
   );
 }

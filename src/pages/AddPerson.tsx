@@ -84,7 +84,7 @@ export default function AddPerson() {
               required
               className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500"
               placeholder="e.g. Sarah Jenkins"
-              value={formData.name}
+              value={formData.name || ''}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
           </div>
@@ -96,7 +96,7 @@ export default function AddPerson() {
                 type="text"
                 className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500"
                 placeholder="Optional"
-                value={formData.nickname}
+                value={formData.nickname || ''}
                 onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
               />
             </div>
@@ -106,7 +106,7 @@ export default function AddPerson() {
                 type="date"
                 required
                 className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500"
-                value={formData.birthday}
+                value={formData.birthday || ''}
                 onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
               />
             </div>
@@ -116,7 +116,7 @@ export default function AddPerson() {
             <label className="text-xs font-bold uppercase text-zinc-400">Relationship Category</label>
             <select
               className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 appearance-none"
-              value={formData.category}
+              value={formData.category || ''}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
             >
               <option value="friend">Friend</option>
@@ -152,7 +152,7 @@ export default function AddPerson() {
             <textarea
               className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 min-h-[100px]"
               placeholder="Interests, gift ideas, or how you met..."
-              value={formData.notes}
+              value={formData.notes || ''}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             />
           </div>

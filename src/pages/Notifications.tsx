@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Bell, Trash2, CheckCircle, Calendar, Users, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import Navigation from '../components/Navigation';
 import { formatDate } from '../lib/utils';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
@@ -168,6 +169,7 @@ export default function Notifications() {
           </div>
         )}
       </div>
+      <Navigation />
     </div>
   );
 }

@@ -71,7 +71,7 @@ export default function Login() {
                 type="text"
                 required
                 className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
-                value={formData.name}
+                value={formData.name || ''}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
@@ -82,7 +82,7 @@ export default function Login() {
               type="email"
               required
               className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
-              value={formData.email}
+              value={formData.email || ''}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
           </div>
@@ -92,7 +92,7 @@ export default function Login() {
               type="password"
               required
               className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
-              value={formData.password}
+              value={formData.password || ''}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             />
           </div>

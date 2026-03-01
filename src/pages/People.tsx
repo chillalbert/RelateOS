@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Search, Filter, MoreVertical, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getRelationshipScore, cn } from '../lib/utils';
+import Navigation from '../components/Navigation';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 
@@ -171,7 +172,7 @@ export default function People() {
                     type="text"
                     required
                     className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
-                    value={editData.name}
+                    value={editData.name || ''}
                     onChange={(e) => setEditData({ ...editData, name: e.target.value })}
                   />
                 </div>
@@ -191,7 +192,7 @@ export default function People() {
                       type="date"
                       required
                       className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
-                      value={editData.birthday}
+                      value={editData.birthday || ''}
                       onChange={(e) => setEditData({ ...editData, birthday: e.target.value })}
                     />
                   </div>
@@ -200,7 +201,7 @@ export default function People() {
                   <label className="text-xs font-bold uppercase text-zinc-400">Category</label>
                   <select
                     className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500 appearance-none"
-                    value={editData.category}
+                    value={editData.category || ''}
                     onChange={(e) => setEditData({ ...editData, category: e.target.value })}
                   >
                     <option value="friend">Friend</option>
@@ -238,6 +239,7 @@ export default function People() {
           </div>
         )}
       </AnimatePresence>
+      <Navigation />
     </div>
   );
 }

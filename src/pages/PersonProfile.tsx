@@ -61,9 +61,12 @@ export default function PersonProfile() {
     try {
       const taskRef = doc(db, 'people', id, 'tasks', taskId);
       await updateDoc(taskRef, { completed: !completed });
-      setPerson({
-        ...person,
-        tasks: person.tasks.map((t: any) => t.id === taskId ? { ...t, completed: !completed } : t)
+      setPerson((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          tasks: (prev.tasks || []).map((t: any) => t.id === taskId ? { ...t, completed: !completed } : t)
+        };
       });
     } catch (err) {
       console.error(err);
@@ -80,9 +83,12 @@ export default function PersonProfile() {
         due_date: dueDate || null,
         created_at: serverTimestamp()
       });
-      setPerson({
-        ...person,
-        tasks: [...(person.tasks || []), { id: docRef.id, title, completed: false, due_date: dueDate }]
+      setPerson((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          tasks: [...(prev.tasks || []), { id: docRef.id, title, completed: false, due_date: dueDate }]
+        };
       });
       return docRef.id;
     } catch (err) {
@@ -100,9 +106,12 @@ export default function PersonProfile() {
         content: newMemory.content,
         created_at: serverTimestamp()
       });
-      setPerson({
-        ...person,
-        memories: [...(person.memories || []), { id: docRef.id, year: new Date().getFullYear(), type: newMemory.type, content: newMemory.content }]
+      setPerson((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          memories: [...(prev.memories || []), { id: docRef.id, year: new Date().getFullYear(), type: newMemory.type, content: newMemory.content }]
+        };
       });
       setNewMemory({ type: 'gift', content: '' });
       setShowMemoryForm(false);
@@ -164,10 +173,13 @@ export default function PersonProfile() {
         } else if (cardTask.due_date !== dueDateStr) {
           const taskRef = doc(db, 'people', id, 'tasks', cardTask.id);
           await updateDoc(taskRef, { due_date: dueDateStr });
-          setPerson((prev: any) => ({
-            ...prev,
-            tasks: prev.tasks.map((t: any) => t.id === cardTask.id ? { ...t, due_date: dueDateStr } : t)
-          }));
+          setPerson((prev: any) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              tasks: (prev.tasks || []).map((t: any) => t.id === cardTask.id ? { ...t, due_date: dueDateStr } : t)
+            };
+          });
         }
       } catch (err) {
         console.error(err);
@@ -603,7 +615,7 @@ export default function PersonProfile() {
                     type="text"
                     required
                     className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
-                    value={editData.name}
+                    value={editData.name || ''}
                     onChange={(e) => setEditData({ ...editData, name: e.target.value })}
                   />
                 </div>
@@ -623,7 +635,7 @@ export default function PersonProfile() {
                       type="date"
                       required
                       className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
-                      value={editData.birthday}
+                      value={editData.birthday || ''}
                       onChange={(e) => setEditData({ ...editData, birthday: e.target.value })}
                     />
                   </div>
@@ -632,7 +644,7 @@ export default function PersonProfile() {
                   <label className="text-xs font-bold uppercase text-zinc-400">Category</label>
                   <select
                     className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500 appearance-none"
-                    value={editData.category}
+                    value={editData.category || ''}
                     onChange={(e) => setEditData({ ...editData, category: e.target.value })}
                   >
                     <option value="friend">Friend</option>

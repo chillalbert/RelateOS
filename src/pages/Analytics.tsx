@@ -15,6 +15,7 @@ import {
   Pie
 } from 'recharts';
 import { motion } from 'motion/react';
+import Navigation from '../components/Navigation';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 
@@ -131,6 +132,7 @@ export default function Analytics() {
           <p className="text-xs text-zinc-500 text-center">Distribution of birthdays by importance level</p>
         </section>
       </div>
+      <Navigation />
     </div>
   );
 }

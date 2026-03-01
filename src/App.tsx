@@ -7,6 +7,7 @@ import AddPerson from './pages/AddPerson';
 import PersonProfile from './pages/PersonProfile';
 import Analytics from './pages/Analytics';
 import GroupPlanning from './pages/GroupPlanning';
+import Groups from './pages/Groups';
 import People from './pages/People';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
             <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
             <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
+            <Route path="/groups" element={<PrivateRoute><Groups /></PrivateRoute>} />
             <Route path="/groups/create" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
             <Route path="/groups/:id" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
             {/* Fallback */}
