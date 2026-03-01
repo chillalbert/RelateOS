@@ -15,22 +15,37 @@ import {
   Pie
 } from 'recharts';
 import { motion } from 'motion/react';
+import { db } from '../lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export default function Analytics() {
-  const { token } = useAuth();
+  const { firebaseUser } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     const fetchData = async () => {
+      if (!firebaseUser) return;
       try {
-        const res = await fetch('/api/analytics', {
-          headers: { Authorization: `Bearer ${token}` }
+        const peopleRef = collection(db, 'people');
+        const q = query(peopleRef, where('user_id', '==', firebaseUser.uid));
+        const querySnapshot = await getDocs(q);
+        const people = querySnapshot.docs.map(doc => doc.data());
+
+        // Calculate stats
+        const categoryMap: Record<string, number> = {};
+        const importanceMap: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+
+        people.forEach((p: any) => {
+          categoryMap[p.category] = (categoryMap[p.category] || 0) + 1;
+          importanceMap[p.importance] = (importanceMap[p.importance] || 0) + 1;
         });
-        if (!res.ok) throw new Error('Failed to fetch analytics');
-        const analyticsData = await res.json();
-        setData(analyticsData);
+
+        const categoryStats = Object.entries(categoryMap).map(([category, count]) => ({ category, count }));
+        const importanceStats = Object.entries(importanceMap).map(([importance, count]) => ({ importance, count }));
+
+        setData({ categoryStats, importanceStats });
       } catch (err) {
         console.error(err);
       } finally {
@@ -38,7 +53,7 @@ export default function Analytics() {
       }
     };
     fetchData();
-  }, [token]);
+  }, [firebaseUser]);
 
   if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 

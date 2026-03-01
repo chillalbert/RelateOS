@@ -4,74 +4,63 @@ import { useAuth } from '../context/AuthContext';
 import { ArrowLeft, Users, Send, Plus, Vote, DollarSign, Shield, ChevronUp, Sparkles, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateGiftSuggestions } from '../services/geminiService';
+import { db } from '../lib/firebase';
+import { doc, getDoc, updateDoc, collection, addDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, getDocs } from 'firebase/firestore';
+import { cn } from '../lib/utils';
 
 export default function GroupPlanning() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const personId = searchParams.get('personId');
-  const { token, user } = useAuth();
+  const { firebaseUser, user } = useAuth();
   const navigate = useNavigate();
   const [group, setGroup] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [newIdea, setNewIdea] = React.useState('');
-  const [socket, setSocket] = React.useState<WebSocket | null>(null);
   const [isContributing, setIsContributing] = React.useState(false);
   const [contributionAmount, setContributionAmount] = React.useState('25');
   const [aiSuggestions, setAiSuggestions] = React.useState<any[]>([]);
   const [isGeneratingSuggestions, setIsGeneratingSuggestions] = React.useState(false);
 
-  const fetchGroup = async () => {
-    try {
-      const res = await fetch(`/api/groups/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      setGroup(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   React.useEffect(() => {
-    if (id) fetchGroup();
-  }, [id, token]);
+    if (!id || !firebaseUser) return;
 
-  React.useEffect(() => {
-    if (id && user) {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${protocol}//${window.location.host}`);
-      
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'join', groupId: parseInt(id), userId: user.id }));
-      };
+    const groupRef = doc(db, 'groups', id);
+    const unsubscribe = onSnapshot(groupRef, async (docSnap) => {
+      if (docSnap.exists()) {
+        const groupData = { id: docSnap.id, ...docSnap.data() } as any;
+        
+        // Fetch ideas
+        const ideasRef = collection(db, 'groups', id, 'ideas');
+        const ideasSnap = await getDocs(ideasRef);
+        const ideas = ideasSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'idea' || data.type === 'vote' || data.type === 'contribution') {
-          fetchGroup();
-        }
-      };
+        // Fetch contributions
+        const contributionsRef = collection(db, 'groups', id, 'contributions');
+        const contributionsSnap = await getDocs(contributionsRef);
+        const contributions = contributionsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      setSocket(ws);
-      return () => ws.close();
-    }
-  }, [id, user, token]);
+        setGroup({ ...groupData, ideas, contributions });
+        setLoading(false);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [id, firebaseUser]);
 
   const handleContribute = async () => {
+    if (!id || !firebaseUser) return;
     try {
-      await fetch(`/api/groups/${id}/contribute`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ amount: parseFloat(contributionAmount) }),
+      const contributionsRef = collection(db, 'groups', id, 'contributions');
+      await addDoc(contributionsRef, {
+        user_id: firebaseUser.uid,
+        user_name: user?.name || 'Anonymous',
+        amount: parseFloat(contributionAmount),
+        created_at: serverTimestamp()
       });
-      socket?.send(JSON.stringify({ type: 'contribution', groupId: parseInt(id!), amount: contributionAmount }));
       setIsContributing(false);
-      fetchGroup();
     } catch (err) {
       console.error(err);
     }
@@ -85,26 +74,83 @@ export default function GroupPlanning() {
       interests: group.person_notes || 'General interests',
       budget: totalContributed || 50,
       relationship: group.person_category || 'Friend'
-    }, token!);
-    if (suggestions) setAiSuggestions(suggestions.suggestions);
+    });
+    if (suggestions) setAiSuggestions(suggestions);
     setIsGeneratingSuggestions(false);
   };
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!firebaseUser) return;
     const name = (e.target as any).name.value;
     const code_name = (e.target as any).code_name.value;
     try {
-      const res = await fetch('/api/groups', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ person_id: personId, name, code_name }),
+      const groupsRef = collection(db, 'groups');
+      const invite_code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      // Fetch person details for context
+      let person_name = 'Someone';
+      let person_notes = '';
+      let person_category = '';
+      if (personId) {
+        const personSnap = await getDoc(doc(db, 'people', personId));
+        if (personSnap.exists()) {
+          const pData = personSnap.data();
+          person_name = pData.name;
+          person_notes = pData.notes;
+          person_category = pData.category;
+        }
+      }
+
+      const docRef = await addDoc(groupsRef, {
+        name,
+        code_name,
+        person_id: personId,
+        person_name,
+        person_notes,
+        person_category,
+        invite_code,
+        created_by: firebaseUser.uid,
+        members: [firebaseUser.uid],
+        target_amount: 500,
+        created_at: serverTimestamp()
       });
-      const data = await res.json();
-      navigate(`/groups/${data.id}`);
+      navigate(`/groups/${docRef.id}`);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddIdea = async () => {
+    if (!id || !newIdea.trim() || !firebaseUser) return;
+    try {
+      const ideasRef = collection(db, 'groups', id, 'ideas');
+      await addDoc(ideasRef, {
+        title: newIdea,
+        description: '',
+        user_id: firebaseUser.uid,
+        votes: [],
+        created_at: serverTimestamp()
+      });
+      setNewIdea('');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleVote = async (ideaId: string, currentVotes: string[]) => {
+    if (!id || !firebaseUser) return;
+    try {
+      const ideaRef = doc(db, 'groups', id, 'ideas', ideaId);
+      if (currentVotes.includes(firebaseUser.uid)) {
+        await updateDoc(ideaRef, {
+          votes: currentVotes.filter(uid => uid !== firebaseUser.uid)
+        });
+      } else {
+        await updateDoc(ideaRef, {
+          votes: arrayUnion(firebaseUser.uid)
+        });
+      }
     } catch (err) {
       console.error(err);
     }
@@ -294,9 +340,12 @@ export default function GroupPlanning() {
                   <h4 className="font-bold">{idea.title}</h4>
                   <p className="text-sm text-zinc-500">{idea.description}</p>
                 </div>
-                <button className="flex flex-col items-center p-2 bg-zinc-50 dark:bg-zinc-800 rounded-xl min-w-[44px]">
-                  <ChevronUp size={20} />
-                  <span className="text-xs font-bold">{JSON.parse(idea.votes || '[]').length}</span>
+                <button 
+                  onClick={() => handleVote(idea.id, idea.votes || [])}
+                  className="flex flex-col items-center p-2 bg-zinc-50 dark:bg-zinc-800 rounded-xl min-w-[44px]"
+                >
+                  <ChevronUp size={20} className={cn((idea.votes || []).includes(firebaseUser?.uid) && "text-emerald-500")} />
+                  <span className="text-xs font-bold">{(idea.votes || []).length}</span>
                 </button>
               </motion.div>
             ))}
@@ -309,7 +358,10 @@ export default function GroupPlanning() {
               className="flex-1 p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800"
               placeholder="Suggest something..."
             />
-            <button className="p-4 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-2xl">
+            <button 
+              onClick={handleAddIdea}
+              className="p-4 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-2xl"
+            >
               <Plus size={24} />
             </button>
           </div>

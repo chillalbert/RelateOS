@@ -23,10 +23,12 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDate, getDaysUntil, getRelationshipScore, cn } from '../lib/utils';
 import { generateBirthdayMessage, generateRecoveryPlan } from '../services/geminiService';
+import { db } from '../lib/firebase';
+import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, serverTimestamp } from 'firebase/firestore';
 
 export default function PersonProfile() {
   const { id } = useParams();
-  const { token } = useAuth();
+  const { firebaseUser } = useAuth();
   const navigate = useNavigate();
   const [person, setPerson] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
@@ -43,82 +45,64 @@ export default function PersonProfile() {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!id) return;
     try {
-      const res = await fetch(`/api/people/${id}`, {
-        method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(editData),
-      });
-      if (res.ok) {
-        setPerson({ ...person, ...editData });
-        setShowEditModal(false);
-      }
+      const personRef = doc(db, 'people', id);
+      await updateDoc(personRef, editData);
+      setPerson({ ...person, ...editData });
+      setShowEditModal(false);
     } catch (err) {
       console.error(err);
     }
   };
 
-  const toggleTask = async (taskId: number, completed: boolean) => {
+  const toggleTask = async (taskId: string, completed: boolean) => {
+    if (!id) return;
     try {
-      await fetch(`/api/tasks/${taskId}`, {
-        method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ completed: !completed }),
-      });
+      const taskRef = doc(db, 'people', id, 'tasks', taskId);
+      await updateDoc(taskRef, { completed: !completed });
       setPerson({
         ...person,
-        tasks: person.tasks.map((t: any) => t.id === taskId ? { ...t, completed: !completed ? 1 : 0 } : t)
+        tasks: person.tasks.map((t: any) => t.id === taskId ? { ...t, completed: !completed } : t)
       });
     } catch (err) {
       console.error(err);
     }
   };
 
-  const addTask = async (title: string) => {
+  const addTask = async (title: string, dueDate?: string) => {
+    if (!id) return;
     try {
-      const res = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ person_id: id, title }),
+      const tasksRef = collection(db, 'people', id, 'tasks');
+      const docRef = await addDoc(tasksRef, {
+        title,
+        completed: false,
+        due_date: dueDate || null,
+        created_at: serverTimestamp()
       });
-      const data = await res.json();
       setPerson({
         ...person,
-        tasks: [...(person.tasks || []), { id: data.id, title, completed: 0 }]
+        tasks: [...(person.tasks || []), { id: docRef.id, title, completed: false, due_date: dueDate }]
       });
+      return docRef.id;
     } catch (err) {
       console.error(err);
     }
   };
 
   const addMemory = async () => {
+    if (!id) return;
     try {
-      const res = await fetch('/api/memories', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-          person_id: id, 
-          year: new Date().getFullYear(),
-          type: newMemory.type,
-          content: newMemory.content
-        }),
+      const memoriesRef = collection(db, 'people', id, 'memories');
+      const docRef = await addDoc(memoriesRef, {
+        year: new Date().getFullYear(),
+        type: newMemory.type,
+        content: newMemory.content,
+        created_at: serverTimestamp()
       });
-      const data = await res.json();
       setPerson({
         ...person,
-        memories: [...(person.memories || []), { id: data.id, year: new Date().getFullYear(), type: newMemory.type, content: newMemory.content }]
+        memories: [...(person.memories || []), { id: docRef.id, year: new Date().getFullYear(), type: newMemory.type, content: newMemory.content }]
       });
       setNewMemory({ type: 'gift', content: '' });
       setShowMemoryForm(false);
@@ -128,16 +112,11 @@ export default function PersonProfile() {
   };
 
   const updateReminders = async (settings: any) => {
+    if (!id) return;
     try {
-      await fetch(`/api/people/${id}/reminders`, {
-        method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ reminder_settings: settings }),
-      });
-      setPerson({ ...person, reminder_settings: JSON.stringify(settings) });
+      const personRef = doc(db, 'people', id);
+      await updateDoc(personRef, { reminder_settings: settings });
+      setPerson({ ...person, reminder_settings: settings });
     } catch (err) {
       console.error(err);
     }
@@ -145,12 +124,28 @@ export default function PersonProfile() {
 
   React.useEffect(() => {
     const fetchPerson = async () => {
+      if (!id || !firebaseUser) return;
       try {
-        const res = await fetch(`/api/people/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        setPerson(data);
+        const personRef = doc(db, 'people', id);
+        const personSnap = await getDoc(personRef);
+        if (!personSnap.exists()) {
+          setLoading(false);
+          return;
+        }
+        const data = { id: personSnap.id, ...personSnap.data() } as any;
+
+        // Fetch tasks
+        const tasksRef = collection(db, 'people', id, 'tasks');
+        const tasksSnap = await getDocs(tasksRef);
+        const tasks = tasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Fetch memories
+        const memoriesRef = collection(db, 'people', id, 'memories');
+        const memoriesSnap = await getDocs(memoriesRef);
+        const memories = memoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        const fullData = { ...data, tasks, memories };
+        setPerson(fullData);
 
         // Ensure "Card Message" task exists with correct due date
         const today = new Date();
@@ -163,30 +158,12 @@ export default function PersonProfile() {
         dueDate.setDate(dueDate.getDate() - 3);
         const dueDateStr = dueDate.toISOString().split('T')[0];
 
-        const cardTask = data.tasks?.find((t: any) => t.title === 'Card Message');
+        const cardTask = tasks.find((t: any) => t.title === 'Card Message') as any;
         if (!cardTask) {
-          const taskRes = await fetch('/api/tasks', {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ person_id: id, title: 'Card Message', due_date: dueDateStr }),
-          });
-          const newTask = await taskRes.json();
-          setPerson((prev: any) => ({
-            ...prev,
-            tasks: [...(prev.tasks || []), { id: newTask.id, title: 'Card Message', completed: 0, due_date: dueDateStr }]
-          }));
+          await addTask('Card Message', dueDateStr);
         } else if (cardTask.due_date !== dueDateStr) {
-          await fetch(`/api/tasks/${cardTask.id}`, {
-            method: 'PATCH',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ due_date: dueDateStr }),
-          });
+          const taskRef = doc(db, 'people', id, 'tasks', cardTask.id);
+          await updateDoc(taskRef, { due_date: dueDateStr });
           setPerson((prev: any) => ({
             ...prev,
             tasks: prev.tasks.map((t: any) => t.id === cardTask.id ? { ...t, due_date: dueDateStr } : t)
@@ -199,7 +176,7 @@ export default function PersonProfile() {
       }
     };
     fetchPerson();
-  }, [id, token]);
+  }, [id, firebaseUser]);
 
   const handleGenerateMessage = async () => {
     setIsGenerating(true);
@@ -210,7 +187,7 @@ export default function PersonProfile() {
       memories: memories.slice(0, 5),
       tone: 'heartfelt',
       length: 'medium'
-    }, token!);
+    });
     setAiMessage(message);
     setIsGenerating(false);
   };
@@ -228,7 +205,7 @@ export default function PersonProfile() {
     const plan = await generateRecoveryPlan({
       daysLate,
       relationship: person.category
-    }, token!);
+    });
     setRecoveryPlan(plan);
     setIsRecovering(false);
   };
@@ -467,11 +444,11 @@ export default function PersonProfile() {
               Select when you'd like to be notified about {person.name.split(' ')[0]}'s birthday. These settings are saved specifically for this profile.
             </p>
             <div className="grid grid-cols-1 gap-2">
-              {Object.entries(JSON.parse(person.reminder_settings || '{}')).map(([key, val]) => (
+              {Object.entries(person.reminder_settings || {}).map(([key, val]) => (
                 <button
                   key={key}
                   onClick={() => {
-                    const settings = JSON.parse(person.reminder_settings || '{}');
+                    const settings = { ...(person.reminder_settings || {}) };
                     settings[key] = !val;
                     updateReminders(settings);
                   }}

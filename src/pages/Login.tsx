@@ -3,30 +3,48 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Heart } from 'lucide-react';
+import { auth, db } from '../lib/firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function Login() {
-  const { login } = useAuth();
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = React.useState(true);
   const [formData, setFormData] = React.useState({ email: '', password: '', name: '' });
   const [error, setError] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/signup';
+    setLoading(true);
+
     try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      login(data.token, data.user);
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, formData.email, formData.password);
+      } else {
+        const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+        const user = userCredential.user;
+        
+        // Create user profile in Firestore
+        await setDoc(doc(db, 'users', user.uid), {
+          id: user.uid,
+          email: formData.email,
+          name: formData.name,
+          appearance: 'light',
+          notification_settings: {
+            birthdays: true,
+            tasks: true,
+            groups: true
+          },
+          created_at: new Date().toISOString()
+        });
+      }
       navigate('/');
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -83,9 +101,10 @@ export default function Login() {
 
           <button
             type="submit"
-            className="w-full py-4 bg-zinc-900 dark:bg-white dark:text-zinc-900 text-white rounded-xl font-bold hover:scale-[1.02] transition-transform shadow-lg"
+            disabled={loading}
+            className="w-full py-4 bg-zinc-900 dark:bg-white dark:text-zinc-900 text-white rounded-xl font-bold hover:scale-[1.02] transition-transform shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLogin ? 'Sign In' : 'Create Account'}
+            {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
         </form>
 

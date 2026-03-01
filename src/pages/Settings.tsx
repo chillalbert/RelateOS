@@ -3,9 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Bell, Shield, Moon, LogOut, ChevronRight, Sparkles, X, Check, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { db, auth } from '../lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 
 export default function Settings() {
-  const { user, token, logout, login } = useAuth();
+  const { user, firebaseUser, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [personality, setPersonality] = React.useState(user?.personality || 'Chill');
   const [appearance, setAppearance] = React.useState(user?.appearance || 'light');
@@ -26,64 +29,43 @@ export default function Settings() {
   }, [appearance]);
 
   const handlePersonalityChange = async () => {
+    if (!firebaseUser) return;
     const personalities = ['Chill', 'Professional', 'Heartfelt', 'Funny'];
     const currentIndex = personalities.indexOf(personality);
     const nextIndex = (currentIndex + 1) % personalities.length;
     const nextPersonality = personalities[nextIndex];
     
     try {
-      const res = await fetch('/api/user/settings', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ personality: nextPersonality })
-      });
-      if (res.ok) {
-        setPersonality(nextPersonality);
-        if (user) login(token!, { ...user, personality: nextPersonality });
-      }
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      await updateDoc(userRef, { personality: nextPersonality });
+      setPersonality(nextPersonality);
+      await refreshUser();
     } catch (err) {
       console.error(err);
     }
   };
 
   const handleAppearanceToggle = async () => {
+    if (!firebaseUser) return;
     const nextAppearance = appearance === 'light' ? 'dark' : 'light';
     try {
-      const res = await fetch('/api/user/appearance', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ appearance: nextAppearance })
-      });
-      if (res.ok) {
-        setAppearance(nextAppearance);
-        if (user) login(token!, { ...user, appearance: nextAppearance });
-      }
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      await updateDoc(userRef, { appearance: nextAppearance });
+      setAppearance(nextAppearance);
+      await refreshUser();
     } catch (err) {
       console.error(err);
     }
   };
 
   const handleNotifToggle = async (key: keyof typeof notifSettings) => {
+    if (!firebaseUser) return;
     const nextSettings = { ...notifSettings, [key]: !notifSettings[key] };
     try {
-      const res = await fetch('/api/user/notification-settings', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ notification_settings: nextSettings })
-      });
-      if (res.ok) {
-        setNotifSettings(nextSettings);
-        if (user) login(token!, { ...user, notification_settings: nextSettings });
-      }
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      await updateDoc(userRef, { notification_settings: nextSettings });
+      setNotifSettings(nextSettings);
+      await refreshUser();
     } catch (err) {
       console.error(err);
     }
@@ -91,36 +73,31 @@ export default function Settings() {
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth.currentUser || !firebaseUser?.email) return;
+    
     setPasswordError('');
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       setPasswordError('New passwords do not match');
       return;
     }
+
     try {
-      const res = await fetch('/api/user/password', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          currentPassword: passwordData.currentPassword,
-          newPassword: passwordData.newPassword
-        })
-      });
-      if (res.ok) {
-        setPasswordSuccess(true);
-        setTimeout(() => {
-          setShowPasswordModal(false);
-          setPasswordSuccess(false);
-          setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        }, 2000);
-      } else {
-        const data = await res.json();
-        setPasswordError(data.error || 'Failed to change password');
-      }
-    } catch (err) {
-      setPasswordError('An error occurred');
+      // Re-authenticate user first
+      const credential = EmailAuthProvider.credential(firebaseUser.email, passwordData.currentPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      
+      // Update password
+      await updatePassword(auth.currentUser, passwordData.newPassword);
+      
+      setPasswordSuccess(true);
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPasswordSuccess(false);
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      }, 2000);
+    } catch (err: any) {
+      console.error(err);
+      setPasswordError(err.message || 'Failed to change password');
     }
   };
 

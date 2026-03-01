@@ -12,9 +12,9 @@ import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
-  const { token, isLoading } = useAuth();
+  const { firebaseUser, isLoading } = useAuth();
   if (isLoading) return null;
-  return token ? <>{children}</> : <Navigate to="/login" />;
+  return firebaseUser ? <>{children}</> : <Navigate to="/login" />;
 };
 
 const ThemeHandler = ({ children }: { children: React.ReactNode }) => {

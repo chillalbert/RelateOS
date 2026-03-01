@@ -20,6 +20,8 @@ import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { getDaysUntil, formatDate, cn, getRelationshipScore } from '../lib/utils';
 import { Gift, MessageSquare } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit } from 'firebase/firestore';
 
 const AnimatedNumber = ({ value }: { value: number }) => {
   const [displayValue, setDisplayValue] = React.useState(0);
@@ -49,62 +51,67 @@ const AnimatedNumber = ({ value }: { value: number }) => {
 };
 
 export default function Dashboard() {
-  const { user, token } = useAuth();
+  const { user, firebaseUser } = useAuth();
   const [people, setPeople] = React.useState<any[]>([]);
   const [analytics, setAnalytics] = React.useState<any>(null);
   const [notifications, setNotifications] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  const fetchPeople = async () => {
+  const fetchDashboardData = async () => {
+    if (!firebaseUser) return;
     try {
-      const [peopleRes, analyticsRes, notifRes] = await Promise.all([
-        fetch('/api/people', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/analytics', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/notifications', { headers: { Authorization: `Bearer ${token}` } })
-      ]);
+      // Fetch People
+      const peopleRef = collection(db, 'people');
+      const q = query(peopleRef, where('user_id', '==', firebaseUser.uid));
+      const querySnapshot = await getDocs(q);
+      const peopleData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      if (!peopleRes.ok || !analyticsRes.ok || !notifRes.ok) {
-        throw new Error('Failed to fetch dashboard data');
-      }
+      // Fetch Notifications
+      const notifRef = collection(db, 'notifications');
+      const nq = query(notifRef, where('user_id', '==', firebaseUser.uid));
+      const nSnapshot = await getDocs(nq);
+      const notifData = nSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as any))
+        .sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0))
+        .slice(0, 10);
 
-      const peopleData = await peopleRes.json();
-      const analyticsData = await analyticsRes.json();
-      const notifData = await notifRes.json();
-      
-      // Fetch tasks for each person to show in planning overview
+      // Fetch tasks for each person
       const peopleWithTasks = await Promise.all(peopleData.map(async (p: any) => {
-        const tasksRes = await fetch(`/api/tasks/${p.id}`, { headers: { Authorization: `Bearer ${token}` } });
-        const tasks = await tasksRes.json();
+        const tasksRef = collection(db, 'people', p.id, 'tasks');
+        const tSnapshot = await getDocs(tasksRef);
+        const tasks = tSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         return { ...p, tasks };
       }));
 
       setPeople(peopleWithTasks);
-      setAnalytics(analyticsData);
       setNotifications(notifData);
-    } catch (err) {
-      console.error(err);
+      
+      // Calculate simple analytics
+      setAnalytics({
+        totalPeople: peopleData.length,
+      });
+    } catch (err: any) {
+      if (err.code === 'permission-denied') {
+        console.error("Firestore Permission Denied: Please check your Security Rules in the Firebase Console.");
+      } else {
+        console.error("Dashboard fetch error:", err);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   React.useEffect(() => {
-    fetchPeople();
-  }, [token]);
+    fetchDashboardData();
+  }, [firebaseUser]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  const toggleTask = async (taskId: number, completed: boolean) => {
+  const toggleTask = async (personId: string, taskId: string, completed: boolean) => {
     try {
-      await fetch(`/api/tasks/${taskId}`, {
-        method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ completed: !completed }),
-      });
-      fetchPeople(); // Refresh
+      const taskRef = doc(db, 'people', personId, 'tasks', taskId);
+      await updateDoc(taskRef, { completed: !completed });
+      fetchDashboardData(); // Refresh
     } catch (err) {
       console.error(err);
     }
@@ -289,7 +296,7 @@ export default function Dashboard() {
                       <button 
                         onClick={() => {
                           const t = tasks.find((t: any) => t.title === 'Gift Decision');
-                          if (t) toggleTask(t.id, false);
+                          if (t) toggleTask(person.id, t.id, false);
                         }}
                         className="text-[10px] font-bold text-emerald-500 uppercase hover:underline"
                       >
@@ -323,7 +330,7 @@ export default function Dashboard() {
                       <button 
                         onClick={() => {
                           const t = tasks.find((t: any) => t.title === 'Card Message');
-                          if (t) toggleTask(t.id, false);
+                          if (t) toggleTask(person.id, t.id, false);
                         }}
                         className="text-[10px] font-bold text-emerald-500 uppercase hover:underline"
                       >

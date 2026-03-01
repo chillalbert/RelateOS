@@ -4,9 +4,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Search, Filter, MoreVertical, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getRelationshipScore, cn } from '../lib/utils';
+import { db } from '../lib/firebase';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 
 export default function People() {
-  const { token } = useAuth();
+  const { firebaseUser } = useAuth();
   const navigate = useNavigate();
   const [people, setPeople] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -15,12 +17,12 @@ export default function People() {
   const [editData, setEditData] = React.useState<any>(null);
 
   const fetchPeople = async () => {
+    if (!firebaseUser) return;
     try {
-      const res = await fetch('/api/people', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Failed to fetch people');
-      const data = await res.json();
+      const peopleRef = collection(db, 'people');
+      const q = query(peopleRef, where('user_id', '==', firebaseUser.uid));
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setPeople(data);
     } catch (err) {
       console.error(err);
@@ -31,23 +33,21 @@ export default function People() {
 
   React.useEffect(() => {
     fetchPeople();
-  }, [token]);
+  }, [firebaseUser]);
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`/api/people/${editData.id}`, {
-        method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(editData),
+      const personRef = doc(db, 'people', editData.id);
+      await updateDoc(personRef, {
+        name: editData.name,
+        nickname: editData.nickname,
+        birthday: editData.birthday,
+        category: editData.category,
+        notes: editData.notes
       });
-      if (res.ok) {
-        fetchPeople();
-        setShowEditModal(false);
-      }
+      fetchPeople();
+      setShowEditModal(false);
     } catch (err) {
       console.error(err);
     }

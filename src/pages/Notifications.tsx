@@ -4,22 +4,25 @@ import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Bell, Trash2, CheckCircle, Calendar, Users, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDate } from '../lib/utils';
+import { db } from '../lib/firebase';
+import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 
 export default function Notifications() {
-  const { token } = useAuth();
+  const { firebaseUser } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   const fetchNotifications = async () => {
+    if (!firebaseUser) return;
     try {
-      const res = await fetch('/api/notifications', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data);
-      }
+      const notifRef = collection(db, 'notifications');
+      const q = query(notifRef, where('user_id', '==', firebaseUser.uid));
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as any))
+        .sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0));
+      setNotifications(data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -29,31 +32,23 @@ export default function Notifications() {
 
   React.useEffect(() => {
     fetchNotifications();
-  }, [token]);
+  }, [firebaseUser]);
 
-  const markAsRead = async (id: number) => {
+  const markAsRead = async (id: string) => {
     try {
-      const res = await fetch(`/api/notifications/${id}/read`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: 1 } : n));
-      }
+      const notifRef = doc(db, 'notifications', id);
+      await updateDoc(notifRef, { is_read: true });
+      setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
     } catch (err) {
       console.error(err);
     }
   };
 
-  const deleteNotification = async (id: number) => {
+  const deleteNotification = async (id: string) => {
     try {
-      const res = await fetch(`/api/notifications/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setNotifications(notifications.filter(n => n.id !== id));
-      }
+      const notifRef = doc(db, 'notifications', id);
+      await deleteDoc(notifRef);
+      setNotifications(notifications.filter(n => n.id !== id));
     } catch (err) {
       console.error(err);
     }

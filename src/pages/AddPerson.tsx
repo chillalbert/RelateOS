@@ -3,9 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Camera, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
+import { db } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function AddPerson() {
-  const { token } = useAuth();
+  const { firebaseUser } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = React.useState({
     name: '',
@@ -21,26 +23,26 @@ export default function AddPerson() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!firebaseUser) return;
+    
     setIsSubmitting(true);
     setError(null);
     try {
-      const res = await fetch('/api/people', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData),
+      const peopleRef = collection(db, 'people');
+      await addDoc(peopleRef, {
+        ...formData,
+        user_id: firebaseUser.uid,
+        created_at: serverTimestamp(),
+        reminder_settings: {
+          "30_days": true,
+          "7_days": true,
+          "morning": true
+        }
       });
-      if (res.ok) {
-        navigate('/');
-      } else {
-        const data = await res.json();
-        setError(data.error || 'Failed to create profile. Please try again.');
-      }
-    } catch (err) {
+      navigate('/');
+    } catch (err: any) {
       console.error(err);
-      setError('Network error. Please check your connection.');
+      setError(err.message || 'Failed to create profile. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
