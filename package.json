@@ -3,7 +3,7 @@
   "description": "Relationship-centered birthday intelligence platform for intentional connections.",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "tsx server.ts",
     "build": "vite build",
     "lint": "tsc --noEmit",
     "preview": "vite preview"

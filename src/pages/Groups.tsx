@@ -19,11 +19,16 @@ export default function Groups() {
       // Query groups where user is a member
       const q = query(
         groupsRef, 
-        where('members', 'array-contains', firebaseUser.uid),
-        orderBy('created_at', 'desc')
+        where('members', 'array-contains', firebaseUser.uid)
       );
       const querySnapshot = await getDocs(q);
-      const groupsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const groupsData = querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as any))
+        .sort((a, b) => {
+          const dateA = a.created_at?.seconds || 0;
+          const dateB = b.created_at?.seconds || 0;
+          return dateB - dateA;
+        });
       setGroups(groupsData);
     } catch (err) {
       console.error("Error fetching groups:", err);
