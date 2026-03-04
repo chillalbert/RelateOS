@@ -1,25 +1,27 @@
+import { GoogleGenAI } from "@google/genai";
+
+// Initialize the Gemini API client
+// Note: process.env.GEMINI_API_KEY is automatically provided by the platform
+const getAiClient = () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Gemini API Key is missing. Please ensure it is set in the environment.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
 async function callGemini(prompt: string, config?: any) {
-  // For mobile (Capacitor), we need an absolute URL.
-  // For web, a relative URL is more reliable in the preview environment.
-  const isCapacitor = (window as any).Capacitor?.isNative;
-  const appUrl = process.env.APP_URL;
-  const baseUrl = (isCapacitor && appUrl) ? appUrl : "";
+  const ai = getAiClient();
   
-  const response = await fetch(`${baseUrl}/api/generate`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: [{ parts: [{ text: prompt }] }],
+    config: {
+      ...config,
     },
-    body: JSON.stringify({ prompt, config }),
   });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Failed to generate content");
-  }
-
-  const data = await response.json();
-  return data.text;
+  return response.text;
 }
 
 export async function generateBirthdayMessage(params: {
@@ -28,11 +30,13 @@ export async function generateBirthdayMessage(params: {
   memories: string[];
   tone: string;
   length: string;
+  giftHistory?: string[];
 }) {
   try {
     const prompt = `Generate a birthday message for a ${params.relationship}. 
     We have been friends for ${params.yearsKnown} years. 
     Some memories: ${params.memories.join(', ')}. 
+    Past gifts given: ${params.giftHistory?.join(', ') || 'None recorded'}.
     Tone: ${params.tone}. Length: ${params.length}.
     Return a JSON object with "shortText" and "cardMessage".`;
 
@@ -68,10 +72,13 @@ export async function generateGiftSuggestions(params: {
   interests: string;
   budget: number;
   relationship: string;
+  giftHistory?: string[];
 }) {
   try {
     const prompt = `Suggest 3 gift ideas for a ${params.relationship} who is interested in ${params.interests}. 
     Budget: $${params.budget}. 
+    Past gifts given: ${params.giftHistory?.join(', ') || 'None recorded'}.
+    DO NOT suggest items already in the past gift history.
     Return a JSON array of strings.`;
 
     const text = await callGemini(prompt, { responseMimeType: "application/json" });

@@ -14,15 +14,19 @@ import {
   Star,
   CheckCircle2,
   AlertCircle,
-  Circle
+  Circle,
+  Sparkles,
+  Lightbulb,
+  X
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import { getDaysUntil, formatDate, cn, getRelationshipScore } from '../lib/utils';
 import { Gift, MessageSquare } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { generateGiftSuggestions } from '../services/geminiService';
 
 const AnimatedNumber = ({ value }: { value: number }) => {
   const [displayValue, setDisplayValue] = React.useState(0);
@@ -57,6 +61,44 @@ export default function Dashboard() {
   const [analytics, setAnalytics] = React.useState<any>(null);
   const [notifications, setNotifications] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [brainstormingPerson, setBrainstormingPerson] = React.useState<any>(null);
+  const [aiSuggestions, setAiSuggestions] = React.useState<string[]>([]);
+  const [isGenerating, setIsGenerating] = React.useState(false);
+
+  const handleBrainstorm = async (person: any) => {
+    setBrainstormingPerson(person);
+    setIsGenerating(true);
+    try {
+      const suggestions = await generateGiftSuggestions({
+        interests: person.notes || 'general interests',
+        budget: 50,
+        relationship: person.category,
+        giftHistory: person.gifts?.filter((g: any) => g.status === 'given').map((g: any) => g.name)
+      });
+      setAiSuggestions(suggestions);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const saveSuggestion = async (suggestion: string) => {
+    if (!brainstormingPerson) return;
+    try {
+      const giftsRef = collection(db, 'people', brainstormingPerson.id, 'gifts');
+      await addDoc(giftsRef, {
+        name: suggestion,
+        status: 'idea',
+        created_at: serverTimestamp()
+      });
+      setBrainstormingPerson(null);
+      setAiSuggestions([]);
+      fetchDashboardData(); // Refresh
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchDashboardData = async () => {
     if (!firebaseUser) return;
@@ -76,15 +118,20 @@ export default function Dashboard() {
         .sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0))
         .slice(0, 10);
 
-      // Fetch tasks for each person
-      const peopleWithTasks = await Promise.all(peopleData.map(async (p: any) => {
+      // Fetch tasks and gifts for each person
+      const peopleWithDetails = await Promise.all(peopleData.map(async (p: any) => {
         const tasksRef = collection(db, 'people', p.id, 'tasks');
         const tSnapshot = await getDocs(tasksRef);
         const tasks = tSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        return { ...p, tasks };
+
+        const giftsRef = collection(db, 'people', p.id, 'gifts');
+        const gSnapshot = await getDocs(giftsRef);
+        const gifts = gSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        return { ...p, tasks, gifts };
       }));
 
-      setPeople(peopleWithTasks);
+      setPeople(peopleWithDetails);
       setNotifications(notifData);
       
       // Calculate simple analytics
@@ -188,28 +235,41 @@ export default function Dashboard() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
             >
-              <Link 
-                to={`/person/${person.id}`}
-                className="flex items-center p-4 card-premium"
-              >
-                <div className="w-12 h-12 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xl overflow-hidden">
-                  {person.photo_url ? (
-                    <img src={person.photo_url} alt={person.name} className="w-full h-full object-cover" />
-                  ) : (
-                    person.name[0]
+              <div className="p-4 card-premium flex items-center">
+                <Link 
+                  to={`/person/${person.id}`}
+                  className="flex items-center flex-1"
+                >
+                  <div className="w-12 h-12 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xl overflow-hidden">
+                    {person.photo_url ? (
+                      <img src={person.photo_url} alt={person.name} className="w-full h-full object-cover" />
+                    ) : (
+                      person.name[0]
+                    )}
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <h3 className="font-semibold">{person.name}</h3>
+                    <p className="text-xs text-zinc-500">{formatDate(person.birthday)}</p>
+                  </div>
+                </Link>
+                <div className="flex items-center gap-3">
+                  {person.gifts?.filter((g: any) => g.status === 'idea').length === 0 && (
+                    <button 
+                      onClick={() => handleBrainstorm(person)}
+                      className="p-2 bg-amber-500/10 text-amber-600 rounded-lg hover:bg-amber-500 hover:text-white transition-all"
+                      title="Needs Gift Ideas"
+                    >
+                      <Lightbulb size={16} />
+                    </button>
                   )}
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                      <AnimatedNumber value={getDaysUntil(person.birthday)} /> days
+                    </p>
+                    <p className="text-[10px] text-zinc-400 uppercase">Remaining</p>
+                  </div>
                 </div>
-                <div className="ml-4 flex-1">
-                  <h3 className="font-semibold">{person.name}</h3>
-                  <p className="text-xs text-zinc-500">{formatDate(person.birthday)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    <AnimatedNumber value={getDaysUntil(person.birthday)} /> days
-                  </p>
-                  <p className="text-[10px] text-zinc-400 uppercase">Remaining</p>
-                </div>
-              </Link>
+              </div>
             </motion.div>
           )) : (
             <div className="p-8 text-center bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
@@ -393,6 +453,79 @@ export default function Dashboard() {
 
       {/* Navigation Bar */}
       <Navigation />
+
+      {/* Brainstorm Modal */}
+      <AnimatePresence>
+        {brainstormingPerson && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setBrainstormingPerson(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-sm bg-white dark:bg-zinc-900 rounded-[32px] p-8 space-y-6 shadow-2xl"
+            >
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="text-amber-500" size={20} />
+                  <h3 className="font-black tracking-tight">Gift Brainstorm</h3>
+                </div>
+                <button onClick={() => setBrainstormingPerson(null)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-zinc-400 uppercase">Subject</p>
+                <p className="text-lg font-black">{brainstormingPerson.name}</p>
+              </div>
+
+              <div className="space-y-4">
+                {isGenerating ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="h-16 bg-zinc-100 dark:bg-zinc-800 rounded-2xl animate-pulse" />
+                    ))}
+                    <p className="text-center text-xs text-zinc-400 font-bold uppercase animate-bounce">AI is thinking...</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-zinc-500 leading-relaxed">
+                      Based on your notes and relationship, here are some ideas. Tap one to save it to their registry.
+                    </p>
+                    <div className="space-y-2">
+                      {aiSuggestions.map((suggestion, i) => (
+                        <button
+                          key={i}
+                          onClick={() => saveSuggestion(suggestion)}
+                          className="w-full p-4 text-left bg-zinc-50 dark:bg-zinc-800 hover:bg-emerald-500 hover:text-white rounded-2xl transition-all group"
+                        >
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-bold">{suggestion}</span>
+                            <Plus size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    <button 
+                      onClick={() => handleBrainstorm(brainstormingPerson)}
+                      className="w-full py-3 text-xs font-bold text-zinc-400 uppercase hover:text-zinc-600 dark:hover:text-zinc-200"
+                    >
+                      Regenerate Ideas
+                    </button>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
