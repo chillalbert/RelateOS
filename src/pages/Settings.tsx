@@ -5,7 +5,7 @@ import { ArrowLeft, User, Bell, Shield, Moon, LogOut, ChevronRight, Sparkles, X,
 import { motion, AnimatePresence } from 'motion/react';
 import Navigation from '../components/Navigation';
 import { db, auth } from '../lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 
 export default function Settings() {
@@ -38,7 +38,7 @@ export default function Settings() {
     
     try {
       const userRef = doc(db, 'users', firebaseUser.uid);
-      await updateDoc(userRef, { personality: nextPersonality });
+      await setDoc(userRef, { personality: nextPersonality }, { merge: true });
       setPersonality(nextPersonality);
       await refreshUser();
     } catch (err) {
@@ -51,7 +51,7 @@ export default function Settings() {
     const nextAppearance = appearance === 'light' ? 'dark' : 'light';
     try {
       const userRef = doc(db, 'users', firebaseUser.uid);
-      await updateDoc(userRef, { appearance: nextAppearance });
+      await setDoc(userRef, { appearance: nextAppearance }, { merge: true });
       setAppearance(nextAppearance);
       await refreshUser();
     } catch (err) {
@@ -64,7 +64,7 @@ export default function Settings() {
     const nextSettings = { ...notifSettings, [key]: !notifSettings[key] };
     try {
       const userRef = doc(db, 'users', firebaseUser.uid);
-      await updateDoc(userRef, { notification_settings: nextSettings });
+      await setDoc(userRef, { notification_settings: nextSettings }, { merge: true });
       setNotifSettings(nextSettings);
       await refreshUser();
     } catch (err) {
@@ -133,26 +133,26 @@ export default function Settings() {
 
       <div className="p-6 space-y-8 max-w-2xl mx-auto">
         {/* Profile Card */}
-        <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-2xl font-bold">
+        <div className="p-6 card-premium flex items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center text-2xl font-black">
             {user?.name?.[0]}
           </div>
           <div>
-            <h2 className="font-bold text-lg">{user?.name}</h2>
-            <p className="text-sm text-zinc-500">{user?.email}</p>
+            <h2 className="font-black text-xl tracking-tight">{user?.name}</h2>
+            <p className="text-sm text-zinc-500 font-medium">{user?.email}</p>
           </div>
         </div>
 
         {sections.map((section) => (
           <div key={section.title} className="space-y-3">
-            <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-2">{section.title}</h3>
-            <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+            <h3 className="label-micro px-2">{section.title}</h3>
+            <div className="card-premium overflow-hidden">
               {section.items.map((item, i) => (
                 <button 
                   key={item.label}
                   onClick={item.onClick}
-                  className={`w-full flex items-center justify-between p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors ${
-                    i !== section.items.length - 1 ? 'border-b border-zinc-100 dark:border-zinc-800' : ''
+                  className={`w-full flex items-center justify-between p-5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${
+                    i !== section.items.length - 1 ? 'border-b border-[var(--line)]' : ''
                   }`}
                 >
                   <div className="flex items-center gap-3">

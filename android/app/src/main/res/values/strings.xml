@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RelateOS</string>
+    <string name="title_activity_main">RelateOS</string>
+    <string name="package_name">com.relateos.app</string>
+    <string name="custom_url_scheme">com.relateos.app</string>
+</resources>

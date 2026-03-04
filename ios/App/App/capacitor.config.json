@@ -1,0 +1,6 @@
+{
+	"appId": "com.relateos.app",
+	"appName": "RelateOS",
+	"webDir": "dist",
+	"packageClassList": []
+}

@@ -72,31 +72,36 @@ export default function Analytics() {
 
       <div className="p-6 space-y-8 max-w-2xl mx-auto">
         {/* Category Distribution */}
-        <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-6">
-          <div className="flex items-center gap-2">
-            <PieChart size={20} className="text-zinc-400" />
-            <h3 className="font-bold">Relationship Mix</h3>
+        <section className="card-premium p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <PieChart size={20} className="text-zinc-400" />
+              <h3 className="font-bold">Relationship Mix</h3>
+            </div>
+            <span className="label-micro">Distribution</span>
           </div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <RePieChart>
-                <Pie
-                  data={data?.categoryStats || []}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="count"
-                  nameKey="category"
-                >
-                  {data?.categoryStats?.map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </RePieChart>
-            </ResponsiveContainer>
+          <div className="h-64 w-full min-h-[256px]">
+            {data?.categoryStats && (
+              <ResponsiveContainer width="100%" height="100%">
+                <RePieChart>
+                  <Pie
+                    data={data.categoryStats}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="count"
+                    nameKey="category"
+                  >
+                    {data.categoryStats.map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </RePieChart>
+              </ResponsiveContainer>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-2">
             {data?.categoryStats?.map((stat: any, i: number) => (
@@ -110,24 +115,29 @@ export default function Analytics() {
         </section>
 
         {/* Effort Score Chart */}
-        <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-6">
-          <div className="flex items-center gap-2">
-            <TrendingUp size={20} className="text-zinc-400" />
-            <h3 className="font-bold">Effort Scores</h3>
+        <section className="card-premium p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={20} className="text-zinc-400" />
+              <h3 className="font-bold">Effort Scores</h3>
+            </div>
+            <span className="label-micro">Trends</span>
           </div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data?.importanceStats || []}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis dataKey="importance" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                <Tooltip 
-                  cursor={{ fill: '#f3f4f6' }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                />
-                <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-64 w-full min-h-[256px]">
+            {data?.importanceStats && (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.importanceStats}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                  <XAxis dataKey="importance" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                  <Tooltip 
+                    cursor={{ fill: '#f3f4f6' }}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                  />
+                  <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
           <p className="text-xs text-zinc-500 text-center">Distribution of birthdays by importance level</p>
         </section>

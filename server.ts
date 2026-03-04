@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
@@ -6,7 +7,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 /**
- * 🔒 SECURE KEY VAULT (Server-Side Only)
+ * ðŸ”’ SECURE KEY VAULT (Server-Side Only)
  * If you don't want to use environment variables, you can paste your 
  * BASE64 ENCODED key below. This keeps it hidden from the browser 
  * and adds a layer of protection against casual source code snooping.
@@ -35,6 +36,7 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  app.use(cors());
   app.use(express.json());
 
   // Gemini API Proxy

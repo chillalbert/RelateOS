@@ -1,5 +1,11 @@
 async function callGemini(prompt: string, config?: any) {
-  const response = await fetch("/api/generate", {
+  // For mobile (Capacitor), we need an absolute URL.
+  // For web, a relative URL is more reliable in the preview environment.
+  const isCapacitor = (window as any).Capacitor?.isNative;
+  const appUrl = process.env.APP_URL;
+  const baseUrl = (isCapacitor && appUrl) ? appUrl : "";
+  
+  const response = await fetch(`${baseUrl}/api/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

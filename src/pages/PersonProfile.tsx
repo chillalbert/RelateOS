@@ -24,7 +24,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { formatDate, getDaysUntil, getRelationshipScore, cn } from '../lib/utils';
 import { generateBirthdayMessage, generateRecoveryPlan } from '../services/geminiService';
 import { db } from '../lib/firebase';
-import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, setDoc } from 'firebase/firestore';
 
 export default function PersonProfile() {
   const { id } = useParams();
@@ -48,7 +48,7 @@ export default function PersonProfile() {
     if (!id) return;
     try {
       const personRef = doc(db, 'people', id);
-      await updateDoc(personRef, editData);
+      await setDoc(personRef, editData, { merge: true });
       setPerson({ ...person, ...editData });
       setShowEditModal(false);
     } catch (err) {
@@ -60,7 +60,7 @@ export default function PersonProfile() {
     if (!id) return;
     try {
       const taskRef = doc(db, 'people', id, 'tasks', taskId);
-      await updateDoc(taskRef, { completed: !completed });
+      await setDoc(taskRef, { completed: !completed }, { merge: true });
       setPerson((prev: any) => {
         if (!prev) return prev;
         return {
@@ -124,7 +124,7 @@ export default function PersonProfile() {
     if (!id) return;
     try {
       const personRef = doc(db, 'people', id);
-      await updateDoc(personRef, { reminder_settings: settings });
+      await setDoc(personRef, { reminder_settings: settings }, { merge: true });
       setPerson({ ...person, reminder_settings: settings });
     } catch (err) {
       console.error(err);
@@ -172,7 +172,7 @@ export default function PersonProfile() {
           await addTask('Card Message', dueDateStr);
         } else if (cardTask.due_date !== dueDateStr) {
           const taskRef = doc(db, 'people', id, 'tasks', cardTask.id);
-          await updateDoc(taskRef, { due_date: dueDateStr });
+          await setDoc(taskRef, { due_date: dueDateStr }, { merge: true });
           setPerson((prev: any) => {
             if (!prev) return prev;
             return {
@@ -225,11 +225,16 @@ export default function PersonProfile() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
       {/* Hero Header */}
-      <div className="bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800">
+      <div className="bg-white dark:bg-zinc-900 border-b border-[var(--line)]">
         <div className="p-6 flex items-center justify-between">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors">
             <ArrowLeft size={24} />
           </button>
+          <div className="flex items-center gap-2">
+            <span className="label-micro mb-0">Profile</span>
+            <div className="w-1 h-1 bg-zinc-300 rounded-full" />
+            <span className="text-xs font-bold text-zinc-400">{person.category}</span>
+          </div>
           <button 
             onClick={() => {
               setEditData({
@@ -243,33 +248,37 @@ export default function PersonProfile() {
               });
               setShowEditModal(true);
             }} 
-            className="p-2"
+            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"
           >
             <MoreVertical size={24} />
           </button>
         </div>
         
-        <div className="px-6 pb-8 flex flex-col items-center text-center space-y-4">
-          <div className="w-24 h-24 rounded-3xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-4xl font-bold shadow-lg">
+        <div className="px-6 pb-10 flex flex-col items-center text-center space-y-6">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-28 h-28 rounded-[2rem] bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-4xl font-black shadow-2xl shadow-zinc-900/10 dark:shadow-white/5 overflow-hidden border-4 border-white dark:border-zinc-900"
+          >
             {person.photo_url ? (
-              <img src={person.photo_url} alt={person.name} className="w-full h-full object-cover rounded-3xl" />
+              <img src={person.photo_url} alt={person.name} className="w-full h-full object-cover" />
             ) : (
-              person.name[0]
+              <span className="serif-italic">{person.name[0]}</span>
             )}
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">{person.name}</h1>
-            <p className="text-zinc-500 font-medium">{person.nickname || person.category}</p>
+          </motion.div>
+          <div className="space-y-1">
+            <h1 className="text-3xl font-black tracking-tight">{person.name}</h1>
+            <p className="text-zinc-500 font-medium serif-italic text-lg">{person.nickname || person.category}</p>
           </div>
           
           <div className="flex gap-4 w-full max-w-sm">
-            <div className="flex-1 p-3 bg-zinc-50 dark:bg-zinc-800 rounded-2xl space-y-1">
-              <p className="text-[10px] font-bold text-zinc-400 uppercase">Countdown</p>
-              <p className="text-lg font-bold">{daysUntil} Days</p>
+            <div className="flex-1 p-4 card-premium bg-zinc-50/50 dark:bg-zinc-800/30 space-y-1">
+              <p className="label-micro">Countdown</p>
+              <p className="text-xl font-black tracking-tight">{daysUntil} <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest ml-1">Days</span></p>
             </div>
-            <div className="flex-1 p-3 bg-zinc-50 dark:bg-zinc-800 rounded-2xl space-y-1">
-              <p className="text-[10px] font-bold text-zinc-400 uppercase">Relate Score</p>
-              <p className="text-lg font-bold text-emerald-500">{score}%</p>
+            <div className="flex-1 p-4 card-premium bg-zinc-50/50 dark:bg-zinc-800/30 space-y-1">
+              <p className="label-micro">Relate Score</p>
+              <p className="text-xl font-black tracking-tight text-emerald-500">{score}<span className="text-xs font-bold text-zinc-400 uppercase tracking-widest ml-1">%</span></p>
             </div>
           </div>
         </div>
@@ -282,19 +291,21 @@ export default function PersonProfile() {
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="p-6 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50 rounded-3xl space-y-4"
+              className="p-6 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-3xl space-y-4 shadow-xl shadow-red-500/5"
             >
               <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
-                <Clock size={24} />
+                <div className="p-3 bg-red-100 dark:bg-red-900/40 rounded-2xl">
+                  <Clock size={24} />
+                </div>
                 <div>
-                  <h3 className="font-bold">Birthday Missed</h3>
-                  <p className="text-xs opacity-80">You're {daysLate} days late. Time for damage control.</p>
+                  <h3 className="font-black tracking-tight">Birthday Missed</h3>
+                  <p className="text-xs font-medium opacity-80">You're {daysLate} days late. Time for damage control.</p>
                 </div>
               </div>
               <button 
                 onClick={handleRecovery}
                 disabled={isRecovering}
-                className="w-full py-3 bg-red-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-red-600/20"
+                className="w-full py-4 bg-red-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-red-600/20 active:scale-95 transition-all"
               >
                 {isRecovering ? 'Analyzing...' : 'Activate Recovery Mode'}
               </button>
@@ -373,23 +384,23 @@ export default function PersonProfile() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="p-6 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50 rounded-3xl space-y-4"
+              className="p-6 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-3xl space-y-6 shadow-xl shadow-emerald-500/5"
             >
               <div className="flex justify-between items-center">
-                <h3 className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
-                  <Sparkles size={16} />
-                  AI Generated Options
+                <h3 className="font-black text-emerald-700 dark:text-emerald-400 flex items-center gap-2 tracking-tight">
+                  <Sparkles size={18} />
+                  AI Crafted Messages
                 </h3>
-                <button onClick={() => setAiMessage(null)} className="text-xs text-emerald-600 font-bold">Clear</button>
+                <button onClick={() => setAiMessage(null)} className="label-micro mb-0 text-emerald-600 hover:underline">Clear</button>
               </div>
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-emerald-600/50 uppercase">Short Text</p>
-                  <p className="text-sm italic">"{aiMessage.shortText}"</p>
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <p className="label-micro">Short Text</p>
+                  <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed">"{aiMessage.shortText}"</p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-emerald-600/50 uppercase">Card Message</p>
-                  <p className="text-sm italic">"{aiMessage.cardMessage}"</p>
+                <div className="space-y-2">
+                  <p className="label-micro">Card Message</p>
+                  <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed">"{aiMessage.cardMessage}"</p>
                 </div>
               </div>
             </motion.div>
@@ -406,13 +417,14 @@ export default function PersonProfile() {
 
         {/* Planning Checklist (Project Manager) */}
         <section className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <CheckCircle2 size={20} className="text-zinc-400" />
+          <div className="flex justify-between items-center px-1">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+              <CheckCircle2 size={16} />
               Planning Checklist
             </h2>
+            <span className="label-micro">Progress</span>
           </div>
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 p-2 space-y-1">
+          <div className="card-premium p-2 space-y-1">
             {['Gift Decision', 'Card Message', 'Celebration Prep'].map((defaultTask) => {
               const task = person.tasks?.find((t: any) => t.title === defaultTask);
               return (
@@ -420,7 +432,7 @@ export default function PersonProfile() {
                   key={defaultTask}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => task ? toggleTask(task.id, !!task.completed) : addTask(defaultTask)}
-                  className="w-full flex items-center gap-3 p-4 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-4 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left"
                 >
                   {task?.completed ? (
                     <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-emerald-500">
@@ -429,11 +441,11 @@ export default function PersonProfile() {
                   ) : (
                     <Circle size={20} className="text-zinc-300" />
                   )}
-                  <span className={cn("text-sm font-medium", task?.completed && "text-zinc-400 line-through")}>
+                  <span className={cn("text-sm font-bold", task?.completed && "text-zinc-400 line-through")}>
                     {defaultTask}
                   </span>
                   {task?.completed && (
-                    <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ml-auto text-[10px] font-bold text-emerald-500 uppercase">
+                    <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ml-auto label-micro mb-0 text-emerald-500">
                       Done
                     </motion.span>
                   )}

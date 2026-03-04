@@ -22,7 +22,7 @@ import Navigation from '../components/Navigation';
 import { getDaysUntil, formatDate, cn, getRelationshipScore } from '../lib/utils';
 import { Gift, MessageSquare } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit, setDoc } from 'firebase/firestore';
 
 const AnimatedNumber = ({ value }: { value: number }) => {
   const [displayValue, setDisplayValue] = React.useState(0);
@@ -111,7 +111,8 @@ export default function Dashboard() {
   const toggleTask = async (personId: string, taskId: string, completed: boolean) => {
     try {
       const taskRef = doc(db, 'people', personId, 'tasks', taskId);
-      await updateDoc(taskRef, { completed: !completed });
+      // Use setDoc with merge to avoid "No document to update" if the document was somehow missing
+      await setDoc(taskRef, { completed: !completed }, { merge: true });
       fetchDashboardData(); // Refresh
     } catch (err) {
       console.error(err);
@@ -157,27 +158,27 @@ export default function Dashboard() {
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-4 rounded-2xl bg-zinc-900 text-white space-y-1"
+          className="p-6 rounded-2xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 space-y-1 shadow-xl shadow-zinc-900/10 dark:shadow-white/5"
         >
-          <p className="text-xs text-zinc-400 uppercase tracking-wider font-semibold">Total Birthdays</p>
-          <p className="text-3xl font-bold">{analytics?.totalPeople || 0}</p>
+          <p className="label-micro text-zinc-400 dark:text-zinc-500">Total Birthdays</p>
+          <p className="text-4xl font-black tracking-tighter"><AnimatedNumber value={analytics?.totalPeople || 0} /></p>
         </motion.div>
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="p-4 rounded-2xl bg-emerald-500 text-white space-y-1"
+          className="p-6 rounded-2xl bg-emerald-500 text-white space-y-1 shadow-xl shadow-emerald-500/20"
         >
-          <p className="text-xs text-emerald-100 uppercase tracking-wider font-semibold">Streak</p>
-          <p className="text-3xl font-bold">12 🔥</p>
+          <p className="label-micro text-emerald-100">Relationship Streak</p>
+          <p className="text-4xl font-black tracking-tighter">12 🔥</p>
         </motion.div>
       </section>
 
       {/* Upcoming */}
       <section className="space-y-4">
-        <div className="flex justify-between items-end">
-          <h2 className="text-lg font-semibold">Upcoming</h2>
-          <Link to="/people" className="text-sm text-zinc-500 hover:text-zinc-900">View all</Link>
+        <div className="flex justify-between items-end px-1">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400">Upcoming Events</h2>
+          <Link to="/people" className="text-xs font-bold text-emerald-500 hover:underline">View all</Link>
         </div>
         <div className="space-y-3">
           {upcoming.length > 0 ? upcoming.map((person, i) => (
@@ -189,7 +190,7 @@ export default function Dashboard() {
             >
               <Link 
                 to={`/person/${person.id}`}
-                className="flex items-center p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-shadow"
+                className="flex items-center p-4 card-premium"
               >
                 <div className="w-12 h-12 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xl overflow-hidden">
                   {person.photo_url ? (
@@ -221,9 +222,9 @@ export default function Dashboard() {
 
       {/* Countdown Dashboard (Lightweight Project Manager) */}
       <section className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Clock size={20} className="text-zinc-400" />
+        <div className="flex justify-between items-center px-1">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+            <Clock size={16} />
             Countdown Dashboard
           </h2>
         </div>
@@ -244,7 +245,7 @@ export default function Dashboard() {
                 key={`plan-${person.id}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-6 shadow-sm"
+                className="p-6 card-premium space-y-6"
               >
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-3">
@@ -350,10 +351,13 @@ export default function Dashboard() {
       </section>
 
       {/* Priority Intelligence Section */}
-      <section className="p-6 bg-zinc-50 dark:bg-zinc-900 rounded-3xl space-y-4">
-        <div className="flex items-center gap-2">
-          <Star className="text-amber-500" size={18} fill="currentColor" />
-          <h2 className="text-lg font-semibold">Priority Intelligence</h2>
+      <section className="p-6 card-premium space-y-4 bg-zinc-50/50 dark:bg-zinc-900/50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Star className="text-amber-500" size={18} fill="currentColor" />
+            <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400">Priority Intelligence</h2>
+          </div>
+          <span className="label-micro">Algo v1.2</span>
         </div>
         <div className="space-y-6">
           {priorityPeople.map((person) => {

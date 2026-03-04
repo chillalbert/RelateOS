@@ -55,7 +55,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (fUser) => {
       setFirebaseUser(fUser);
       if (fUser) {
-        await fetchUserProfile(fUser.uid);
+        const docRef = doc(db, 'users', fUser.uid);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) {
+          // Auto-create profile if missing (e.g. social login or failed signup step)
+          const newProfile: UserProfile = {
+            id: fUser.uid,
+            email: fUser.email || '',
+            name: fUser.displayName || 'User',
+            appearance: 'light',
+            notification_settings: {
+              birthdays: true,
+              tasks: true,
+              groups: true
+            }
+          };
+          await setDoc(docRef, newProfile);
+          setUser(newProfile);
+        } else {
+          setUser(docSnap.data() as UserProfile);
+        }
       } else {
         setUser(null);
       }
