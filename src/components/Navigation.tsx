@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
+  Home,
   Calendar, 
-  Users, 
+  Globe, 
   Plus, 
   BarChart3, 
   Settings,
@@ -26,13 +27,19 @@ export default function Navigation() {
         to="/" 
         className={cn("p-3 transition-colors", isActive('/') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
       >
+        <Home size={24} />
+      </Link>
+      <Link 
+        to="/calendar" 
+        className={cn("p-3 transition-colors", isActive('/calendar') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+      >
         <Calendar size={24} />
       </Link>
       <Link 
         to="/people" 
         className={cn("p-3 transition-colors", isActive('/people') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
       >
-        <Users size={24} />
+        <Globe size={24} />
       </Link>
       <Link 
         to="/add" 

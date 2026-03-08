@@ -9,12 +9,16 @@ import Analytics from './pages/Analytics';
 import GroupPlanning from './pages/GroupPlanning';
 import Groups from './pages/Groups';
 import People from './pages/People';
+import BirthdayCalendar from './pages/BirthdayCalendar';
+import SharedBirthdayPage from './pages/SharedBirthdayPage';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 
+import LoadingScreen from './components/LoadingScreen';
+
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { firebaseUser, isLoading } = useAuth();
-  if (isLoading) return null;
+  if (isLoading) return <LoadingScreen />;
   return firebaseUser ? <>{children}</> : <Navigate to="/login" />;
 };
 
@@ -42,6 +46,8 @@ export default function App() {
             <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
             <Route path="/add" element={<PrivateRoute><AddPerson /></PrivateRoute>} />
             <Route path="/people" element={<PrivateRoute><People /></PrivateRoute>} />
+            <Route path="/shared/:id" element={<SharedBirthdayPage />} />
+            <Route path="/calendar" element={<PrivateRoute><BirthdayCalendar /></PrivateRoute>} />
             <Route path="/person/:id" element={<PrivateRoute><PersonProfile /></PrivateRoute>} />
             <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
             <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />

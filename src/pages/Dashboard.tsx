@@ -23,10 +23,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import { getDaysUntil, formatDate, cn, getRelationshipScore } from '../lib/utils';
-import { Gift, MessageSquare } from 'lucide-react';
+import { Gift, MessageSquare, Sparkles as SparklesIcon } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
-import { generateGiftSuggestions } from '../services/geminiService';
+import { generateGiftSuggestions, generateBirthdayMessage } from '../services/geminiService';
 
 const AnimatedNumber = ({ value }: { value: number }) => {
   const [displayValue, setDisplayValue] = React.useState(0);
@@ -64,6 +64,33 @@ export default function Dashboard() {
   const [brainstormingPerson, setBrainstormingPerson] = React.useState<any>(null);
   const [aiSuggestions, setAiSuggestions] = React.useState<string[]>([]);
   const [isGenerating, setIsGenerating] = React.useState(false);
+  const [generatingMessagePerson, setGeneratingMessagePerson] = React.useState<any>(null);
+  const [dashboardAiMessage, setDashboardAiMessage] = React.useState<any>(null);
+
+  const handleGenerateDashboardMessage = async (person: any) => {
+    setGeneratingMessagePerson(person);
+    setIsGenerating(true);
+    try {
+      const memories = person.memories?.map((m: any) => m.content) || [];
+      if (person.notes) memories.unshift(person.notes);
+      
+      const giftHistory = person.gifts?.filter((g: any) => g.status === 'given').map((g: any) => g.name) || [];
+      const message = await generateBirthdayMessage({
+        relationship: person.category,
+        yearsKnown: 3,
+        memories: memories.slice(0, 6),
+        tone: 'heartfelt',
+        length: 'medium',
+        interests: person.interests,
+        giftHistory
+      });
+      setDashboardAiMessage(message);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleBrainstorm = async (person: any) => {
     setBrainstormingPerson(person);
@@ -174,6 +201,16 @@ export default function Dashboard() {
     .sort((a, b) => b.importance - a.importance)
     .slice(0, 3);
 
+  const currentMonth = new Date().getMonth();
+  const birthdaysThisMonth = people.filter(p => {
+    const [y, m, d] = p.birthday.split('-').map(Number);
+    return (m - 1) === currentMonth;
+  }).sort((a, b) => {
+    const dayA = Number(a.birthday.split('-')[2]);
+    const dayB = Number(b.birthday.split('-')[2]);
+    return dayA - dayB;
+  });
+
   if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
   return (
@@ -221,60 +258,79 @@ export default function Dashboard() {
         </motion.div>
       </section>
 
-      {/* Upcoming */}
+      {/* Birthdays This Month */}
       <section className="space-y-4">
         <div className="flex justify-between items-end px-1">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400">Upcoming Events</h2>
-          <Link to="/people" className="text-xs font-bold text-emerald-500 hover:underline">View all</Link>
+          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+            <Calendar size={16} />
+            Birthdays This Month
+          </h2>
         </div>
-        <div className="space-y-3">
-          {upcoming.length > 0 ? upcoming.map((person, i) => (
-            <motion.div
-              key={person.id}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05 }}
-            >
-              <div className="p-4 card-premium flex items-center">
-                <Link 
-                  to={`/person/${person.id}`}
-                  className="flex items-center flex-1"
-                >
-                  <div className="w-12 h-12 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xl overflow-hidden">
-                    {person.photo_url ? (
-                      <img src={person.photo_url} alt={person.name} className="w-full h-full object-cover" />
-                    ) : (
-                      person.name[0]
-                    )}
-                  </div>
-                  <div className="ml-4 flex-1">
-                    <h3 className="font-semibold">{person.name}</h3>
-                    <p className="text-xs text-zinc-500">{formatDate(person.birthday)}</p>
-                  </div>
-                </Link>
-                <div className="flex items-center gap-3">
-                  {person.gifts?.filter((g: any) => g.status === 'idea').length === 0 && (
-                    <button 
-                      onClick={() => handleBrainstorm(person)}
-                      className="p-2 bg-amber-500/10 text-amber-600 rounded-lg hover:bg-amber-500 hover:text-white transition-all"
-                      title="Needs Gift Ideas"
-                    >
-                      <Lightbulb size={16} />
-                    </button>
-                  )}
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                      <AnimatedNumber value={getDaysUntil(person.birthday)} /> days
+        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4">
+          {birthdaysThisMonth.length > 0 ? birthdaysThisMonth.map((person, i) => {
+            const daysLeft = getDaysUntil(person.birthday);
+            const isUrgent = daysLeft <= 1;
+            const isSoon = daysLeft <= 7;
+            const isSafe = daysLeft > 14;
+
+            return (
+              <motion.div
+                key={`month-${person.id}`}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.05 }}
+                className="flex-shrink-0 w-40"
+              >
+                <div className={cn(
+                  "p-5 rounded-[32px] border-2 flex flex-col items-center text-center space-y-3 transition-all",
+                  isUrgent ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50" :
+                  isSoon ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50" :
+                  isSafe ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50" :
+                  "bg-white dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800"
+                )}>
+                  <Link to={`/person/${person.id}`} className="space-y-2">
+                    <div className="w-14 h-14 rounded-2xl bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xl font-black overflow-hidden mx-auto border-2 border-white dark:border-zinc-900 shadow-sm">
+                      {person.photo_url ? (
+                        <img src={person.photo_url} alt={person.name} className="w-full h-full object-cover" />
+                      ) : (
+                        person.name[0]
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold truncate w-32">{person.name.split(' ')[0]}</h3>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase">
+                        {person.birthday.split('-')[2]} {new Intl.DateTimeFormat('en-US', { month: 'short' }).format(new Date(2000, Number(person.birthday.split('-')[1]) - 1, 1))}
+                      </p>
+                    </div>
+                  </Link>
+                  
+                  <div className="space-y-1">
+                    <p className={cn(
+                      "text-xs font-black",
+                      isUrgent ? "text-red-500" : isSoon ? "text-amber-600" : isSafe ? "text-emerald-600" : "text-zinc-500"
+                    )}>
+                      {daysLeft === 0 ? "Today! 🎂" : daysLeft === 1 ? "Tomorrow! 🎂" : `In ${daysLeft} days 🎂`}
                     </p>
-                    <p className="text-[10px] text-zinc-400 uppercase">Remaining</p>
                   </div>
+
+                  <button 
+                    onClick={() => handleGenerateDashboardMessage(person)}
+                    className={cn(
+                      "w-full py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-1",
+                      isUrgent ? "bg-red-500 text-white" : 
+                      isSoon ? "bg-amber-500 text-white" :
+                      "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900"
+                    )}
+                  >
+                    <SparklesIcon size={10} />
+                    AI Message
+                  </button>
                 </div>
-              </div>
-            </motion.div>
-          )) : (
-            <div className="p-8 text-center bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
-              <p className="text-zinc-500 text-sm">No birthdays added yet.</p>
-              <Link to="/add" className="mt-2 inline-block text-emerald-500 font-medium">Add your first person</Link>
+              </motion.div>
+            );
+          }) : (
+            <div className="w-full p-8 text-center bg-zinc-50 dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800">
+              <p className="text-zinc-500 text-sm">No birthdays this month.</p>
             </div>
           )}
         </div>
@@ -520,6 +576,87 @@ export default function Dashboard() {
                       Regenerate Ideas
                     </button>
                   </>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* AI Message Dashboard Modal */}
+      <AnimatePresence>
+        {generatingMessagePerson && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (!isGenerating) {
+                  setGeneratingMessagePerson(null);
+                  setDashboardAiMessage(null);
+                }
+              }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-sm bg-white dark:bg-zinc-900 rounded-[32px] p-8 space-y-6 shadow-2xl"
+            >
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <SparklesIcon className="text-emerald-500" size={20} />
+                  <h3 className="font-black tracking-tight">AI Birthday Message</h3>
+                </div>
+                {!isGenerating && (
+                  <button onClick={() => {
+                    setGeneratingMessagePerson(null);
+                    setDashboardAiMessage(null);
+                  }} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
+                    <X size={20} />
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-zinc-400 uppercase">For</p>
+                <p className="text-lg font-black">{generatingMessagePerson.name}</p>
+              </div>
+
+              <div className="space-y-4">
+                {isGenerating ? (
+                  <div className="space-y-3">
+                    <div className="h-24 bg-zinc-100 dark:bg-zinc-800 rounded-2xl animate-pulse" />
+                    <p className="text-center text-xs text-zinc-400 font-bold uppercase animate-bounce">AI is writing a personal message...</p>
+                  </div>
+                ) : dashboardAiMessage ? (
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-hide">
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase">Short Text</p>
+                      <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-sm italic">
+                        "{dashboardAiMessage.shortText}"
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase">Card Message</p>
+                      <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-sm italic">
+                        "{dashboardAiMessage.cardMessage}"
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(dashboardAiMessage.cardMessage);
+                        // Could add a toast here
+                      }}
+                      className="w-full py-3 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-xl font-bold text-sm"
+                    >
+                      Copy Card Message
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-500">Something went wrong. Please try again.</p>
                 )}
               </div>
             </motion.div>

@@ -21,6 +21,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import LoadingScreen from '../components/LoadingScreen';
 import { formatDate, getDaysUntil, getRelationshipScore, cn } from '../lib/utils';
 import { generateBirthdayMessage, generateRecoveryPlan } from '../services/geminiService';
 import { db } from '../lib/firebase';
@@ -221,20 +222,23 @@ export default function PersonProfile() {
   const handleGenerateMessage = async () => {
     setIsGenerating(true);
     const memories = person.memories?.map((m: any) => m.content) || [];
+    if (person.notes) memories.unshift(person.notes); // Add general notes as first memory
+    
     const giftHistory = person.gifts?.filter((g: any) => g.status === 'given').map((g: any) => g.name) || [];
     const message = await generateBirthdayMessage({
       relationship: person.category,
       yearsKnown: 3, // Mocked for now
-      memories: memories.slice(0, 5),
+      memories: memories.slice(0, 6),
       tone: 'heartfelt',
       length: 'medium',
+      interests: person.interests,
       giftHistory
     });
     setAiMessage(message);
     setIsGenerating(false);
   };
 
-  if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  if (loading) return <LoadingScreen />;
   if (!person) return <div>Not found</div>;
 
   const daysUntil = getDaysUntil(person.birthday);
@@ -274,6 +278,7 @@ export default function PersonProfile() {
                 category: person.category,
                 importance: person.importance,
                 notes: person.notes,
+                interests: person.interests,
                 photo_url: person.photo_url
               });
               setShowEditModal(true);
@@ -359,9 +364,16 @@ export default function PersonProfile() {
                   <button 
                     onClick={handleRecovery}
                     disabled={isRecovering}
-                    className="w-full py-4 bg-red-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-red-600/20 active:scale-95 transition-all"
+                    className="w-full py-4 bg-red-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-red-600/20 active:scale-95 transition-all relative overflow-hidden"
                   >
-                    {isRecovering ? 'Analyzing...' : 'Activate Recovery Mode'}
+                    {isRecovering && (
+                      <motion.div
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                        animate={{ x: ['-100%', '100%'] }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                      />
+                    )}
+                    <span className="relative z-10">{isRecovering ? 'Analyzing...' : 'Activate Recovery Mode'}</span>
                   </button>
                 </motion.div>
               )}
@@ -417,10 +429,17 @@ export default function PersonProfile() {
               <button 
                 onClick={handleGenerateMessage}
                 disabled={isGenerating}
-                className="flex items-center justify-center gap-2 p-4 bg-zinc-900 text-white rounded-2xl font-bold shadow-lg hover:scale-[1.02] transition-transform disabled:opacity-50"
+                className="flex items-center justify-center gap-2 p-4 bg-zinc-900 text-white rounded-2xl font-bold shadow-lg hover:scale-[1.02] transition-transform disabled:opacity-50 relative overflow-hidden group"
               >
-                <Sparkles size={18} />
-                {isGenerating ? 'Thinking...' : 'AI Message'}
+                {isGenerating && (
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent"
+                    animate={{ x: ['-100%', '100%'] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                  />
+                )}
+                <Sparkles size={18} className={cn(isGenerating && "animate-pulse text-emerald-400")} />
+                <span className="relative z-10">{isGenerating ? 'Writing...' : 'AI Message'}</span>
               </button>
               <Link 
                 to={`/groups/create?personId=${person.id}`}
@@ -865,6 +884,16 @@ export default function PersonProfile() {
                     <option value="coworker">Coworker</option>
                     <option value="other">Other</option>
                   </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-zinc-400">Interests (for AI jokes/facts)</label>
+                  <input
+                    type="text"
+                    className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="e.g. Eagles, Dodgers, Warriors"
+                    value={editData.interests || ''}
+                    onChange={(e) => setEditData({ ...editData, interests: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold uppercase text-zinc-400">Notes</label>

@@ -16,6 +16,7 @@ export default function AddPerson() {
     category: 'friend',
     importance: 3,
     notes: '',
+    interests: '',
     photo_url: ''
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -145,6 +146,17 @@ export default function AddPerson() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold uppercase text-zinc-400">Interests (for AI jokes/facts)</label>
+            <input
+              type="text"
+              className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500"
+              placeholder="e.g. Eagles, Dodgers, Warriors"
+              value={formData.interests || ''}
+              onChange={(e) => setFormData({ ...formData, interests: e.target.value })}
+            />
           </div>
 
           <div className="space-y-1">

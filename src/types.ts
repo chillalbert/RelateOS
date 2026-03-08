@@ -6,6 +6,7 @@ export interface Person {
   category: 'friend' | 'family' | 'partner' | 'coworker' | 'other';
   importance: number;
   notes?: string;
+  interests?: string;
   photo_url?: string;
   reminder_settings?: {
     one_week_before: boolean;
