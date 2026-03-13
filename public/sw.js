@@ -1,4 +1,4 @@
-const CACHE_NAME = 'relateos-v1';
+const CACHE_NAME = 'relateos-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
