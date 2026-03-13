@@ -14,6 +14,10 @@
     --bg: #F8F8F7;
     --ink: #141414;
     --line: rgba(20, 20, 20, 0.08);
+    --sat: env(safe-area-inset-top);
+    --sab: env(safe-area-inset-bottom);
+    --sal: env(safe-area-inset-left);
+    --sar: env(safe-area-inset-right);
   }
 
   .dark {

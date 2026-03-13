@@ -259,7 +259,7 @@ export default function PersonProfile() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
       {/* Hero Header */}
-      <div className="bg-white dark:bg-zinc-900 border-b border-[var(--line)]">
+      <div className="bg-white dark:bg-zinc-900 border-b border-[var(--line)] pt-[var(--sat)]">
         <div className="p-6 flex items-center justify-between">
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors">
             <ArrowLeft size={24} />

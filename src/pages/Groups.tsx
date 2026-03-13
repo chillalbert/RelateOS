@@ -42,7 +42,7 @@ export default function Groups() {
   }, [firebaseUser]);
 
   return (
-    <div className="pb-32 pt-6 px-4 max-w-2xl mx-auto space-y-8">
+    <div className="pb-32 pt-[calc(1.5rem+var(--sat))] px-4 max-w-2xl mx-auto space-y-8">
       <header className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Group Planning</h1>

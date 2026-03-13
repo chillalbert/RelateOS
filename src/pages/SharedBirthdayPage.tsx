@@ -117,7 +117,7 @@ export default function SharedBirthdayPage() {
   const isBirthday = daysUntil === 0;
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-12">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-12 pt-[var(--sat)]">
       {/* Hero Section */}
       <div className="relative h-64 bg-zinc-900 overflow-hidden">
         {person.photo_url ? (

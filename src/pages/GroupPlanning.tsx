@@ -201,7 +201,7 @@ export default function GroupPlanning() {
   if (!id) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-        <header className="p-6 flex items-center justify-between bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800">
+        <header className="p-6 pt-[calc(1.5rem+var(--sat))] flex items-center justify-between bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800">
           <button onClick={() => navigate(-1)} className="p-2 -ml-2"><ArrowLeft size={24} /></button>
           <h1 className="text-lg font-bold">{isJoining ? 'Join Planning Group' : 'Create Planning Group'}</h1>
           <div className="w-10" />
@@ -297,7 +297,7 @@ export default function GroupPlanning() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
-      <header className="p-6 flex items-center justify-between bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10">
+      <header className="p-6 pt-[calc(1.5rem+var(--sat))] flex items-center justify-between bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10">
         <button onClick={() => navigate(-1)} className="p-2 -ml-2"><ArrowLeft size={24} /></button>
         <div>
           <h1 className="text-center font-bold">{group.code_name || group.name}</h1>

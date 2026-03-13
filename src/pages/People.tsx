@@ -59,7 +59,7 @@ export default function People() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-32">
-      <header className="p-8 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800">
+      <header className="p-8 pt-[calc(2rem+var(--sat))] bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800">
         <div className="max-w-2xl mx-auto space-y-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-emerald-500 rounded-xl text-white">
