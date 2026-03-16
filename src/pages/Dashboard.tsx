@@ -56,7 +56,7 @@ const AnimatedNumber = ({ value }: { value: number }) => {
 };
 
 export default function Dashboard() {
-  const { user, firebaseUser } = useAuth();
+  const { user, firebaseUser, refreshUser } = useAuth();
   const [people, setPeople] = React.useState<any[]>([]);
   const [analytics, setAnalytics] = React.useState<any>(null);
   const [notifications, setNotifications] = React.useState<any[]>([]);
@@ -211,6 +211,36 @@ export default function Dashboard() {
     return dayA - dayB;
   });
 
+  const handleWishBirthday = async (personId: string, personName: string) => {
+    if (!firebaseUser || !user) return;
+    try {
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      const newStreak = (user.streak || 0) + 1;
+      await updateDoc(userRef, { streak: newStreak });
+      
+      // Log it as a memory
+      const memoriesRef = collection(db, 'people', personId, 'memories');
+      await addDoc(memoriesRef, {
+        year: new Date().getFullYear(),
+        type: 'milestone',
+        content: `Wished a Happy Birthday! Streak increased to ${newStreak}.`,
+        created_at: serverTimestamp()
+      });
+
+      // Mark card task as done if it exists
+      const person = upcoming.find(p => p.id === personId);
+      const cardTask = person?.tasks?.find((t: any) => t.title === 'Card Message');
+      if (cardTask && !cardTask.completed) {
+        await toggleTask(personId, cardTask.id, false);
+      }
+
+      await refreshUser();
+      alert(`Happy Birthday wished to ${personName}! Your relationship streak is now ${newStreak} 🔥`);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
   return (
@@ -254,7 +284,9 @@ export default function Dashboard() {
           className="p-6 rounded-2xl bg-emerald-500 text-white space-y-1 shadow-xl shadow-emerald-500/20"
         >
           <p className="label-micro text-emerald-100">Relationship Streak</p>
-          <p className="text-4xl font-black tracking-tighter">12 🔥</p>
+          <p className="text-4xl font-black tracking-tighter">
+            <AnimatedNumber value={user?.streak || 0} /> 🔥
+          </p>
         </motion.div>
       </section>
 
@@ -392,6 +424,15 @@ export default function Dashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3">
+                  {daysLeft === 0 && (
+                    <button
+                      onClick={() => handleWishBirthday(person.id, person.name)}
+                      className="flex items-center justify-center gap-2 p-3 bg-emerald-500 text-white rounded-2xl font-bold text-xs shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+                    >
+                      <Heart size={14} fill="currentColor" />
+                      Wish Happy Birthday!
+                    </button>
+                  )}
                   {/* Gift Deadline */}
                   <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 transition-colors">
                     <div className="flex items-center gap-3">

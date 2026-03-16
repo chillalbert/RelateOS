@@ -15,6 +15,7 @@ import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 
 import LoadingScreen from './components/LoadingScreen';
+import NotificationManager from './components/NotificationManager';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { firebaseUser, isLoading } = useAuth();
@@ -40,6 +41,7 @@ export default function App() {
   return (
     <AuthProvider>
       <ThemeHandler>
+        <NotificationManager />
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />

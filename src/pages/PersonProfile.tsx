@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   Circle,
   BellRing,
-  Trash2
+  Trash2,
+  Heart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoadingScreen from '../components/LoadingScreen';
@@ -29,7 +30,7 @@ import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orde
 
 export default function PersonProfile() {
   const { id } = useParams();
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [person, setPerson] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
@@ -238,6 +239,35 @@ export default function PersonProfile() {
     setIsGenerating(false);
   };
 
+  const handleWishBirthday = async () => {
+    if (!id || !firebaseUser || !user) return;
+    try {
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      const newStreak = (user.streak || 0) + 1;
+      await updateDoc(userRef, { streak: newStreak });
+      
+      // Log it as a memory
+      const memoriesRef = collection(db, 'people', id, 'memories');
+      await addDoc(memoriesRef, {
+        year: new Date().getFullYear(),
+        type: 'milestone',
+        content: `Wished a Happy Birthday! Streak increased to ${newStreak}.`,
+        created_at: serverTimestamp()
+      });
+
+      // Mark card task as done if it exists
+      const cardTask = person.tasks?.find((t: any) => t.title === 'Card Message');
+      if (cardTask && !cardTask.completed) {
+        await toggleTask(cardTask.id, false);
+      }
+
+      await refreshUser();
+      alert(`Happy Birthday wished! Your relationship streak is now ${newStreak} 🔥`);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (loading) return <LoadingScreen />;
   if (!person) return <div>Not found</div>;
 
@@ -425,9 +455,21 @@ export default function PersonProfile() {
             </AnimatePresence>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 gap-4">
-              <button 
-                onClick={handleGenerateMessage}
+            <div className="grid grid-cols-1 gap-4">
+              {daysUntil === 0 && (
+                <motion.button
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  onClick={handleWishBirthday}
+                  className="flex items-center justify-center gap-2 p-6 bg-emerald-500 text-white rounded-3xl font-black text-lg shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+                >
+                  <Heart size={24} fill="currentColor" />
+                  Wish Happy Birthday!
+                </motion.button>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={handleGenerateMessage}
                 disabled={isGenerating}
                 className="flex items-center justify-center gap-2 p-4 bg-zinc-900 text-white rounded-2xl font-bold shadow-lg hover:scale-[1.02] transition-transform disabled:opacity-50 relative overflow-hidden group"
               >
@@ -449,6 +491,7 @@ export default function PersonProfile() {
                 Plan Group
               </Link>
             </div>
+          </div>
 
             {/* AI Message Result */}
             <AnimatePresence>
