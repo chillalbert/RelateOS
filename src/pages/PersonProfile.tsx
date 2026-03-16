@@ -19,13 +19,16 @@ import {
   Circle,
   BellRing,
   Trash2,
-  Heart
+  Heart,
+  Copy,
+  Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoadingScreen from '../components/LoadingScreen';
 import { formatDate, getDaysUntil, getRelationshipScore, cn } from '../lib/utils';
 import { generateBirthdayMessage, generateRecoveryPlan } from '../services/geminiService';
 import { db } from '../lib/firebase';
+import confetti from 'canvas-confetti';
 import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, setDoc } from 'firebase/firestore';
 
 export default function PersonProfile() {
@@ -242,6 +245,13 @@ export default function PersonProfile() {
   const handleWishBirthday = async () => {
     if (!id || !firebaseUser || !user) return;
     try {
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#10b981', '#3b82f6', '#f59e0b']
+      });
+
       const userRef = doc(db, 'users', firebaseUser.uid);
       const newStreak = (user.streak || 0) + 1;
       await updateDoc(userRef, { streak: newStreak });
@@ -266,6 +276,14 @@ export default function PersonProfile() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const [copied, setCopied] = React.useState<string | null>(null);
+
+  const copyToClipboard = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   if (loading) return <LoadingScreen />;
@@ -332,7 +350,15 @@ export default function PersonProfile() {
             )}
           </motion.div>
           <div className="space-y-1">
-            <h1 className="text-3xl font-black tracking-tight">{person.name}</h1>
+            <div className="flex items-center justify-center gap-2">
+              <h1 className="text-3xl font-black tracking-tight">{person.name}</h1>
+              {user?.streak && user.streak > 0 && (
+                <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-full text-[10px] font-black uppercase tracking-wider border border-amber-200 dark:border-amber-800/50">
+                  <Zap size={10} fill="currentColor" />
+                  {user.streak}
+                </div>
+              )}
+            </div>
             <p className="text-zinc-500 font-medium serif-italic text-lg">{person.nickname || person.category}</p>
           </div>
           
@@ -467,6 +493,7 @@ export default function PersonProfile() {
                   Wish Happy Birthday!
                 </motion.button>
               )}
+
               <div className="grid grid-cols-2 gap-4">
                 <button 
                   onClick={handleGenerateMessage}
@@ -509,16 +536,32 @@ export default function PersonProfile() {
                     </h3>
                     <button onClick={() => setAiMessage(null)} className="label-micro mb-0 text-emerald-600 hover:underline">Clear</button>
                   </div>
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <p className="label-micro">Short Text</p>
-                      <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed">"{aiMessage.shortText}"</p>
+                    <div className="space-y-6">
+                      <div className="space-y-2 group relative">
+                        <div className="flex justify-between items-center">
+                          <p className="label-micro">Short Text</p>
+                          <button 
+                            onClick={() => copyToClipboard(aiMessage.shortText, 'short')}
+                            className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded transition-colors"
+                          >
+                            {copied === 'short' ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} className="text-emerald-600" />}
+                          </button>
+                        </div>
+                        <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed">"{aiMessage.shortText}"</p>
+                      </div>
+                      <div className="space-y-2 group relative">
+                        <div className="flex justify-between items-center">
+                          <p className="label-micro">Card Message</p>
+                          <button 
+                            onClick={() => copyToClipboard(aiMessage.cardMessage, 'card')}
+                            className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded transition-colors"
+                          >
+                            {copied === 'card' ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} className="text-emerald-600" />}
+                          </button>
+                        </div>
+                        <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed">"{aiMessage.cardMessage}"</p>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <p className="label-micro">Card Message</p>
-                      <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed">"{aiMessage.cardMessage}"</p>
-                    </div>
-                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

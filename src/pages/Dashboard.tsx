@@ -24,6 +24,7 @@ import { Link } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import { getDaysUntil, formatDate, cn, getRelationshipScore } from '../lib/utils';
 import { Gift, MessageSquare, Sparkles as SparklesIcon } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { generateGiftSuggestions, generateBirthdayMessage } from '../services/geminiService';
@@ -214,6 +215,13 @@ export default function Dashboard() {
   const handleWishBirthday = async (personId: string, personName: string) => {
     if (!firebaseUser || !user) return;
     try {
+      confetti({
+        particleCount: 100,
+        spread: 60,
+        origin: { y: 0.8 },
+        colors: ['#10b981', '#3b82f6', '#f59e0b']
+      });
+
       const userRef = doc(db, 'users', firebaseUser.uid);
       const newStreak = (user.streak || 0) + 1;
       await updateDoc(userRef, { streak: newStreak });
