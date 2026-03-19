@@ -77,13 +77,11 @@ export default function Dashboard() {
       
       const giftHistory = person.gifts?.filter((g: any) => g.status === 'given').map((g: any) => g.name) || [];
       const message = await generateBirthdayMessage({
+        name: person.name,
+        age: person.birthday ? new Date().getFullYear() - new Date(person.birthday).getFullYear() : 'Unknown',
         relationship: person.category,
-        yearsKnown: 3,
-        memories: memories.slice(0, 6),
-        tone: 'heartfelt',
-        length: 'medium',
-        interests: person.interests,
-        giftHistory
+        interests: person.interests || 'No specific interests mentioned',
+        notes: person.notes || 'No specific notes mentioned'
       });
       setDashboardAiMessage(message);
     } catch (err) {

@@ -28,8 +28,14 @@ async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     console.log("Using Vite middleware");
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+      },
       appType: "spa",
+      define: {
+        'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY || ''),
+        'process.env.APP_URL': JSON.stringify(process.env.APP_URL || ''),
+      }
     });
     app.use(vite.middlewares);
   } else {

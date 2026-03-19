@@ -2,17 +2,42 @@ import { GoogleGenAI } from "@google/genai";
 
 // Initialize the Gemini API client
 // Note: process.env.GEMINI_API_KEY is automatically provided by the platform
-const getAiClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Gemini API Key is missing. Please ensure it is set in the environment.");
-  }
-  return new GoogleGenAI({ apiKey });
-};
-
 async function callGemini(prompt: string, config?: any) {
-  const ai = getAiClient();
+  const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
   
+  if (!apiKey) {
+    console.warn("Gemini API Key missing - Running in Demo Mode with mock responses.");
+    
+    // Simulate AI delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Return realistic mock data based on the prompt type
+    if (prompt.includes("birthday message")) {
+      return JSON.stringify({
+        shortText: "Happy Birthday! 🎂",
+        cardMessage: "Wishing you a day filled with joy and a year ahead full of wonderful adventures. You deserve the best!"
+      });
+    }
+    
+    if (prompt.includes("recovery plan")) {
+      return JSON.stringify({
+        apologyMessage: "I'm so sorry I missed your big day! I hope it was as amazing as you are.",
+        recoveryGiftIdeas: ["Surprise Coffee Delivery", "Handwritten Letter", "Dinner on me"]
+      });
+    }
+
+    if (prompt.includes("gift ideas")) {
+      return JSON.stringify([
+        "Customized Photo Album",
+        "Premium Coffee Bean Set",
+        "Noise-Canceling Headphones"
+      ]);
+    }
+
+    return "This is a demo response because the Gemini API key is not configured.";
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: [{ parts: [{ text: prompt }] }],
@@ -25,67 +50,47 @@ async function callGemini(prompt: string, config?: any) {
 }
 
 export async function generateBirthdayMessage(params: {
+  name: string;
+  age?: string | number;
   relationship: string;
-  yearsKnown: number;
-  memories: string[];
-  tone: string;
-  length: string;
-  interests?: string;
-  giftHistory?: string[];
+  interests: string;
+  notes: string;
 }) {
   try {
-    const memoriesText = params.memories.length > 0 
-      ? `Use these specific details: ${params.memories.join(', ')}.` 
-      : "No specific details provided. Keep it simple.";
-
-    const interestsText = params.interests 
-      ? `The person is interested in: ${params.interests}. Use Google Search to find a relevant joke, interesting fact, or recent news related to these interests to include in the message.`
-      : "";
-
     const prompt = `
-# TASK
-Generate a birthday message for a ${params.relationship}. 
-Years known: ${params.yearsKnown}.
-${memoriesText}
-${interestsText}
-Past gifts: ${params.giftHistory?.join(', ') || 'None'}.
+You are a warm, emotionally intelligent birthday message writer. Your job is to generate a heartfelt, personalized happy birthday message based on the information provided about the recipient.
 
-# OUTPUT FORMAT
-Return a JSON object with "shortText" and "cardMessage".
+You will be given:
+- Name: The recipient's name
+- Age: How old they are turning (if known)
+- Relationship: How the sender knows them (e.g. best friend, mom, coworker)
+- Interests/Hobbies: Things they love or care about
+- Notes: Any additional personal context about them
 
-# FOLLOW THIS WRITING STYLE:
-• SHOULD use clear, simple language.
-• SHOULD be spartan and informative.
-• SHOULD use short, impactful sentences.
-• SHOULD use active voice; avoid passive voice.
-• SHOULD focus on practical, actionable insights.
-• SHOULD use "you" and "your" to directly address the reader.
-• AVOID using em dashes (-) anywhere in your response. Use only commas, periods, or other standard punctuation.
-• AVOID constructions like " ...not just this, but also this".
-• AVOID metaphors and clichés.
-• AVOID generalizations.
-• AVOID common setup language.
-• AVOID output warnings or notes, just the output requested.
-• AVOID unnecessary adjectives and adverbs.
-• AVOID staccato stop start sentences.
-• AVOID rhetorical questions.
-• AVOID hashtags.
-• AVOID semicolons.
-• AVOID markdown.
-• AVOID asterisks.
-• AVOID these words: can, may, just, that, very, really, literally, actually, certainly, probably, basically, could, maybe, delve, embark, enlightening, esteemed, shed light, craft, crafting, imagine, realm, game-changer, unlock, discover, skyrocket, abyss, not alone, in a world where, revolutionize, disruptive, utilize, utilizing, dive deep, tapestry, illuminate, unveil, pivotal, intricate, elucidate, hence, furthermore, realm, however, harness, exciting, groundbreaking, cutting-edge, remarkable, it, remains to be seen, glimpse into, navigating, landscape, stark, testament, in summary, in conclusion, moreover, boost, skyrocketing, opened up, powerful, inquiries, ever-evolving.
+Guidelines:
+- Keep the message between 3-5 sentences
+- Make it feel personal and specific — reference their interests or notes naturally, don't just list them
+- Tone should be warm, genuine, and heartfelt by default
+- Never sound generic or like a greeting card
+- Never use clichés like "may all your dreams come true" or "wishing you all the best"
+- Don't start the message with "Happy Birthday" — save that for somewhere natural in the middle or end
+- Write in first person as if the sender is writing it themselves
+- Only return the message itself, no explanations, no labels, no quotation marks
 
-# IMPORTANT
-If no specific details or interests are provided, the message should simply be "Happy Birthday".
-If you find a joke or fact, integrate it naturally. If not, stick to a standard warm message.
-Review your response and ensure no em dashes!
+Here is the recipient's information:
+- Name: ${params.name}
+- Age: ${params.age || 'Unknown'}
+- Relationship: ${params.relationship}
+- Interests/Hobbies: ${params.interests}
+- Notes: ${params.notes}
 `;
 
-    const text = await callGemini(prompt, { 
-      responseMimeType: "application/json",
-      tools: [{ googleSearch: {} }]
-    });
-    return JSON.parse(text || '{}');
+    const text = await callGemini(prompt);
+    // Since the prompt asks for only the message, we'll use it for both fields
+    return { 
+      shortText: text?.slice(0, 100) + (text && text.length > 100 ? '...' : ''), 
+      cardMessage: text || "Happy Birthday!" 
+    };
   } catch (error) {
     console.error("AI Generation Error:", error);
     return { shortText: "Happy Birthday", cardMessage: "Happy Birthday. Have a great day." };
