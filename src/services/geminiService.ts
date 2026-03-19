@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 // Initialize the Gemini API client
 // Note: process.env.GEMINI_API_KEY is automatically provided by the platform
 const getAiClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("Gemini API Key is missing. Please ensure it is set in the environment.");
   }
