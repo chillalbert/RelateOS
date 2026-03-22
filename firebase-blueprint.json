@@ -1,0 +1,27 @@
+{
+  "entities": {
+    "Secret": {
+      "title": "Secret",
+      "description": "System secrets and API keys",
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "description": "The secret value"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the secret was last updated"
+        }
+      },
+      "required": ["value"]
+    }
+  },
+  "firestore": {
+    "/secrets/{secretId}": {
+      "schema": "Secret",
+      "description": "Collection for system-wide secrets"
+    }
+  }
+}

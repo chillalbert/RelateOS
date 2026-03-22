@@ -9,8 +9,8 @@ export default defineConfig(({mode}) => {
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.APP_URL': JSON.stringify(env.APP_URL || process.env.APP_URL || ''),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || process.env.GEMINI_API_KEY || 'AIzaSyCUl-1-gT3khCwf5Kb7nb3tDfivtDIgCJg'),
-      'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || process.env.GEMINI_API_KEY || 'AIzaSyCUl-1-gT3khCwf5Kb7nb3tDfivtDIgCJg'),
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || process.env.GEMINI_API_KEY || ''),
+      'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || process.env.GEMINI_API_KEY || ''),
     },
     resolve: {
       alias: {

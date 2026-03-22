@@ -16,6 +16,7 @@ import Notifications from './pages/Notifications';
 
 import LoadingScreen from './components/LoadingScreen';
 import NotificationManager from './components/NotificationManager';
+import { initializeGeminiKey } from './services/geminiService';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { firebaseUser, isLoading } = useAuth();
@@ -24,7 +25,13 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const ThemeHandler = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAuth();
+  const { user, firebaseUser, isLoading } = useAuth();
+
+  React.useEffect(() => {
+    if (firebaseUser && !isLoading) {
+      initializeGeminiKey();
+    }
+  }, [firebaseUser, isLoading]);
 
   React.useEffect(() => {
     if (user?.appearance === 'dark') {

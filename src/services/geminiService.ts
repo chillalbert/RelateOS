@@ -1,17 +1,45 @@
 import { GoogleGenAI } from "@google/genai";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../lib/firebase";
+
+let cachedApiKey: string | null = null;
+
+export async function initializeGeminiKey() {
+  if (cachedApiKey) return cachedApiKey;
+  
+  try {
+    const secretDoc = await getDoc(doc(db, "secrets", "gemini_api_key"));
+    if (secretDoc.exists()) {
+      cachedApiKey = secretDoc.data().value;
+      return cachedApiKey;
+    }
+  } catch (error) {
+    console.error("Error fetching Gemini API key from Firestore:", error);
+  }
+  return null;
+}
 
 // Initialize the Gemini API client
 // Note: process.env.GEMINI_API_KEY is automatically provided by the platform
 async function callGemini(prompt: string, config?: any) {
-  const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+  // 1. Check Environment (AI Studio / Netlify Env Vars)
+  let apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
   
+  // 2. Check Firebase Storage
   if (!apiKey) {
-    console.warn("Gemini API Key missing - Running in Demo Mode with mock responses.");
-    
-    // Simulate AI delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    apiKey = await initializeGeminiKey();
+  }
 
-    // Return realistic mock data based on the prompt type
+  // 3. Check Browser Storage (Manual setup for Netlify/Testing)
+  if (!apiKey) {
+    apiKey = localStorage.getItem('GEMINI_API_KEY') || '';
+  }
+
+  const getDemoResponse = async (prompt: string) => {
+    console.warn("Running in Demo Mode with mock responses.");
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    // ... (rest of demo logic remains same)
+
     if (prompt.includes("birthday message")) {
       return JSON.stringify({
         shortText: "Happy Birthday! 🎂",
@@ -34,19 +62,32 @@ async function callGemini(prompt: string, config?: any) {
       ]);
     }
 
-    return "This is a demo response because the Gemini API key is not configured.";
+    return "This is a demo response because the Gemini API key is not configured or has been revoked.";
+  };
+
+  if (!apiKey) {
+    return getDemoResponse(prompt);
   }
 
-  const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [{ parts: [{ text: prompt }] }],
-    config: {
-      ...config,
-    },
-  });
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        ...config,
+      },
+    });
 
-  return response.text;
+    return response.text;
+  } catch (error: any) {
+    // Handle leaked/revoked key error specifically
+    if (error?.message?.includes("leaked") || error?.message?.includes("403")) {
+      console.error("Gemini API Key has been revoked or is invalid. Falling back to Demo Mode.");
+      return getDemoResponse(prompt);
+    }
+    throw error;
+  }
 }
 
 export async function generateBirthdayMessage(params: {
