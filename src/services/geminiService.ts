@@ -22,17 +22,24 @@ export async function initializeGeminiKey() {
 // Initialize the Gemini API client
 // Note: process.env.GEMINI_API_KEY is automatically provided by the platform
 async function callGemini(prompt: string, config?: any) {
-  // 1. Check Environment (AI Studio / Netlify Env Vars)
-  let apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+  let apiKey = '';
   
-  // 2. Check Firebase Storage
+  // 1. Check Firebase Storage (Highest Priority - allows you to override platform keys)
+  apiKey = await initializeGeminiKey() || '';
+  
+  // 2. Check Environment (AI Studio / Netlify Env Vars)
   if (!apiKey) {
-    apiKey = await initializeGeminiKey();
+    apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
   }
-
+  
   // 3. Check Browser Storage (Manual setup for Netlify/Testing)
   if (!apiKey) {
     apiKey = localStorage.getItem('GEMINI_API_KEY') || '';
+  }
+
+  if (apiKey) {
+    const source = cachedApiKey ? "Firebase" : "Environment/Storage";
+    console.log(`Using Gemini API Key (starts with ${apiKey.substring(0, 4)}...) from: ${source}`);
   }
 
   const getDemoResponse = async (prompt: string) => {
