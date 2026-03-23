@@ -6,31 +6,40 @@ import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { Users, Plus, ChevronRight, Shield, MessageSquare } from 'lucide-react';
 import Navigation from '../components/Navigation';
+import { cn } from '../lib/utils';
 
 export default function Groups() {
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, user } = useAuth();
   const [groups, setGroups] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   const fetchGroups = async () => {
-    if (!firebaseUser) return;
+    if (!firebaseUser) {
+      console.log("No firebaseUser, skipping fetchGroups");
+      return;
+    }
+    console.log("Fetching groups for user:", firebaseUser.uid, "email:", user?.email);
     try {
-      const groupsRef = collection(db, 'groups');
+      const groupsRef = collection(db, 'rooms');
+      
       // Query groups where user is a member
-      const q = query(
+      const qMembers = query(
         groupsRef, 
         where('members', 'array-contains', firebaseUser.uid)
       );
-      const querySnapshot = await getDocs(q);
-      const groupsData = querySnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as any))
-        .sort((a, b) => {
-          const dateA = a.created_at?.seconds || 0;
-          const dateB = b.created_at?.seconds || 0;
-          return dateB - dateA;
-        });
-      setGroups(groupsData);
-    } catch (err) {
+      let membersSnapshot;
+      try {
+        console.log("Executing members query...");
+        membersSnapshot = await getDocs(qMembers);
+        console.log("Members query success, found:", membersSnapshot.size);
+      } catch (err) {
+        console.error("Error fetching member groups:", err);
+        throw err;
+      }
+      const membersData = membersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+
+      setGroups(membersData.sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
+    } catch (err: any) {
       console.error("Error fetching groups:", err);
     } finally {
       setLoading(false);
@@ -39,14 +48,14 @@ export default function Groups() {
 
   React.useEffect(() => {
     fetchGroups();
-  }, [firebaseUser]);
+  }, [firebaseUser, user?.email]);
 
   return (
     <div className="pb-32 pt-[calc(1.5rem+var(--sat))] px-4 max-w-2xl mx-auto space-y-8">
       <header className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Group Planning</h1>
-          <p className="text-zinc-500 text-sm">Collaborate on surprises</p>
+          <h1 className="text-2xl font-bold tracking-tight">Birthday Rooms</h1>
+          <p className="text-zinc-500 text-sm">Collaborate on secret surprises</p>
         </div>
         <Link to="/groups/create" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-emerald-500">
           <Plus size={24} />
@@ -74,7 +83,7 @@ export default function Groups() {
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
-                        <Shield size={24} />
+                        <Users size={24} />
                       </div>
                       <div>
                         <h3 className="font-bold text-lg group-hover:text-emerald-500 transition-colors">{group.code_name || group.name}</h3>
@@ -99,7 +108,7 @@ export default function Groups() {
                     </div>
                     <div className="flex items-center gap-2 text-zinc-400">
                       <MessageSquare size={14} />
-                      <span className="text-xs font-bold uppercase">{group.invite_code}</span>
+                      <span className="text-xs font-bold uppercase tracking-widest font-mono">{group.invite_code}</span>
                     </div>
                   </div>
                 </Link>

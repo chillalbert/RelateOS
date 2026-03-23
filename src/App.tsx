@@ -8,7 +8,7 @@ import PersonProfile from './pages/PersonProfile';
 import Analytics from './pages/Analytics';
 import GroupPlanning from './pages/GroupPlanning';
 import Groups from './pages/Groups';
-import People from './pages/People';
+import Vaults from './pages/Vaults';
 import BirthdayCalendar from './pages/BirthdayCalendar';
 import SharedBirthdayPage from './pages/SharedBirthdayPage';
 import Settings from './pages/Settings';
@@ -54,7 +54,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
             <Route path="/add" element={<PrivateRoute><AddPerson /></PrivateRoute>} />
-            <Route path="/people" element={<PrivateRoute><People /></PrivateRoute>} />
+            <Route path="/vaults" element={<PrivateRoute><Vaults /></PrivateRoute>} />
             <Route path="/shared/:id" element={<SharedBirthdayPage />} />
             <Route path="/calendar" element={<PrivateRoute><BirthdayCalendar /></PrivateRoute>} />
             <Route path="/person/:id" element={<PrivateRoute><PersonProfile /></PrivateRoute>} />

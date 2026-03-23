@@ -2,68 +2,62 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper: Check if user is logged in
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Secrets: Allow any logged-in user to read the API key
-    // This is required for AI features to work for your users
+    function isAdmin() {
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin') ||
+        (request.auth.token.get('email', '').toLower() == "smayansri@gmail.com")
+      );
+    }
+
+    // ===============================================================
+    // Collections
+    // ===============================================================
+
     match /secrets/{secretId} {
       allow read: if isSignedIn();
-      allow write: if false; // Only edit manually in Firebase Console
+      allow write: if isAdmin();
     }
 
-    // Users: Only owner can read/write their profile
     match /users/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // People: Only owner can read/write their contacts
     match /people/{personId} {
-      // EXISTING: Owner can read/write
-      allow read, write: if isSignedIn() && (
-        (resource == null && request.resource.data.user_id == request.auth.uid) ||
-        (resource != null && resource.data.user_id == request.auth.uid)
-      );
+      allow read: if isSignedIn() && (resource.data.get('user_id', '') == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.get('user_id', '') == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.get('user_id', '') == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (resource.data.get('user_id', '') == request.auth.uid || isAdmin());
       
-      // NEW: Allow public to view a specific landing page (read single doc)
-      // This is what makes the shared link work for friends without accounts
-      allow get: if true;
-
-      // NEW: Messages Subcollection (The Surprise Box)
-      match /messages/{messageId} {
-        // Anyone can contribute a surprise to the box
-        allow create: if true;
-        // Only the owner of the 'people' record can read the messages
-        allow read: if isSignedIn() && 
-          get(/databases/$(database)/documents/people/$(personId)).data.user_id == request.auth.uid;
+      match /{allSubcollections=**} {
+        allow read, write: if isSignedIn() && (get(/databases/$(database)/documents/people/$(personId)).data.get('user_id', '') == request.auth.uid || isAdmin());
       }
-      
-      // EXISTING: Subcollections (tasks, memories)
+    }
+
+    match /rooms/{roomId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (request.auth.uid in resource.data.get('members', []) || isAdmin());
+      allow delete: if isSignedIn() && (resource.data.get('created_by', '') == request.auth.uid || isAdmin());
+
       match /{allSubcollections=**} {
         allow read, write: if isSignedIn();
       }
     }
 
-    // Notifications: Only owner can access
     match /notifications/{notifId} {
-      allow read, write: if isSignedIn() && (
-        (resource == null && request.resource.data.user_id == request.auth.uid) ||
-        (resource != null && resource.data.user_id == request.auth.uid)
-      );
-    }
-
-    // Groups: Only creator can access
-    match /groups/{groupId} {
-      allow read, write: if isSignedIn() && (
-        (resource == null && request.resource.data.created_by == request.auth.uid) ||
-        (resource != null && resource.data.created_by == request.auth.uid)
-      );
-      
-      match /{allSubcollections=**} {
-        allow read, write: if isSignedIn();
-      }
+      allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
     }
   }
 }

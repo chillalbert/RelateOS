@@ -46,7 +46,20 @@ export default function Analytics() {
         const categoryStats = Object.entries(categoryMap).map(([category, count]) => ({ category, count }));
         const importanceStats = Object.entries(importanceMap).map(([importance, count]) => ({ importance, count }));
 
-        setData({ categoryStats, importanceStats });
+        // Birthdays by month
+        const monthMap: Record<string, number> = {};
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        months.forEach(m => monthMap[m] = 0);
+        
+        people.forEach((p: any) => {
+          if (p.birthday) {
+            const monthIdx = new Date(p.birthday).getMonth();
+            monthMap[months[monthIdx]]++;
+          }
+        });
+        const monthStats = Object.entries(monthMap).map(([month, count]) => ({ month, count }));
+
+        setData({ categoryStats, importanceStats, monthStats });
       } catch (err) {
         console.error(err);
       } finally {
@@ -71,6 +84,33 @@ export default function Analytics() {
       </header>
 
       <div className="p-6 space-y-8 max-w-2xl mx-auto">
+        {/* Monthly Distribution */}
+        <section className="card-premium p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={20} className="text-zinc-400" />
+              <h3 className="font-bold">Monthly Distribution</h3>
+            </div>
+            <span className="label-micro">Overview</span>
+          </div>
+          <div className="h-64 w-full">
+            {data?.monthStats && (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.monthStats}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+                  <Tooltip 
+                    cursor={{ fill: '#f3f4f6' }}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                  />
+                  <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </section>
+
         {/* Category Distribution */}
         <section className="card-premium p-6 space-y-6">
           <div className="flex items-center justify-between">
@@ -80,7 +120,7 @@ export default function Analytics() {
             </div>
             <span className="label-micro">Distribution</span>
           </div>
-          <div className="h-64 w-full min-h-[256px]">
+          <div className="h-64 w-full">
             {data?.categoryStats && (
               <ResponsiveContainer width="100%" height="100%">
                 <RePieChart>
@@ -118,12 +158,12 @@ export default function Analytics() {
         <section className="card-premium p-6 space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <TrendingUp size={20} className="text-zinc-400" />
+              <Award size={20} className="text-zinc-400" />
               <h3 className="font-bold">Effort Scores</h3>
             </div>
             <span className="label-micro">Trends</span>
           </div>
-          <div className="h-64 w-full min-h-[256px]">
+          <div className="h-64 w-full">
             {data?.importanceStats && (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.importanceStats}>
@@ -134,7 +174,7 @@ export default function Analytics() {
                     cursor={{ fill: '#f3f4f6' }}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                   />
-                  <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -142,6 +182,7 @@ export default function Analytics() {
           <p className="text-xs text-zinc-500 text-center">Distribution of birthdays by importance level</p>
         </section>
       </div>
+
       <Navigation />
     </div>
   );

@@ -3,10 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   Home,
   Calendar, 
-  Globe, 
+  Users, 
   Plus, 
   BarChart3, 
   Settings,
+  Shield,
   MessageSquare
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -36,10 +37,10 @@ export default function Navigation() {
         <Calendar size={24} />
       </Link>
       <Link 
-        to="/people" 
-        className={cn("p-3 transition-colors", isActive('/people') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        to="/groups" 
+        className={cn("p-3 transition-colors", isActive('/groups') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
       >
-        <Globe size={24} />
+        <Users size={24} />
       </Link>
       <Link 
         to="/add" 
@@ -48,10 +49,10 @@ export default function Navigation() {
         <Plus size={28} />
       </Link>
       <Link 
-        to="/groups" 
-        className={cn("p-3 transition-colors", isActive('/groups') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        to="/vaults" 
+        className={cn("p-3 transition-colors", isActive('/vaults') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
       >
-        <MessageSquare size={24} />
+        <Shield size={24} />
       </Link>
       <Link 
         to="/analytics" 

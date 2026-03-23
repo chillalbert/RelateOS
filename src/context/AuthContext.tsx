@@ -7,6 +7,7 @@ interface UserProfile {
   id: string;
   email: string;
   name: string;
+  birthday?: string;
   personality?: string;
   appearance?: 'light' | 'dark';
   streak?: number;

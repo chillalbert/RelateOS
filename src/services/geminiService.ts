@@ -106,42 +106,36 @@ export async function generateBirthdayMessage(params: {
 }) {
   try {
     const prompt = `
-You are a warm, emotionally intelligent birthday message writer. Your job is to generate a heartfelt, personalized happy birthday message based on the information provided about the recipient.
-
-You will be given:
-- Name: The recipient's name
-- Age: How old they are turning (if known)
-- Relationship: How the sender knows them (e.g. best friend, mom, coworker)
-- Interests/Hobbies: Things they love or care about
-- Notes: Any additional personal context about them
+You are a warm, emotionally intelligent birthday message writer. Your job is to generate two versions of a personalized birthday message:
+1. A "Short Text": This should be like a message you would send over iMessage or WhatsApp. It should be punchy, warm, and feel like a real person sent it. Use emojis naturally.
+2. A "Card Message": This is a slightly longer, more heartfelt version (3-5 sentences) suitable for a physical card or a long-form digital note.
 
 Guidelines:
-- Keep the message between 3-5 sentences
-- Make it feel personal and specific — reference their interests or notes naturally, don't just list them
-- Tone should be warm, genuine, and heartfelt by default
-- Never sound generic or like a greeting card
-- Never use clichés like "may all your dreams come true" or "wishing you all the best"
-- Don't start the message with "Happy Birthday" — save that for somewhere natural in the middle or end
-- Write in first person as if the sender is writing it themselves
-- Only return the message itself, no explanations, no labels, no quotation marks
+- Make it feel personal and specific — reference their interests or notes naturally.
+- Tone should be warm, genuine, and heartfelt.
+- Never sound generic or like a greeting card.
+- Never use clichés like "may all your dreams come true".
+- Don't start with "Happy Birthday" — save it for the middle or end.
+- Write in first person.
+- Return the result as a JSON object with keys "shortText" and "cardMessage".
 
-Here is the recipient's information:
+Recipient Info:
 - Name: ${params.name}
 - Age: ${params.age || 'Unknown'}
 - Relationship: ${params.relationship}
-- Interests/Hobbies: ${params.interests}
+- Interests: ${params.interests}
 - Notes: ${params.notes}
 `;
 
-    const text = await callGemini(prompt);
-    // Since the prompt asks for only the message, we'll use it for both fields
+    const text = await callGemini(prompt, { responseMimeType: "application/json" });
+    const result = JSON.parse(text || '{}');
     return { 
-      shortText: text?.slice(0, 100) + (text && text.length > 100 ? '...' : ''), 
-      cardMessage: text || "Happy Birthday!" 
+      shortText: result.shortText || "Happy Birthday! 🎂", 
+      cardMessage: result.cardMessage || "Happy Birthday! Have an amazing day." 
     };
   } catch (error) {
     console.error("AI Generation Error:", error);
-    return { shortText: "Happy Birthday", cardMessage: "Happy Birthday. Have a great day." };
+    return { shortText: "Happy Birthday! 🎂", cardMessage: "Happy Birthday. Have a great day." };
   }
 }
 
@@ -210,7 +204,11 @@ Past gifts: ${params.giftHistory?.join(', ') || 'None'}.
 DO NOT suggest items already in the past gift history.
 
 # OUTPUT FORMAT
-Return a JSON array of strings.
+Return a JSON array of objects. Each object must have:
+- "title": The name of the gift.
+- "price": Estimated price (e.g. "$25").
+- "reason": Why this is a good gift based on the interests.
+- "searchUrl": A Google Search URL for the gift (e.g. "https://www.google.com/search?q=gift+name").
 
 # FOLLOW THIS WRITING STYLE:
 • SHOULD use clear, simple language.

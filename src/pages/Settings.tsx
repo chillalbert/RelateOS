@@ -1,11 +1,11 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Bell, Shield, Moon, LogOut, ChevronRight, Sparkles, X, Check, Lock } from 'lucide-react';
+import { ArrowLeft, User, Bell, Shield, Moon, LogOut, ChevronRight, Sparkles, X, Check, Lock, Trash2, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Navigation from '../components/Navigation';
 import { db, auth } from '../lib/firebase';
-import { doc, updateDoc, setDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 
 export default function Settings() {
@@ -102,11 +102,63 @@ export default function Settings() {
     }
   };
 
+  const [birthday, setBirthday] = React.useState(user?.birthday || '');
+
+  const handleBirthdayChange = async (newBirthday: string) => {
+    if (!firebaseUser) return;
+    try {
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      await setDoc(userRef, { birthday: newBirthday }, { merge: true });
+      setBirthday(newBirthday);
+      await refreshUser();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const [showBirthdayModal, setShowBirthdayModal] = React.useState(false);
+  const [isResetting, setIsResetting] = React.useState(false);
+  const [showResetConfirm, setShowResetConfirm] = React.useState(false);
+
+  const isAdmin = user?.email === 'smayansri@gmail.com';
+
+  const handleResetData = async () => {
+    if (!isAdmin) return;
+    setIsResetting(true);
+    try {
+      // Delete all rooms
+      const roomsRef = collection(db, 'rooms');
+      const roomsSnap = await getDocs(roomsRef);
+      const roomDeletes = roomsSnap.docs.map(d => deleteDoc(d.ref));
+      
+      // Delete all messages in all people
+      const peopleRef = collection(db, 'people');
+      const peopleSnap = await getDocs(peopleRef);
+      const messageDeletes: Promise<void>[] = [];
+      
+      for (const personDoc of peopleSnap.docs) {
+        const messagesRef = collection(db, 'people', personDoc.id, 'messages');
+        const messagesSnap = await getDocs(messagesRef);
+        messagesSnap.docs.forEach(m => messageDeletes.push(deleteDoc(m.ref)));
+      }
+
+      await Promise.all([...roomDeletes, ...messageDeletes]);
+      alert('All rooms and shared birthday messages have been deleted.');
+      setShowResetConfirm(false);
+    } catch (err) {
+      console.error("Reset error:", err);
+      alert('Failed to reset data.');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const sections = [
     {
       title: 'Account',
       items: [
         { icon: <User size={20} />, label: 'Profile Information', value: user?.name, onClick: () => {} },
+        { icon: <Sparkles size={20} />, label: 'My Birthday', value: birthday || 'Not set', onClick: () => setShowBirthdayModal(true) },
         { icon: <Shield size={20} />, label: 'Security & Password', value: '••••••••', onClick: () => setShowPasswordModal(true) },
       ]
     },
@@ -171,16 +223,128 @@ export default function Settings() {
 
         <button 
           onClick={logout}
-          className="w-full flex items-center justify-center gap-2 p-5 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-3xl font-bold text-sm hover:bg-red-100 dark:hover:bg-red-950/40 transition-colors"
+          className="w-full flex items-center justify-center gap-2 p-5 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-3xl font-bold text-sm hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
         >
           <LogOut size={20} />
           Sign Out
         </button>
 
+        {isAdmin && (
+          <section className="space-y-4 pt-4">
+            <h2 className="text-[10px] font-bold uppercase tracking-widest text-red-500 ml-1">Danger Zone</h2>
+            <div className="card-premium overflow-hidden border-red-100 dark:border-red-900/30">
+              <button 
+                onClick={() => setShowResetConfirm(true)}
+                className="w-full p-5 flex items-center justify-between hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center">
+                    <Trash2 size={20} />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-red-600">Reset App Data</p>
+                    <p className="text-[10px] text-zinc-400 uppercase font-bold">Delete all rooms & messages</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-zinc-300 group-hover:text-red-500 transition-colors" />
+              </button>
+            </div>
+          </section>
+        )}
+
         <p className="text-center text-[10px] text-zinc-400 font-bold uppercase tracking-widest">RelateOS v1.0.4</p>
       </div>
 
       <Navigation />
+
+      <AnimatePresence>
+        {showResetConfirm && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowResetConfirm(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative bg-white dark:bg-zinc-900 rounded-[32px] p-8 w-full max-w-sm space-y-6 shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-full flex items-center justify-center mx-auto">
+                <AlertTriangle size={32} />
+              </div>
+              <div className="text-center space-y-2">
+                <h3 className="text-xl font-bold">Are you sure?</h3>
+                <p className="text-sm text-zinc-500">This will permanently delete all Birthday Rooms and all shared birthday messages. This action cannot be undone.</p>
+              </div>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowResetConfirm(false)}
+                  className="flex-1 py-4 bg-zinc-100 dark:bg-zinc-800 rounded-2xl font-bold text-sm"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleResetData}
+                  disabled={isResetting}
+                  className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-red-600/20 disabled:opacity-50"
+                >
+                  {isResetting ? 'Resetting...' : 'Yes, Reset All'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showBirthdayModal && (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowBirthdayModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-t-[32px] sm:rounded-[32px] p-8"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold">Your Birthday</h2>
+                <button onClick={() => setShowBirthdayModal(false)} className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <p className="text-sm text-zinc-500">We use your birthday to show you a precise countdown and unlock special vaults on your big day!</p>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-zinc-400">Date of Birth</label>
+                  <input
+                    type="date"
+                    className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
+                    value={birthday}
+                    onChange={(e) => handleBirthdayChange(e.target.value)}
+                  />
+                </div>
+                <button 
+                  onClick={() => setShowBirthdayModal(false)}
+                  className="w-full py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl font-bold text-sm"
+                >
+                  Done
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Password Modal */}
       <AnimatePresence>

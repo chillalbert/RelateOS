@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoadingScreen from '../components/LoadingScreen';
-import { formatDate, getDaysUntil, getRelationshipScore, cn } from '../lib/utils';
+import { formatDate, getDaysUntil, getRelationshipScore, cn, getTurningAge } from '../lib/utils';
 import { generateBirthdayMessage, generateRecoveryPlan } from '../services/geminiService';
 import { db } from '../lib/firebase';
 import confetti from 'canvas-confetti';
@@ -143,6 +143,22 @@ export default function PersonProfile() {
       });
       setNewMemory({ type: 'gift', content: '' });
       setShowMemoryForm(false);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const deleteMemory = async (memoryId: string) => {
+    if (!id) return;
+    if (!window.confirm('Are you sure you want to delete this memory?')) return;
+    try {
+      const memoryRef = doc(db, 'people', id, 'memories', memoryId);
+      await setDoc(memoryRef, { deleted: true }, { merge: true }); // Soft delete or actual delete
+      // For simplicity, let's just remove it from state
+      setPerson((prev: any) => ({
+        ...prev,
+        memories: prev.memories.filter((m: any) => m.id !== memoryId)
+      }));
     } catch (err) {
       console.error(err);
     }
@@ -354,7 +370,9 @@ export default function PersonProfile() {
                 </div>
               )}
             </div>
-            <p className="text-zinc-500 font-medium serif-italic text-lg">{person.nickname || person.category}</p>
+            <p className="text-zinc-500 font-medium serif-italic text-lg">
+              {person.nickname || person.category} • Turning {getTurningAge(person.birthday)}
+            </p>
           </div>
           
           <div className="flex gap-4 w-full max-w-sm">
@@ -542,7 +560,7 @@ export default function PersonProfile() {
                             {copied === 'short' ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} className="text-emerald-600" />}
                           </button>
                         </div>
-                        <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed">"{aiMessage.shortText}"</p>
+                        <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">"{aiMessage.shortText}"</p>
                       </div>
                       <div className="space-y-2 group relative">
                         <div className="flex justify-between items-center">
@@ -554,7 +572,7 @@ export default function PersonProfile() {
                             {copied === 'card' ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} className="text-emerald-600" />}
                           </button>
                         </div>
-                        <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed">"{aiMessage.cardMessage}"</p>
+                        <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">"{aiMessage.cardMessage}"</p>
                       </div>
                     </div>
                 </motion.div>
@@ -718,16 +736,22 @@ export default function PersonProfile() {
                         >
                           {person.memories?.filter((m: any) => m.year === year).length > 0 ? (
                             person.memories.filter((m: any) => m.year === year).map((memory: any) => (
-                              <div key={memory.id} className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl flex gap-3">
+                              <div key={memory.id} className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl flex gap-3 group/memory">
                                 <div className="mt-1">
                                   {memory.type === 'gift' && <Gift size={16} className="text-emerald-500" />}
                                   {memory.type === 'joke' && <Smile size={16} className="text-amber-500" />}
                                   {memory.type === 'milestone' && <Zap size={16} className="text-blue-500" />}
                                 </div>
-                                <div>
+                                <div className="flex-1">
                                   <p className="text-sm">{memory.content}</p>
                                   <p className="text-[10px] text-zinc-400 uppercase font-bold mt-1">{memory.type}</p>
                                 </div>
+                                <button 
+                                  onClick={() => deleteMemory(memory.id)}
+                                  className="opacity-0 group-hover/memory:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded transition-all"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
                               </div>
                             ))
                           ) : (

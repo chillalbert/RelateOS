@@ -17,12 +17,13 @@ import {
   Circle,
   Sparkles,
   Lightbulb,
-  X
+  X,
+  Cake
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import Navigation from '../components/Navigation';
-import { getDaysUntil, formatDate, cn, getRelationshipScore } from '../lib/utils';
+import { getDaysUntil, formatDate, cn, getRelationshipScore, getPreciseCountdown, getTurningAge } from '../lib/utils';
 import { Gift, MessageSquare, Sparkles as SparklesIcon } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { db } from '../lib/firebase';
@@ -67,6 +68,16 @@ export default function Dashboard() {
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [generatingMessagePerson, setGeneratingMessagePerson] = React.useState<any>(null);
   const [dashboardAiMessage, setDashboardAiMessage] = React.useState<any>(null);
+  const [countdown, setCountdown] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    if (user?.birthday) {
+      const timer = setInterval(() => {
+        setCountdown(getPreciseCountdown(user.birthday));
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [user?.birthday]);
 
   const handleGenerateDashboardMessage = async (person: any) => {
     setGeneratingMessagePerson(person);
@@ -247,6 +258,26 @@ export default function Dashboard() {
     }
   };
 
+  const [showBirthdayOnboarding, setShowBirthdayOnboarding] = React.useState(false);
+
+  React.useEffect(() => {
+    if (user && !user.birthday) {
+      setShowBirthdayOnboarding(true);
+    }
+  }, [user]);
+
+  const handleSaveBirthday = async (bday: string) => {
+    if (!firebaseUser) return;
+    try {
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      await setDoc(userRef, { birthday: bday }, { merge: true });
+      setShowBirthdayOnboarding(false);
+      await refreshUser();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
   return (
@@ -272,6 +303,49 @@ export default function Dashboard() {
           </button>
         </div>
       </header>
+
+      {/* User Birthday Countdown */}
+      {countdown && (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="p-8 bg-zinc-900 text-white rounded-[40px] space-y-6 shadow-2xl shadow-zinc-900/20 relative overflow-hidden group"
+        >
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Sparkles size={120} />
+          </div>
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="label-micro text-zinc-400 mb-0">Your Birthday Countdown</span>
+            </div>
+            <div className="flex justify-between items-end">
+              <div className="flex gap-4">
+                <div className="text-center">
+                  <p className="text-4xl font-black tracking-tighter">{countdown.days}</p>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Days</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-4xl font-black tracking-tighter">{countdown.hours}</p>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Hrs</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-4xl font-black tracking-tighter">{countdown.minutes}</p>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Min</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-4xl font-black tracking-tighter text-emerald-500">{countdown.seconds}</p>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Sec</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-bold text-zinc-400">Turning</p>
+                <p className="text-2xl font-black text-emerald-500">{user?.birthday ? getTurningAge(user.birthday) : '?'}</p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Quick Stats */}
       <section className="grid grid-cols-2 gap-4">
@@ -338,6 +412,9 @@ export default function Dashboard() {
                       <h3 className="text-sm font-bold truncate w-32">{person.name.split(' ')[0]}</h3>
                       <p className="text-[10px] font-bold text-zinc-400 uppercase">
                         {person.birthday.split('-')[2]} {new Intl.DateTimeFormat('en-US', { month: 'short' }).format(new Date(2000, Number(person.birthday.split('-')[1]) - 1, 1))}
+                      </p>
+                      <p className="text-[10px] font-black text-emerald-500 uppercase mt-0.5">
+                        Turning {getTurningAge(person.birthday)}
                       </p>
                     </div>
                   </Link>
@@ -681,30 +758,83 @@ export default function Dashboard() {
                 ) : dashboardAiMessage ? (
                   <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-hide">
                     <div className="space-y-2">
-                      <p className="text-[10px] font-bold text-zinc-400 uppercase">Short Text</p>
-                      <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-sm italic">
+                      <div className="flex justify-between items-center">
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase">Short Text (SMS Style)</p>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(dashboardAiMessage.shortText);
+                            alert("Short text copied!");
+                          }}
+                          className="text-[10px] font-bold text-emerald-500 uppercase hover:underline"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-sm italic whitespace-pre-wrap">
                         "{dashboardAiMessage.shortText}"
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <p className="text-[10px] font-bold text-zinc-400 uppercase">Card Message</p>
-                      <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-sm italic">
+                      <div className="flex justify-between items-center">
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase">Card Message</p>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(dashboardAiMessage.cardMessage);
+                            alert("Card message copied!");
+                          }}
+                          className="text-[10px] font-bold text-emerald-500 uppercase hover:underline"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-sm italic whitespace-pre-wrap">
                         "{dashboardAiMessage.cardMessage}"
                       </div>
                     </div>
-                    <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(dashboardAiMessage.cardMessage);
-                        // Could add a toast here
-                      }}
-                      className="w-full py-3 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-xl font-bold text-sm"
-                    >
-                      Copy Card Message
-                    </button>
                   </div>
                 ) : (
                   <p className="text-sm text-zinc-500">Something went wrong. Please try again.</p>
                 )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Birthday Onboarding Modal */}
+      <AnimatePresence>
+        {showBirthdayOnboarding && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-[40px] p-10 text-center space-y-8 shadow-2xl"
+            >
+              <div className="w-20 h-20 bg-emerald-500 text-white rounded-3xl flex items-center justify-center mx-auto rotate-12 shadow-xl shadow-emerald-500/20">
+                <Cake size={40} />
+              </div>
+              
+              <div className="space-y-2">
+                <h2 className="text-2xl font-black tracking-tight">When's the big day?</h2>
+                <p className="text-zinc-500 font-medium">We need your birthday to unlock your secret vaults and show your countdown!</p>
+              </div>
+
+              <div className="space-y-4">
+                <input 
+                  type="date"
+                  className="w-full p-5 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border-none text-center font-bold text-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                  onChange={(e) => {
+                    if (e.target.value) handleSaveBirthday(e.target.value);
+                  }}
+                />
+                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">You can change this later in settings</p>
               </div>
             </motion.div>
           </div>

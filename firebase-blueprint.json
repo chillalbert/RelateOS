@@ -16,12 +16,150 @@
         }
       },
       "required": ["value"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "birthday": { "type": "string", "format": "date" },
+        "personality": { "type": "string" },
+        "appearance": { "type": "string", "enum": ["light", "dark"] },
+        "streak": { "type": "number" },
+        "notification_settings": {
+          "type": "object",
+          "properties": {
+            "birthdays": { "type": "boolean" },
+            "tasks": { "type": "boolean" },
+            "groups": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "Person": {
+      "title": "Person",
+      "description": "A contact or person whose birthday is being tracked",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "name": { "type": "string" },
+        "birthday": { "type": "string", "format": "date" },
+        "category": { "type": "string" },
+        "importance": { "type": "number" },
+        "notes": { "type": "string" },
+        "photo_url": { "type": "string" }
+      }
+    },
+    "BirthdayRoom": {
+      "title": "Birthday Room",
+      "description": "A collaborative space for planning a birthday surprise",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "code_name": { "type": "string" },
+        "person_id": { "type": "string" },
+        "person_name": { "type": "string" },
+        "recipient_email": { "type": "string" },
+        "invite_code": { "type": "string" },
+        "created_by": { "type": "string" },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "target_amount": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Idea": {
+      "title": "Idea",
+      "description": "A gift idea in a birthday room",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "user_id": { "type": "string" },
+        "votes": { "type": "array", "items": { "type": "string" } },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Contribution": {
+      "title": "Contribution",
+      "description": "A financial contribution to a gift pool",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "user_name": { "type": "string" },
+        "amount": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "A message in the group planning chat",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "user_name": { "type": "string" },
+        "text": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Surprise": {
+      "title": "Surprise",
+      "description": "A message or media for the secret vault",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["text", "photo", "voice", "video"] },
+        "content": { "type": "string" },
+        "sender_name": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
     "/secrets/{secretId}": {
       "schema": "Secret",
       "description": "Collection for system-wide secrets"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/people/{personId}": {
+      "schema": "Person",
+      "description": "Contacts and tracked birthdays"
+    },
+    "/people/{personId}/memories/{memoryId}": {
+      "schema": "Surprise",
+      "description": "Memories related to a person"
+    },
+    "/people/{personId}/tasks/{taskId}": {
+      "schema": "object",
+      "description": "Tasks related to a person's birthday"
+    },
+    "/people/{personId}/gifts/{giftId}": {
+      "schema": "object",
+      "description": "Gifts related to a person"
+    },
+    "/rooms/{roomId}": {
+      "schema": "BirthdayRoom",
+      "description": "Collaborative birthday planning rooms"
+    },
+    "/rooms/{roomId}/ideas/{ideaId}": {
+      "schema": "Idea",
+      "description": "Gift ideas within a room"
+    },
+    "/rooms/{roomId}/contributions/{contributionId}": {
+      "schema": "Contribution",
+      "description": "Contributions to a gift pool"
+    },
+    "/rooms/{roomId}/chat/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Chat messages within a room"
+    },
+    "/rooms/{roomId}/surprises/{surpriseId}": {
+      "schema": "Surprise",
+      "description": "Secret vault items (messages, photos, etc.)"
     }
   }
 }
