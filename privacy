@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Privacy Policy – RelateOS</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #faf9f7;
+      --surface: #ffffff;
+      --text: #1a1a1a;
+      --muted: #6b6b6b;
+      --accent: #2d5be3;
+      --border: #e8e5e0;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.75;
+      font-size: 16px;
+      padding: 0 1rem;
+    }
+
+    header {
+      max-width: 680px;
+      margin: 4rem auto 2.5rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    header .label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+
+    header h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 2.4rem;
+      font-weight: 400;
+      line-height: 1.2;
+      margin-bottom: 0.5rem;
+    }
+
+    header .meta {
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+
+    main {
+      max-width: 680px;
+      margin: 0 auto;
+      padding-bottom: 6rem;
+    }
+
+    section {
+      margin-bottom: 2.5rem;
+    }
+
+    h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.25rem;
+      font-weight: 400;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+    }
+
+    p {
+      color: #333;
+      margin-bottom: 0.75rem;
+    }
+
+    ul {
+      padding-left: 1.25rem;
+      color: #333;
+      margin-bottom: 0.75rem;
+    }
+
+    ul li {
+      margin-bottom: 0.35rem;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 2.5rem 0;
+    }
+
+    footer {
+      max-width: 680px;
+      margin: 0 auto 3rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="label">Legal</div>
+    <h1>Privacy Policy</h1>
+    <p class="meta">RelateOS &nbsp;·&nbsp; Effective date: March 23, 2025</p>
+  </header>
+
+  <main>
+
+    <section>
+      <p>RelateOS ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we handle information when you use the RelateOS birthday reminder app ("the App").</p>
+    </section>
+
+    <section>
+      <h2>Information We Collect</h2>
+      <p>We collect only the information you directly provide to us, including:</p>
+      <ul>
+        <li>Names and birthdays you enter for your contacts</li>
+        <li>Any messages or notes you create within the app</li>
+        <li>Your preferences and app settings</li>
+      </ul>
+      <p>We do not collect your location, financial information, or any data without your knowledge.</p>
+    </section>
+
+    <section>
+      <h2>How We Use Your Information</h2>
+      <p>The information you provide is used solely to:</p>
+      <ul>
+        <li>Send you birthday reminders for contacts you've added</li>
+        <li>Generate personalized AI-assisted messages on your behalf</li>
+        <li>Improve the functionality and performance of the App</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>AI-Generated Messages</h2>
+      <p>RelateOS uses an AI service to help generate birthday messages. When you request a message, limited context (such as a contact's name) may be sent to the AI provider to generate a response. This data is not stored or used to train AI models.</p>
+    </section>
+
+    <section>
+      <h2>Data Storage</h2>
+      <p>Your data is stored locally on your device. We do not operate servers that store your personal contact information. Any data transmitted for AI message generation is processed in real time and not retained.</p>
+    </section>
+
+    <section>
+      <h2>Third-Party Services</h2>
+      <p>The App may use third-party services for core functionality (such as AI message generation). These services have their own privacy policies, and we encourage you to review them. We do not sell or share your data with third parties for advertising purposes.</p>
+    </section>
+
+    <section>
+      <h2>Children's Privacy</h2>
+      <p>RelateOS is not directed at children under the age of 13. We do not knowingly collect personal information from children. If you believe a child has provided us with personal information, please contact us and we will delete it promptly.</p>
+    </section>
+
+    <section>
+      <h2>Your Rights</h2>
+      <p>You can delete any contact or data you've entered at any time within the App. Since data is stored locally on your device, uninstalling the App will remove all associated data.</p>
+    </section>
+
+    <section>
+      <h2>Changes to This Policy</h2>
+      <p>We may update this Privacy Policy from time to time. Any changes will be reflected on this page with an updated effective date. Continued use of the App after changes constitutes your acceptance of the revised policy.</p>
+    </section>
+
+    <section>
+      <h2>Contact Us</h2>
+      <p>If you have any questions about this Privacy Policy, please contact us at: <a href="mailto:privacy@relateosbday.netlify.app">privacy@relateosbday.netlify.app</a></p>
+    </section>
+
+  </main>
+
+  <div class="divider" style="max-width:680px;margin:0 auto 1.5rem;"></div>
+  <footer>© 2025 RelateOS. All rights reserved.</footer>
+
+</body>
+</html>
