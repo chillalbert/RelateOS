@@ -19,7 +19,7 @@ jobs:
       - name: Initialize Bubblewrap project
         run: |
           mkdir app && cd app
-          echo "n" | bubblewrap init --manifest https://relateosbday.netlify.app/manifest.json --no-install-jdk
+          yes n | bubblewrap init --manifest https://relateosbday.netlify.app/manifest.json --no-install-jdk || true
 
       - name: Decode keystore
         run: |
@@ -27,6 +27,11 @@ jobs:
 
       - name: Build AAB
         working-directory: app
+        env:
+          BUBBLEWRAP_KEYSTORE: upload.keystore
+          BUBBLEWRAP_KEYSTORE_PASSWORD: relateos2026
+          BUBBLEWRAP_KEY_ALIAS: my-key-alias
+          BUBBLEWRAP_KEY_PASSWORD: relateos2026
         run: |
           bubblewrap build \
             --keystore upload.keystore \
