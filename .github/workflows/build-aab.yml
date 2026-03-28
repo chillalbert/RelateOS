@@ -6,33 +6,66 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      JAVA_HOME: /opt/hostedtoolcache/Java_Temurin_jdk/17.0.14-7/x64
     steps:
-      - name: Set up JDK
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set JAVA_HOME
-        run: echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Install Bubblewrap
-        run: npm install -g @bubblewrap/cli
-
-      - name: Initialize Bubblewrap project
         run: |
-          mkdir -p app
-          cd app
-          printf 'n\n' | bubblewrap init --manifest https://relateosbday.netlify.app/manifest.json
+          npm install -g @bubblewrap/cli
+          bubblewrap --version
+
+      - name: Create Bubblewrap config
+        run: |
+          mkdir -p twa
+          cat > twa/twa-manifest.json << 'EOF'
+          {
+            "packageId": "app.netlify.relateosbday.twa",
+            "host": "relateosbday.netlify.app",
+            "name": "RelateOS",
+            "launcherName": "RelateOS",
+            "display": "standalone",
+            "themeColor": "#ffffff",
+            "navigationColor": "#ffffff",
+            "backgroundColor": "#ffffff",
+            "startUrl": "/",
+            "iconUrl": "https://relateosbday.netlify.app/icon-512.png",
+            "maskableIconUrl": "https://relateosbday.netlify.app/icon-512.png",
+            "appVersion": "1.0.0",
+            "appVersionCode": 1,
+            "signingKey": {
+              "path": "upload.keystore",
+              "alias": "my-key-alias"
+            },
+            "splashScreenFadeOutDuration": 300,
+            "enableNotifications": false,
+            "shortcuts": [],
+            "generatorApp": "bubblewrap-cli",
+            "webManifestUrl": "https://relateosbday.netlify.app/manifest.json",
+            "fallbackType": "customtabs",
+            "enableSiteSettingsShortcut": true,
+            "isChromeOSOnly": false,
+            "isMetaQuest": false,
+            "orientation": "default",
+            "fingerprints": []
+          }
+          EOF
 
       - name: Decode keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/upload.keystore
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > twa/upload.keystore
 
       - name: Build AAB
-        working-directory: app
+        working-directory: twa
         run: |
           bubblewrap build \
             --keystore upload.keystore \
@@ -40,8 +73,8 @@ jobs:
             --keyAlias my-key-alias \
             --keyPassword relateos2026
 
-      - name: Upload AAB artifact
+      - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: relateos-signed-aab
-          path: app/app-release-signed.aab
+          path: twa/app-release-signed.aab
