@@ -19,7 +19,7 @@ jobs:
       - name: Initialize Bubblewrap project
         run: |
           mkdir app && cd app
-          bubblewrap init --manifest https://relateosbday.netlify.app/manifest.json --no-install-jdk
+          echo "n" | bubblewrap init --manifest https://relateosbday.netlify.app/manifest.json --no-install-jdk
 
       - name: Decode keystore
         run: |
