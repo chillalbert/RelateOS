@@ -8,6 +8,57 @@ import { db, auth } from '../lib/firebase';
 import { doc, updateDoc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 export default function Settings() {
   const { user, firebaseUser, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -126,27 +177,77 @@ export default function Settings() {
     if (!isAdmin) return;
     setIsResetting(true);
     try {
-      // Delete all rooms
+      // Delete all rooms and their subcollections
       const roomsRef = collection(db, 'rooms');
-      const roomsSnap = await getDocs(roomsRef);
-      const roomDeletes = roomsSnap.docs.map(d => deleteDoc(d.ref));
-      
-      // Delete all messages in all people
-      const peopleRef = collection(db, 'people');
-      const peopleSnap = await getDocs(peopleRef);
-      const messageDeletes: Promise<void>[] = [];
-      
-      for (const personDoc of peopleSnap.docs) {
-        const messagesRef = collection(db, 'people', personDoc.id, 'messages');
-        const messagesSnap = await getDocs(messagesRef);
-        messagesSnap.docs.forEach(m => messageDeletes.push(deleteDoc(m.ref)));
+      let roomsSnap;
+      try {
+        roomsSnap = await getDocs(roomsRef);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.LIST, 'rooms');
+        return;
       }
 
-      await Promise.all([...roomDeletes, ...messageDeletes]);
-      alert('All rooms and shared birthday messages have been deleted.');
+      const roomDeletes: Promise<void>[] = [];
+      
+      for (const roomDoc of roomsSnap.docs) {
+        // Delete subcollections
+        const subcollections = ['ideas', 'contributions', 'surprises'];
+        for (const sub of subcollections) {
+          const subRef = collection(db, 'rooms', roomDoc.id, sub);
+          let subSnap;
+          try {
+            subSnap = await getDocs(subRef);
+          } catch (err) {
+            handleFirestoreError(err, OperationType.LIST, `rooms/${roomDoc.id}/${sub}`);
+            continue;
+          }
+          subSnap.docs.forEach(d => {
+            roomDeletes.push(deleteDoc(d.ref).catch(e => handleFirestoreError(e, OperationType.DELETE, d.ref.path)));
+          });
+        }
+        // Delete the room itself
+        roomDeletes.push(deleteDoc(roomDoc.ref).catch(e => handleFirestoreError(e, OperationType.DELETE, roomDoc.ref.path)));
+      }
+      
+      // Delete all memories, tasks, and gifts in all people
+      const peopleRef = collection(db, 'people');
+      let peopleSnap;
+      try {
+        peopleSnap = await getDocs(peopleRef);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.LIST, 'people');
+        return;
+      }
+
+      const peopleSubDeletes: Promise<void>[] = [];
+      
+      for (const personDoc of peopleSnap.docs) {
+        const subcollections = ['memories', 'tasks', 'gifts'];
+        for (const sub of subcollections) {
+          const subRef = collection(db, 'people', personDoc.id, sub);
+          let subSnap;
+          try {
+            subSnap = await getDocs(subRef);
+          } catch (err) {
+            handleFirestoreError(err, OperationType.LIST, `people/${personDoc.id}/${sub}`);
+            continue;
+          }
+          subSnap.docs.forEach(m => {
+            peopleSubDeletes.push(deleteDoc(m.ref).catch(e => handleFirestoreError(e, OperationType.DELETE, m.ref.path)));
+          });
+        }
+      }
+
+      await Promise.all([...roomDeletes, ...peopleSubDeletes]);
+      alert('All rooms, vault items, and shared birthday messages have been deleted.');
       setShowResetConfirm(false);
     } catch (err) {
       console.error("Reset error:", err);
+      // If it's a JSON error, the ErrorBoundary will catch it if we re-throw it
+      // but here we might want to alert if it's not caught by boundary
+      if (err instanceof Error && err.message.startsWith('{')) {
+        throw err; // Let ErrorBoundary handle it
+      }
       alert('Failed to reset data.');
     } finally {
       setIsResetting(false);

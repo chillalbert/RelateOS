@@ -23,6 +23,11 @@ async function startServer() {
   });
 
   console.log(`Starting server in ${process.env.NODE_ENV || 'development'} mode`);
+  if (process.env.GEMINI_API_KEY) {
+    console.log(`[Server] GEMINI_API_KEY is present (starts with ${process.env.GEMINI_API_KEY.substring(0, 4)}...)`);
+  } else {
+    console.warn("[Server] GEMINI_API_KEY is NOT present in environment variables.");
+  }
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

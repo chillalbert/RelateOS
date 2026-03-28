@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { 
   ArrowLeft, 
   Users, 
-  Send, 
   Plus, 
   Vote, 
   DollarSign, 
@@ -34,11 +33,9 @@ import {
   where, 
   serverTimestamp, 
   arrayUnion, 
-  getDocs,
-  orderBy,
-  limit
+  getDocs
 } from 'firebase/firestore';
-import { cn, formatDate } from '../lib/utils';
+import { cn } from '../lib/utils';
 
 export default function GroupPlanning() {
   const { id } = useParams();
@@ -49,7 +46,7 @@ export default function GroupPlanning() {
   
   const [group, setGroup] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
-  const [activeTab, setActiveTab] = React.useState<'planning' | 'vault' | 'chat'>('planning');
+  const [activeTab, setActiveTab] = React.useState<'planning' | 'vault'>('planning');
   
   // Form states
   const [newIdea, setNewIdea] = React.useState('');
@@ -62,11 +59,6 @@ export default function GroupPlanning() {
   const [joinError, setJoinError] = React.useState('');
   const [isJoiningLoading, setIsJoiningLoading] = React.useState(false);
   
-  // Chat states
-  const [newMessage, setNewMessage] = React.useState('');
-  const [messages, setMessages] = React.useState<any[]>([]);
-  const scrollRef = React.useRef<HTMLDivElement>(null);
-
   // Vault states
   const [showSurpriseForm, setShowSurpriseForm] = React.useState(false);
   const [newSurprise, setNewSurprise] = React.useState({ type: 'message', content: '' });
@@ -107,14 +99,6 @@ export default function GroupPlanning() {
       }
     });
 
-    // Chat subscription
-    const chatRef = collection(db, 'rooms', id, 'chat');
-    const chatQuery = query(chatRef, orderBy('created_at', 'asc'), limit(50));
-    const unsubscribeChat = onSnapshot(chatQuery, (snapshot) => {
-      setMessages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    });
-
     // Surprises subscription
     const surprisesRef = collection(db, 'rooms', id, 'surprises');
     const unsubscribeSurprises = onSnapshot(surprisesRef, (snapshot) => {
@@ -123,27 +107,9 @@ export default function GroupPlanning() {
 
     return () => {
       unsubscribeGroup();
-      unsubscribeChat();
       unsubscribeSurprises();
     };
   }, [id, firebaseUser, user?.email]);
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!id || !newMessage.trim() || !firebaseUser) return;
-    try {
-      const chatRef = collection(db, 'rooms', id, 'chat');
-      await addDoc(chatRef, {
-        user_id: firebaseUser.uid,
-        user_name: user?.name || 'Anonymous',
-        content: newMessage,
-        created_at: serverTimestamp()
-      });
-      setNewMessage('');
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const handleAddSurprise = async () => {
     if (!id || !newSurprise.content.trim() || !firebaseUser) return;
@@ -474,7 +440,7 @@ export default function GroupPlanning() {
         </div>
 
         <div className="flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl">
-          {(['planning', 'vault', 'chat'] as const).map((tab) => (
+          {(['planning', 'vault'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -756,45 +722,6 @@ export default function GroupPlanning() {
                 </div>
               )}
             </div>
-          </motion.div>
-        )}
-
-        {activeTab === 'chat' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col h-[60vh]">
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-hide">
-              {messages.map((msg, i) => {
-                const isMe = msg.user_id === firebaseUser?.uid;
-                return (
-                  <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
-                    <div className={cn(
-                      "max-w-[80%] p-4 rounded-2xl text-sm shadow-sm",
-                      isMe ? "bg-emerald-500 text-white rounded-tr-none" : "bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-tl-none"
-                    )}>
-                      {!isMe && <p className="text-[10px] font-bold opacity-50 mb-1">{msg.user_name}</p>}
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
-                    </div>
-                    <p className="text-[8px] text-zinc-400 mt-1 uppercase font-bold">{msg.created_at ? formatDate(msg.created_at.toDate().toISOString()) : 'Just now'}</p>
-                  </div>
-                );
-              })}
-              <div ref={scrollRef} />
-            </div>
-
-            <form onSubmit={handleSendMessage} className="mt-4 flex gap-2">
-              <input 
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1 p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-sm"
-                placeholder="Message the crew..."
-              />
-              <button 
-                type="submit"
-                disabled={!newMessage.trim()}
-                className="p-4 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-2xl disabled:opacity-50"
-              >
-                <Send size={20} />
-              </button>
-            </form>
           </motion.div>
         )}
       </div>

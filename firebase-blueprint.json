@@ -93,17 +93,6 @@
         "created_at": { "type": "string", "format": "date-time" }
       }
     },
-    "ChatMessage": {
-      "title": "Chat Message",
-      "description": "A message in the group planning chat",
-      "type": "object",
-      "properties": {
-        "user_id": { "type": "string" },
-        "user_name": { "type": "string" },
-        "text": { "type": "string" },
-        "created_at": { "type": "string", "format": "date-time" }
-      }
-    },
     "Surprise": {
       "title": "Surprise",
       "description": "A message or media for the secret vault",
@@ -152,10 +141,6 @@
     "/rooms/{roomId}/contributions/{contributionId}": {
       "schema": "Contribution",
       "description": "Contributions to a gift pool"
-    },
-    "/rooms/{roomId}/chat/{messageId}": {
-      "schema": "ChatMessage",
-      "description": "Chat messages within a room"
     },
     "/rooms/{roomId}/surprises/{surpriseId}": {
       "schema": "Surprise",

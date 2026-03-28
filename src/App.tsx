@@ -10,12 +10,12 @@ import GroupPlanning from './pages/GroupPlanning';
 import Groups from './pages/Groups';
 import Vaults from './pages/Vaults';
 import BirthdayCalendar from './pages/BirthdayCalendar';
-import SharedBirthdayPage from './pages/SharedBirthdayPage';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 
 import LoadingScreen from './components/LoadingScreen';
 import NotificationManager from './components/NotificationManager';
+import ErrorBoundary from './components/ErrorBoundary';
 import { initializeGeminiKey } from './services/geminiService';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
@@ -46,29 +46,30 @@ const ThemeHandler = ({ children }: { children: React.ReactNode }) => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ThemeHandler>
-        <NotificationManager />
-        <Router>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-            <Route path="/add" element={<PrivateRoute><AddPerson /></PrivateRoute>} />
-            <Route path="/vaults" element={<PrivateRoute><Vaults /></PrivateRoute>} />
-            <Route path="/shared/:id" element={<SharedBirthdayPage />} />
-            <Route path="/calendar" element={<PrivateRoute><BirthdayCalendar /></PrivateRoute>} />
-            <Route path="/person/:id" element={<PrivateRoute><PersonProfile /></PrivateRoute>} />
-            <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
-            <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
-            <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
-            <Route path="/groups" element={<PrivateRoute><Groups /></PrivateRoute>} />
-            <Route path="/groups/create" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
-            <Route path="/groups/:id" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </Router>
-      </ThemeHandler>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ThemeHandler>
+          <NotificationManager />
+          <Router>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+              <Route path="/add" element={<PrivateRoute><AddPerson /></PrivateRoute>} />
+              <Route path="/vaults" element={<PrivateRoute><Vaults /></PrivateRoute>} />
+              <Route path="/calendar" element={<PrivateRoute><BirthdayCalendar /></PrivateRoute>} />
+              <Route path="/person/:id" element={<PrivateRoute><PersonProfile /></PrivateRoute>} />
+              <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
+              <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+              <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
+              <Route path="/groups" element={<PrivateRoute><Groups /></PrivateRoute>} />
+              <Route path="/groups/create" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
+              <Route path="/groups/:id" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </Router>
+        </ThemeHandler>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

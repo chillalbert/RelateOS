@@ -4,80 +4,110 @@ import { db } from "../lib/firebase";
 
 let cachedApiKey: string | null = null;
 
+function cleanKey(key: any): string {
+  if (!key || typeof key !== 'string') return '';
+  const trimmed = key.trim();
+  // Handle common "empty" values that might be stringified
+  if (trimmed === 'undefined' || trimmed === 'null' || trimmed === '' || trimmed === '""' || trimmed === "''") return '';
+  return trimmed;
+}
+
 export async function initializeGeminiKey() {
   if (cachedApiKey) return cachedApiKey;
   
   try {
+    console.log("[GeminiService] Attempting to fetch API key from Firestore...");
     const secretDoc = await getDoc(doc(db, "secrets", "gemini_api_key"));
     if (secretDoc.exists()) {
-      cachedApiKey = secretDoc.data().value;
-      return cachedApiKey;
+      const val = cleanKey(secretDoc.data().value);
+      if (val) {
+        cachedApiKey = val;
+        console.log(`[GeminiService] Successfully loaded API key from Firestore (starts with ${val.substring(0, 4)}...)`);
+        return cachedApiKey;
+      } else {
+        console.warn("[GeminiService] Firestore secret 'gemini_api_key' exists but value is empty.");
+      }
+    } else {
+      console.warn("[GeminiService] Firestore document 'secrets/gemini_api_key' does not exist.");
     }
   } catch (error) {
-    console.error("Error fetching Gemini API key from Firestore:", error);
+    console.error("[GeminiService] Error fetching Gemini API key from Firestore:", error);
   }
   return null;
 }
 
 // Initialize the Gemini API client
-// Note: process.env.GEMINI_API_KEY is automatically provided by the platform
 async function callGemini(prompt: string, config?: any) {
   let apiKey = '';
+  let source = 'None';
   
-  // 1. Check Firebase Storage (Highest Priority - allows you to override platform keys)
-  apiKey = await initializeGeminiKey() || '';
+  // 1. Check Firebase Storage (Highest Priority override)
+  apiKey = cleanKey(await initializeGeminiKey());
+  if (apiKey) source = 'Firebase';
   
   // 2. Check Environment (AI Studio / Netlify Env Vars)
   if (!apiKey) {
-    apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+    apiKey = cleanKey(process.env.GEMINI_API_KEY);
+    if (apiKey) source = 'process.env.GEMINI_API_KEY';
+  }
+
+  if (!apiKey) {
+    apiKey = cleanKey((import.meta as any).env?.VITE_GEMINI_API_KEY);
+    if (apiKey) source = 'import.meta.env.VITE_GEMINI_API_KEY';
+  }
+
+  if (!apiKey) {
+    apiKey = cleanKey((import.meta as any).env?.GEMINI_API_KEY);
+    if (apiKey) source = 'import.meta.env.GEMINI_API_KEY';
   }
   
-  // 3. Check Browser Storage (Manual setup for Netlify/Testing)
+  // 3. Check Browser Storage (Manual setup/Testing)
   if (!apiKey) {
-    apiKey = localStorage.getItem('GEMINI_API_KEY') || '';
+    apiKey = cleanKey(localStorage.getItem('GEMINI_API_KEY'));
+    if (apiKey) source = 'LocalStorage';
   }
 
   if (apiKey) {
-    const source = cachedApiKey ? "Firebase" : "Environment/Storage";
-    console.log(`Using Gemini API Key (starts with ${apiKey.substring(0, 4)}...) from: ${source}`);
+    console.log(`[GeminiService] Using API Key (starts with ${apiKey.substring(0, 4)}...) from: ${source}`);
+  } else {
+    console.warn("[GeminiService] No valid API Key found in any source (Firestore, Env, LocalStorage).");
   }
 
   const getDemoResponse = async (prompt: string) => {
-    console.warn("Running in Demo Mode with mock responses.");
+    console.warn("[GeminiService] Running in Demo Mode with mock responses.");
     await new Promise(resolve => setTimeout(resolve, 1000));
-    // ... (rest of demo logic remains same)
-
+    
     if (prompt.includes("birthday message")) {
       return JSON.stringify({
-        shortText: "Happy Birthday! 🎂",
-        cardMessage: "Wishing you a day filled with joy and a year ahead full of wonderful adventures. You deserve the best!"
+        shortText: "Happy Birthday! Hope you have an amazing day! 🎂✨",
+        cardMessage: "Wishing you a day filled with joy and a year ahead full of wonderful adventures. You deserve the best, and I hope this year brings you everything you've been working towards!"
       });
     }
     
     if (prompt.includes("recovery plan")) {
       return JSON.stringify({
-        apologyMessage: "I'm so sorry I missed your big day! I hope it was as amazing as you are.",
+        apologyMessage: "I'm so sorry I missed your big day! I hope it was as amazing as you are. Let's celebrate properly soon!",
         recoveryGiftIdeas: ["Surprise Coffee Delivery", "Handwritten Letter", "Dinner on me"]
       });
     }
 
     if (prompt.includes("gift ideas")) {
       return JSON.stringify([
-        "Customized Photo Album",
-        "Premium Coffee Bean Set",
-        "Noise-Canceling Headphones"
+        { title: "Customized Photo Album", price: "$30", reason: "Great for preserving memories.", searchUrl: "https://google.com/search?q=custom+photo+album" },
+        { title: "Premium Coffee Bean Set", price: "$25", reason: "Perfect for a coffee lover.", searchUrl: "https://google.com/search?q=premium+coffee+beans" },
+        { title: "Noise-Canceling Headphones", price: "$150", reason: "High quality audio experience.", searchUrl: "https://google.com/search?q=noise+canceling+headphones" }
       ]);
     }
 
     return "This is a demo response because the Gemini API key is not configured or has been revoked.";
   };
 
-  if (!apiKey) {
+  if (!apiKey || apiKey.trim() === '') {
     return getDemoResponse(prompt);
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [{ parts: [{ text: prompt }] }],
@@ -86,11 +116,16 @@ async function callGemini(prompt: string, config?: any) {
       },
     });
 
+    if (!response || !response.text) {
+      throw new Error("Empty response from Gemini API");
+    }
+
     return response.text;
   } catch (error: any) {
+    console.error("[GeminiService] API Call Error:", error);
     // Handle leaked/revoked key error specifically
-    if (error?.message?.includes("leaked") || error?.message?.includes("403")) {
-      console.error("Gemini API Key has been revoked or is invalid. Falling back to Demo Mode.");
+    if (error?.message?.includes("leaked") || error?.message?.includes("403") || error?.message?.includes("API_KEY_INVALID")) {
+      console.error("[GeminiService] Gemini API Key has been revoked or is invalid. Falling back to Demo Mode.");
       return getDemoResponse(prompt);
     }
     throw error;
@@ -107,7 +142,7 @@ export async function generateBirthdayMessage(params: {
   try {
     const prompt = `
 You are a warm, emotionally intelligent birthday message writer. Your job is to generate two versions of a personalized birthday message:
-1. A "Short Text": This should be like a message you would send over iMessage or WhatsApp. It should be punchy, warm, and feel like a real person sent it. Use emojis naturally.
+1. A "Short Text": This MUST be a complete, natural message you would send over iMessage or WhatsApp. It should be punchy, warm, and feel like a real person sent it. Use emojis naturally. DO NOT truncate the message. It should be a full thought. End the message naturally with a period or emoji, never in the middle of a sentence.
 2. A "Card Message": This is a slightly longer, more heartfelt version (3-5 sentences) suitable for a physical card or a long-form digital note.
 
 Guidelines:
@@ -130,12 +165,15 @@ Recipient Info:
     const text = await callGemini(prompt, { responseMimeType: "application/json" });
     const result = JSON.parse(text || '{}');
     return { 
-      shortText: result.shortText || "Happy Birthday! 🎂", 
-      cardMessage: result.cardMessage || "Happy Birthday! Have an amazing day." 
+      shortText: result.shortText || `Happy Birthday ${params.name}! Hope you have the best day! 🎂`, 
+      cardMessage: result.cardMessage || `Happy Birthday ${params.name}! Wishing you an incredible year ahead filled with joy and success.` 
     };
   } catch (error) {
     console.error("AI Generation Error:", error);
-    return { shortText: "Happy Birthday! 🎂", cardMessage: "Happy Birthday. Have a great day." };
+    return { 
+      shortText: `Happy Birthday ${params.name}! 🎂`, 
+      cardMessage: `Happy Birthday ${params.name}! Have an amazing day.` 
+    };
   }
 }
 
