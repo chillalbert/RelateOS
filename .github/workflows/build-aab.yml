@@ -6,6 +6,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      JAVA_HOME: /opt/hostedtoolcache/Java_Temurin_jdk/17.0.14-7/x64
     steps:
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -13,13 +15,17 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Set JAVA_HOME
+        run: echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
+
       - name: Install Bubblewrap
         run: npm install -g @bubblewrap/cli
 
       - name: Initialize Bubblewrap project
         run: |
-          mkdir app && cd app
-          bubblewrap init --manifest https://relateosbday.netlify.app/manifest.json --skipJdkCheck
+          mkdir -p app
+          cd app
+          printf 'n\n' | bubblewrap init --manifest https://relateosbday.netlify.app/manifest.json
 
       - name: Decode keystore
         run: |
