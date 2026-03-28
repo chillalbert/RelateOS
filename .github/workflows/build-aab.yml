@@ -1,0 +1,41 @@
+name: Build Signed AAB
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install Bubblewrap
+        run: npm install -g @bubblewrap/cli
+
+      - name: Initialize Bubblewrap project
+        run: |
+          mkdir app && cd app
+          bubblewrap init --manifest https://relateosbday.netlify.app/manifest.json
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/upload.keystore
+
+      - name: Build AAB
+        working-directory: app
+        run: |
+          bubblewrap build \
+            --keystore upload.keystore \
+            --keystorePassword relateos2026 \
+            --keyAlias my-key-alias \
+            --keyPassword relateos2026
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: relateos-signed-aab
+          path: app/app-release-signed.aab
