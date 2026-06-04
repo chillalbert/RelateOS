@@ -24,10 +24,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import { getDaysUntil, formatDate, cn, getRelationshipScore, getPreciseCountdown, getTurningAge } from '../lib/utils';
-import { Gift, MessageSquare, Sparkles as SparklesIcon } from 'lucide-react';
+import { Gift, MessageSquare, Sparkles as SparklesIcon, Trash2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit, setDoc, addDoc, serverTimestamp, increment, deleteDoc } from 'firebase/firestore';
 import { generateGiftSuggestions, generateBirthdayMessage } from '../services/geminiService';
 
 const AnimatedNumber = ({ value }: { value: number }) => {
@@ -234,6 +234,14 @@ export default function Dashboard() {
       const userRef = doc(db, 'users', firebaseUser.uid);
       const newStreak = (user.streak || 0) + 1;
       await updateDoc(userRef, { streak: newStreak });
+
+      const personRef = doc(db, 'people', personId);
+      const currentYear = new Date().getFullYear();
+      await updateDoc(personRef, {
+        relationshipScore: increment(15),
+        lastWishedYear: currentYear,
+        lastWishedDate: new Date().toISOString()
+      });
       
       // Log it as a memory
       const memoriesRef = collection(db, 'people', personId, 'memories');
@@ -253,8 +261,26 @@ export default function Dashboard() {
 
       await refreshUser();
       alert(`Happy Birthday wished to ${personName}! Your relationship streak is now ${newStreak} 🔥`);
+      fetchDashboardData(); // Refresh UI State
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDeletePerson = async (personId: string, personName: string) => {
+    if (!window.confirm(`Are you sure you want to delete ${personName}?`)) return;
+    try {
+      // Delete from both "people" and "contacts" collections for ultimate safety and compliance
+      await deleteDoc(doc(db, 'people', personId));
+      await deleteDoc(doc(db, 'contacts', personId));
+
+      // Filter local state array immediately to cleanly remove from UI without reload
+      setPeople(prev => prev.filter(p => p.id !== personId));
+
+      alert(`${personName} has been removed from your contacts.`);
+    } catch (err) {
+      console.error("Error deleting person:", err);
+      alert("Failed to delete person.");
     }
   };
 
@@ -492,9 +518,18 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
-                  <Link to={`/person/${person.id}`} className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
-                    <ChevronRight size={20} />
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => handleDeletePerson(person.id, person.name)}
+                      className="p-2 text-zinc-400 hover:text-red-500 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      title="Delete Contact"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                    <Link to={`/person/${person.id}`} className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
+                      <ChevronRight size={20} />
+                    </Link>
+                  </div>
                 </div>
 
                 {/* Progress Bar */}
@@ -507,7 +542,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3">
-                  {daysLeft === 0 && (
+                  {daysLeft === 0 && person.lastWishedYear !== new Date().getFullYear() && (
                     <button
                       onClick={() => handleWishBirthday(person.id, person.name)}
                       className="flex items-center justify-center gap-2 p-3 bg-emerald-500 text-white rounded-2xl font-bold text-xs shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all"
