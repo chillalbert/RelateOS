@@ -17,21 +17,33 @@ export async function initializeGeminiKey() {
   
   try {
     console.log("[GeminiService] Attempting to fetch API key from Firestore...");
-    const secretDoc = await getDoc(doc(db, "secrets", "gemini_api_key"));
+    const docRef = doc(db, "secrets", "gemini_api_key");
+    const secretDoc = await getDoc(docRef);
+    
     if (secretDoc.exists()) {
-      const val = cleanKey(secretDoc.data().value);
+      const data = secretDoc.data();
+      // Read value from any standard field naming pattern
+      const val = cleanKey(data?.value || data?.apiKey || data?.key || data?.api_key || data?.secret);
+      
       if (val) {
         cachedApiKey = val;
         console.log(`[GeminiService] Successfully loaded API key from Firestore (starts with ${val.substring(0, 4)}...)`);
         return cachedApiKey;
       } else {
-        console.warn("[GeminiService] Firestore secret 'gemini_api_key' exists but value is empty.");
+        console.warn("[GeminiService] Firestore secret 'gemini_api_key' exists but value fields are empty. Checked: value, apiKey, key, api_key, secret.", data);
       }
     } else {
       console.warn("[GeminiService] Firestore document 'secrets/gemini_api_key' does not exist.");
     }
-  } catch (error) {
-    console.error("[GeminiService] Error fetching Gemini API key from Firestore:", error);
+  } catch (error: any) {
+    console.error("[GeminiService] Error fetching Gemini API key from Firestore. This might be a Firestore permission (rules) or database configuration issue.");
+    console.error("[GeminiService] Full error trace:", {
+      message: error?.message,
+      code: error?.code,
+      name: error?.name,
+      stack: error?.stack,
+      errObj: error
+    });
   }
   return null;
 }
