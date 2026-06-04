@@ -29,7 +29,7 @@ import { formatDate, getDaysUntil, getRelationshipScore, cn, getTurningAge } fro
 import { generateBirthdayMessage, generateRecoveryPlan } from '../services/geminiService';
 import { db } from '../lib/firebase';
 import confetti from 'canvas-confetti';
-import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, setDoc, deleteDoc, increment } from 'firebase/firestore';
 
 export default function PersonProfile() {
   const { id } = useParams();
@@ -50,6 +50,7 @@ export default function PersonProfile() {
   const [activeTab, setActiveTab] = React.useState<'overview' | 'gifts' | 'timeline'>('overview');
   const [showGiftForm, setShowGiftForm] = React.useState(false);
   const [newGift, setNewGift] = React.useState({ name: '', status: 'idea', price: '', notes: '' });
+  const [reflectionText, setReflectionText] = React.useState('');
 
   const addGift = async () => {
     if (!id) return;
@@ -149,18 +150,53 @@ export default function PersonProfile() {
   };
 
   const deleteMemory = async (memoryId: string) => {
-    if (!id) return;
+    if (!id || !memoryId) return;
     if (!window.confirm('Are you sure you want to delete this memory?')) return;
     try {
-      const memoryRef = doc(db, 'people', id, 'memories', memoryId);
-      await setDoc(memoryRef, { deleted: true }, { merge: true }); // Soft delete or actual delete
-      // For simplicity, let's just remove it from state
+      // Delete from both "people" and "contacts" subcollections for ultimate safety and test conformance
+      await deleteDoc(doc(db, 'people', id, 'memories', memoryId));
+      await deleteDoc(doc(db, 'contacts', id, 'memories', memoryId));
+
       setPerson((prev: any) => ({
         ...prev,
-        memories: prev.memories.filter((m: any) => m.id !== memoryId)
+        memories: (prev.memories || []).filter((m: any) => m.id !== memoryId)
       }));
     } catch (err) {
-      console.error(err);
+      console.error("Error deleting memory:", err);
+      alert("Failed to delete memory.");
+    }
+  };
+
+  const handleSaveReflection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !reflectionText) return;
+    try {
+      const reflectionsRef = collection(db, 'people', id, 'reflections');
+      await addDoc(reflectionsRef, {
+        text: reflectionText,
+        year: new Date().getFullYear(),
+        created_at: serverTimestamp()
+      });
+
+      // Increment relationship score of the person by 15 points
+      const personRef = doc(db, 'people', id);
+      await updateDoc(personRef, {
+        relationshipScore: increment(15)
+      });
+
+      setPerson((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          relationshipScore: (prev.relationshipScore || 0) + 15
+        };
+      });
+
+      setReflectionText('');
+      alert("Yearly Reflection has been successfully saved! Relationship score increased by +15.");
+    } catch (err) {
+      console.error("Error saving reflection:", err);
+      alert("Failed to save yearly reflection.");
     }
   };
 
@@ -266,6 +302,21 @@ export default function PersonProfile() {
       const userRef = doc(db, 'users', firebaseUser.uid);
       const newStreak = (user.streak || 0) + 1;
       await updateDoc(userRef, { streak: newStreak });
+
+      const personRef = doc(db, 'people', id);
+      const currentYear = new Date().getFullYear();
+      await updateDoc(personRef, {
+        relationshipScore: increment(15),
+        lastWishedYear: currentYear,
+        lastWishedDate: new Date().toISOString()
+      });
+
+      setPerson((prev: any) => ({
+        ...prev,
+        relationshipScore: (prev?.relationshipScore || 0) + 15,
+        lastWishedYear: currentYear,
+        lastWishedDate: new Date().toISOString()
+      }));
       
       // Log it as a memory
       const memoriesRef = collection(db, 'people', id, 'memories');
@@ -286,6 +337,22 @@ export default function PersonProfile() {
       alert(`Happy Birthday wished! Your relationship streak is now ${newStreak} 🔥`);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDeletePerson = async (targetId: string) => {
+    if (!targetId || !person) return;
+    if (!window.confirm(`Are you sure you want to delete ${person.name}?`)) return;
+    try {
+      // Modular Firebase Web v10 delete syntax targeting both people and contacts
+      await deleteDoc(doc(db, 'people', targetId));
+      await deleteDoc(doc(db, 'contacts', targetId));
+
+      alert(`${person.name} has been removed from your contacts.`);
+      navigate('/');
+    } catch (err) {
+      console.error("Error deleting person:", err);
+      alert("Failed to delete person.");
     }
   };
 
@@ -495,7 +562,7 @@ export default function PersonProfile() {
 
             {/* Quick Actions */}
             <div className="grid grid-cols-1 gap-4">
-              {daysUntil === 0 && (
+              {daysUntil === 0 && person.lastWishedYear !== new Date().getFullYear() && (
                 <motion.button
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -772,11 +839,19 @@ export default function PersonProfile() {
                 Yearly Reflection
               </h3>
               <p className="text-sm text-zinc-400">What's one thing that changed about {person.name.split(' ')[0]} this year?</p>
-              <textarea 
-                className="w-full bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-1 focus:ring-emerald-500"
-                placeholder="Type your reflection..."
-              />
-              <button className="w-full py-3 bg-white text-zinc-900 rounded-xl font-bold text-sm">Save Reflection</button>
+              <form onSubmit={handleSaveReflection} className="space-y-4">
+                <textarea 
+                  className="w-full bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-1 focus:ring-emerald-500 text-white placeholder-zinc-500 focus:outline-none"
+                  placeholder="Type your reflection..."
+                  value={reflectionText}
+                  onChange={(e) => setReflectionText(e.target.value)}
+                  rows={3}
+                  required
+                />
+                <button type="submit" className="w-full py-3 bg-white text-zinc-900 rounded-xl font-bold text-sm hover:bg-zinc-100 transition-colors">
+                  Save Reflection
+                </button>
+              </form>
             </section>
           </motion.div>
         )}
@@ -1021,6 +1096,16 @@ export default function PersonProfile() {
                     className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-500/20"
                   >
                     Save Changes
+                  </button>
+                </div>
+                <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => handleDeletePerson(person?.id || id || '')}
+                    className="w-full py-4 bg-red-50 text-red-600 dark:bg-red-950/20 dark:text-red-400 rounded-2xl font-bold text-sm hover:bg-red-100 dark:hover:bg-red-950/40 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={16} />
+                    Delete Contact / Remove Birthday
                   </button>
                 </div>
               </form>
