@@ -68,6 +68,23 @@ export default function Settings() {
   
   const [showPasswordModal, setShowPasswordModal] = React.useState(false);
   const [showNotifModal, setShowNotifModal] = React.useState(false);
+  const [showUsernameModal, setShowUsernameModal] = React.useState(false);
+  const [username, setUsername] = React.useState(user?.name || '');
+
+  const handleUsernameChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firebaseUser) return;
+    try {
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      await setDoc(userRef, { name: username }, { merge: true });
+      setShowUsernameModal(false);
+      await refreshUser();
+      alert('Username updated successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update username.');
+    }
+  };
   const [passwordData, setPasswordData] = React.useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [passwordError, setPasswordError] = React.useState('');
   const [passwordSuccess, setPasswordSuccess] = React.useState(false);
@@ -258,7 +275,7 @@ export default function Settings() {
     {
       title: 'Account',
       items: [
-        { icon: <User size={20} />, label: 'Profile Information', value: user?.name, onClick: () => {} },
+        { icon: <User size={20} />, label: 'Profile Information', value: user?.name, onClick: () => { setUsername(user?.name || ''); setShowUsernameModal(true); } },
         { icon: <Sparkles size={20} />, label: 'My Birthday', value: birthday || 'Not set', onClick: () => setShowBirthdayModal(true) },
         { icon: <Shield size={20} />, label: 'Security & Password', value: '••••••••', onClick: () => setShowPasswordModal(true) },
       ]
@@ -329,6 +346,15 @@ export default function Settings() {
           <LogOut size={20} />
           Sign Out
         </button>
+
+        <a 
+          href="https://sites.google.com/view/relate-os-privacy-policy/account-deletion?authuser=0"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-center gap-2 p-5 border border-red-200 dark:border-red-900/30 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-3xl font-bold text-sm transition-all text-center block"
+        >
+          Delete Account
+        </a>
 
         {isAdmin && (
           <section className="space-y-4 pt-4">
@@ -442,6 +468,53 @@ export default function Settings() {
                   Done
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Username Modal */}
+      <AnimatePresence>
+        {showUsernameModal && (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowUsernameModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-t-[32px] sm:rounded-[32px] p-8"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold">Edit Username</h2>
+                <button onClick={() => setShowUsernameModal(false)} className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleUsernameChange} className="space-y-6">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-zinc-400">Username / Display Name</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-500/20"
+                >
+                  Save Username
+                </button>
+              </form>
             </motion.div>
           </div>
         )}
