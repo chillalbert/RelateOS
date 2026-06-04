@@ -83,5 +83,6 @@ export function getRelationshipScore(person: any) {
     const completed = person.tasks.filter((t: any) => t.completed).length;
     score += completed * 15;
   }
+  if (person.relationshipScore) score += person.relationshipScore;
   return Math.min(score, 100);
 }
