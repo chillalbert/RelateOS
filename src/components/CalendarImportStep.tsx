@@ -102,7 +102,15 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
     }
   }, [state]);
 
-  const saveContactsToFirestore = async (contactsList: { name: string; birthday: string; birthYearUnknown: boolean }[]) => {
+  const saveContactsToFirestore = async (
+    contactsList: {
+      name: string;
+      birthday: string;
+      birthYearUnknown: boolean;
+      photo_url?: string;
+      notes?: string;
+    }[]
+  ) => {
     if (contactsList.length === 0) {
       throw new Error("No birthday events found in your calendar.");
     }
@@ -120,10 +128,10 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
             category: 'friend',
             importance: 5,
             friendshipScore: 0,
-            notes: '',
+            notes: contact.notes || '',
             interests: '',
             nickname: '',
-            photo_url: '',
+            photo_url: contact.photo_url || '',
             created_at: serverTimestamp(),
             reminder_settings: {
               "30_days": true,
@@ -151,60 +159,172 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
         token = await signInWithGoogle();
       }
       if (!token) {
-        throw new Error("Failed to get Google Calendar authorization token.");
+        throw new Error("Failed to get Google authorization token.");
       }
 
-      const response = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&maxResults=500&fields=items(summary,start)`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.removeItem('gcal_token');
-          token = await signInWithGoogle();
-          if (!token) throw new Error("Google API unauthorized and authentication failed.");
-          const responseRetry = await fetch(
+      const fetchApis = async (t: string) => {
+        const [calRes, peopleRes] = await Promise.all([
+          fetch(
             `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&maxResults=500&fields=items(summary,start)`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          if (!responseRetry.ok) {
-            throw new Error(`Google Calendar API error: ${responseRetry.statusText}`);
-          }
-          const data = await responseRetry.json();
-          await parseAndSaveGoogleEvents(data.items || []);
-          return;
+            { headers: { Authorization: `Bearer ${t}` } }
+          ),
+          fetch(
+            `https://people.googleapis.com/v1/people/me/connections?personFields=names,birthdays,photos,phoneNumbers,biographies&pageSize=1000`,
+            { headers: { Authorization: `Bearer ${t}` } }
+          )
+        ]);
+        return { calRes, peopleRes };
+      };
+
+      let { calRes, peopleRes } = await fetchApis(token);
+
+      if (calRes.status === 401 || peopleRes.status === 401) {
+        localStorage.removeItem('gcal_token');
+        token = await signInWithGoogle();
+        if (!token) {
+          throw new Error("Google API unauthorized and authentication failed.");
         }
-        throw new Error(`Google Calendar API error: ${response.statusText}`);
+        const retryResult = await fetchApis(token);
+        calRes = retryResult.calRes;
+        peopleRes = retryResult.peopleRes;
       }
 
-      const data = await response.json();
-      await parseAndSaveGoogleEvents(data.items || []);
+      if (!calRes.ok) {
+        throw new Error(`Google Calendar API error: ${calRes.statusText}`);
+      }
+      if (!peopleRes.ok) {
+        throw new Error(`Google People API error: ${peopleRes.statusText}`);
+      }
+
+      const calData = await calRes.json();
+      const peopleData = await peopleRes.json();
+
+      // STEP 2 — Parse Calendar results
+      const calendarMap = new Map<string, { birthday: string; birthYearUnknown: boolean }>();
+      const calendarItems = calData.items || [];
+      calendarItems.forEach((item: any) => {
+        if (item.summary && item.summary.toLowerCase().includes('birthday')) {
+          const cleanedName = cleanName(item.summary);
+          let bday = item.start?.date;
+          if (!bday && item.start?.dateTime) {
+            bday = item.start.dateTime.substring(0, 10);
+          }
+          if (cleanedName && bday && /^\d{4}-\d{2}-\d{2}$/.test(bday)) {
+            const birthdayStr = `1900${bday.substring(4)}`;
+            calendarMap.set(cleanedName.toLowerCase(), {
+              birthday: birthdayStr,
+              birthYearUnknown: true
+            });
+          }
+        }
+      });
+
+      // STEP 3 — Parse Contacts results
+      const contactsMap = new Map<string, { birthday?: string; birthYearUnknown?: boolean; photo_url: string; notes: string; displayName: string }>();
+      const connections = peopleData.connections || [];
+      connections.forEach((person: any) => {
+        const displayName = person.names?.[0]?.displayName;
+        if (!displayName) return;
+
+        // Birthday parsing
+        const bdayObj = person.birthdays?.[0]?.date;
+        let birthdayStr: string | undefined;
+        let birthYearUnknown: boolean | undefined;
+
+        if (bdayObj) {
+          const { year, month, day } = bdayObj;
+          if (month && day) {
+            const monthStr = String(month).padStart(2, '0');
+            const dayStr = String(day).padStart(2, '0');
+            if (year && year !== 0) {
+              birthdayStr = `${year}-${monthStr}-${dayStr}`;
+              birthYearUnknown = false;
+            } else {
+              birthdayStr = `1900-${monthStr}-${dayStr}`;
+              birthYearUnknown = true;
+            }
+          }
+        }
+
+        // Photo parsing
+        let photo_url = person.photos?.[0]?.url || '';
+        if (photo_url.toLowerCase().includes('default')) {
+          photo_url = '';
+        }
+
+        // Notes parsing
+        const notes = person.biographies?.[0]?.value || '';
+
+        contactsMap.set(displayName.toLowerCase(), {
+          birthday: birthdayStr,
+          birthYearUnknown,
+          photo_url,
+          notes,
+          displayName
+        });
+      });
+
+      // STEP 4 — Merge both maps into final contacts list
+      const finalList: {
+        name: string;
+        birthday: string;
+        birthYearUnknown: boolean;
+        photo_url: string;
+        notes: string;
+      }[] = [];
+
+      // Start with all entries from the Calendar map
+      for (const [key, calEntry] of calendarMap.entries()) {
+        const contactEntry = contactsMap.get(key);
+        const nameTitleCased = cleanName(key);
+        
+        if (contactEntry) {
+          const hasPrefYear = contactEntry.birthday && contactEntry.birthYearUnknown === false;
+          const birthdayStr = hasPrefYear ? contactEntry.birthday! : calEntry.birthday;
+          const birthYearUnknown = hasPrefYear ? false : calEntry.birthYearUnknown;
+          
+          finalList.push({
+            name: nameTitleCased,
+            birthday: birthdayStr,
+            birthYearUnknown,
+            photo_url: contactEntry.photo_url,
+            notes: contactEntry.notes
+          });
+        } else {
+          finalList.push({
+            name: nameTitleCased,
+            birthday: calEntry.birthday,
+            birthYearUnknown: calEntry.birthYearUnknown,
+            photo_url: '',
+            notes: ''
+          });
+        }
+      }
+
+      // Add Contacts entries that have a birthday but are NOT already in the Calendar map
+      for (const [key, contactEntry] of contactsMap.entries()) {
+        if (!calendarMap.has(key)) {
+          if (contactEntry.birthday) {
+            const nameTitleCased = cleanName(contactEntry.displayName);
+            finalList.push({
+              name: nameTitleCased,
+              birthday: contactEntry.birthday,
+              birthYearUnknown: contactEntry.birthYearUnknown ?? true,
+              photo_url: contactEntry.photo_url,
+              notes: contactEntry.notes
+            });
+          }
+        }
+      }
+
+      // STEP 5 — Write merged results to Firestore 'people' collection
+      await saveContactsToFirestore(finalList);
+
     } catch (err: any) {
       console.error(err);
-      setErrorMessage(err.message || "An error occurred while importing from Google Calendar.");
+      setErrorMessage(err.message || "An error occurred while importing from Google.");
       setState('default');
     }
-  };
-
-  const parseAndSaveGoogleEvents = async (items: any[]) => {
-    const list: { name: string; birthday: string; birthYearUnknown: boolean }[] = [];
-    items.forEach((item: any) => {
-      if (item.summary && item.summary.toLowerCase().includes('birthday')) {
-        const cleaned = cleanName(item.summary);
-        let bday = item.start?.date;
-        if (!bday && item.start?.dateTime) {
-          bday = item.start.dateTime.substring(0, 10);
-        }
-        if (cleaned && bday && /^\d{4}-\d{2}-\d{2}$/.test(bday)) {
-          // Google returns next occurrence year for recurring events, not birth year.
-          // Store 1900 as placeholder so Dashboard shows 🎂 instead of wrong age.
-          const monthDay = bday.substring(4);
-          list.push({ name: cleaned, birthday: `1900${monthDay}`, birthYearUnknown: true });
-        }
-      }
-    });
-    await saveContactsToFirestore(list);
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -260,24 +380,23 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
             )}
 
             <div className="space-y-3 pt-2">
-              <button
-                onClick={handleGoogleImport}
-                className="w-full py-4 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 rounded-2xl font-bold text-sm tracking-wide transition shadow-lg flex items-center justify-center gap-3 hover:opacity-90"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
-                </svg>
-                Sync Google Calendar
-              </button>
-
-              <label className="w-full py-4 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-800 dark:text-zinc-200 rounded-2xl font-bold text-sm tracking-wide transition flex items-center justify-center gap-3 cursor-pointer">
-                <Upload size={18} />
-                Upload Apple Calendar (.ics)
-                <input type="file" accept=".ics" onChange={handleFileUpload} className="hidden" />
-              </label>
+              <div className="space-y-1.5 text-center">
+                <button
+                  onClick={handleGoogleImport}
+                  className="w-full py-4 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 rounded-2xl font-bold text-sm tracking-wide transition shadow-lg flex items-center justify-center gap-3 hover:opacity-90"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+                  </svg>
+                  Sync Google Contacts & Calendar
+                </button>
+                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium px-4">
+                  Import birthdays and profile photos from your Google account in one tap
+                </p>
+              </div>
             </div>
 
             <button
