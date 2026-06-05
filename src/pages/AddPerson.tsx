@@ -19,6 +19,9 @@ export default function AddPerson() {
     interests: '',
     photo_url: ''
   });
+  const [birthMonth, setBirthMonth] = React.useState('');
+  const [birthDay, setBirthDay] = React.useState('');
+  const [birthYear, setBirthYear] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -29,9 +32,18 @@ export default function AddPerson() {
     setIsSubmitting(true);
     setError(null);
     try {
+      const yearStr = birthYear.trim();
+      const monthStr = birthMonth;
+      const dayStr = birthDay.trim().padStart(2, '0');
+      
+      const hasYear = yearStr.length > 0;
+      const birthdayStr = hasYear ? `${yearStr}-${monthStr}-${dayStr}` : `1900-${monthStr}-${dayStr}`;
+
       const peopleRef = collection(db, 'people');
       await addDoc(peopleRef, {
         ...formData,
+        birthday: birthdayStr,
+        birthYearUnknown: !hasYear,
         user_id: firebaseUser.uid,
         created_at: serverTimestamp(),
         reminder_settings: {
@@ -90,7 +102,7 @@ export default function AddPerson() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div className="space-y-1">
               <label className="text-xs font-bold uppercase text-zinc-400">Nickname</label>
               <input
@@ -102,14 +114,46 @@ export default function AddPerson() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-bold uppercase text-zinc-400">Birthday</label>
-              <input
-                type="date"
-                required
-                className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500"
-                value={formData.birthday || ''}
-                onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
-              />
+              <label className="text-xs font-bold uppercase text-zinc-400 block">Birthday</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <select
+                  required
+                  className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 appearance-none text-zinc-900 dark:text-zinc-100"
+                  value={birthMonth}
+                  onChange={(e) => setBirthMonth(e.target.value)}
+                >
+                  <option value="" disabled>Month</option>
+                  <option value="01">January</option>
+                  <option value="02">February</option>
+                  <option value="03">March</option>
+                  <option value="04">April</option>
+                  <option value="05">May</option>
+                  <option value="06">June</option>
+                  <option value="07">July</option>
+                  <option value="08">August</option>
+                  <option value="09">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  max="31"
+                  placeholder="Day"
+                  className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500"
+                  value={birthDay}
+                  onChange={(e) => setBirthDay(e.target.value)}
+                />
+                <input
+                  type="number"
+                  placeholder="Year (optional)"
+                  className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500"
+                  value={birthYear}
+                  onChange={(e) => setBirthYear(e.target.value)}
+                />
+              </div>
             </div>
           </div>
 
