@@ -94,6 +94,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
+      const currentScopes = (googleProvider as any).scopes || [];
+      if (!currentScopes.includes('https://www.googleapis.com/auth/calendar.readonly')) {
+        googleProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+      }
+      if (!currentScopes.includes('https://www.googleapis.com/auth/contacts.readonly')) {
+        googleProvider.addScope('https://www.googleapis.com/auth/contacts.readonly');
+      }
       const result = await signInWithPopup(auth, googleProvider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const token = credential?.accessToken || null;
