@@ -90,7 +90,7 @@ export default function Dashboard() {
       const giftHistory = person.gifts?.filter((g: any) => g.status === 'given').map((g: any) => g.name) || [];
       const message = await generateBirthdayMessage({
         name: person.name,
-        age: person.birthday ? new Date().getFullYear() - new Date(person.birthday).getFullYear() : 'Unknown',
+        age: (person.birthday && !person.birthYearUnknown) ? new Date().getFullYear() - new Date(person.birthday).getFullYear() : 'Unknown',
         relationship: person.category,
         interests: person.interests || 'No specific interests mentioned',
         notes: person.notes || 'No specific notes mentioned'
@@ -443,7 +443,7 @@ export default function Dashboard() {
                         {person.birthday.split('-')[2]} {new Intl.DateTimeFormat('en-US', { month: 'short' }).format(new Date(2000, Number(person.birthday.split('-')[1]) - 1, 1))}
                       </p>
                       <p className="text-[10px] font-black text-emerald-500 uppercase mt-0.5">
-                        Turning {getTurningAge(person.birthday)}
+                        {person.birthYearUnknown ? "🎂" : `Turning ${getTurningAge(person.birthday)}`}
                       </p>
                     </div>
                   </Link>
