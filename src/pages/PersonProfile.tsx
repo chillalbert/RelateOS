@@ -280,7 +280,7 @@ export default function PersonProfile() {
     
     const message = await generateBirthdayMessage({
       name: person.name,
-      age: person.birthday ? new Date().getFullYear() - new Date(person.birthday).getFullYear() : 'Unknown',
+      age: (person.birthday && !person.birthYearUnknown) ? new Date().getFullYear() - new Date(person.birthday).getFullYear() : 'Unknown',
       relationship: person.category,
       interests: person.interests || 'No specific interests mentioned',
       notes: person.notes || 'No specific notes mentioned'
@@ -438,7 +438,7 @@ export default function PersonProfile() {
               )}
             </div>
             <p className="text-zinc-500 font-medium serif-italic text-lg">
-              {person.nickname || person.category} • Turning {getTurningAge(person.birthday)}
+              {person.nickname || person.category} • {person.birthYearUnknown ? "🎂" : `Turning ${getTurningAge(person.birthday)}`}
             </p>
           </div>
           
