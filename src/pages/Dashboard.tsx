@@ -868,7 +868,7 @@ export default function Dashboard() {
                 <input 
                   type="date"
                   className="w-full p-5 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border-none text-center font-bold text-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-                  onChange={(e) => {
+                  onBlur={(e) => {
                     if (e.target.value) handleSaveBirthday(e.target.value);
                   }}
                 />
