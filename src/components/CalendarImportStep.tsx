@@ -17,6 +17,7 @@ function cleanName(summary: string): string {
     .replace(/'s/gi, '')
     .replace(/\bof\b/gi, '')
     .replace(/\bfor\b/gi, '')
+    .replace(/\bmy\b/gi, '')
     .replace(/[^a-zA-Z0-9\s]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -37,7 +38,6 @@ function parseIcsText(text: string) {
   for (let i = 1; i < blocks.length; i++) {
     const block = blocks[i].split('END:VEVENT')[0];
     
-    // Find SUMMARY
     let summary = '';
     const summaryMatch = block.match(/^SUMMARY[;:][^\r\n]*/mi);
     if (summaryMatch) {
@@ -46,7 +46,6 @@ function parseIcsText(text: string) {
       summary = parts.join(':').trim();
     }
 
-    // Find DTSTART
     let dtstart = '';
     const dtstartMatch = block.match(/^DTSTART[;:][^\r\n]*/mi);
     if (dtstartMatch) {
@@ -55,7 +54,6 @@ function parseIcsText(text: string) {
       dtstart = parts.join(':').trim();
     }
 
-    // Find CATEGORIES
     let categories = '';
     const categoriesMatch = block.match(/^CATEGORIES[;:][^\r\n]*/mi);
     if (categoriesMatch) {
@@ -75,10 +73,7 @@ function parseIcsText(text: string) {
       if (digitsMatch) {
         const digits = digitsMatch[0];
         const birthdayDate = `${digits.substring(0, 4)}-${digits.substring(4, 6)}-${digits.substring(6, 8)}`;
-        contacts.push({
-          name: cleanedName,
-          birthday: birthdayDate
-        });
+        contacts.push({ name: cleanedName, birthday: birthdayDate });
       }
     }
   }
@@ -91,15 +86,21 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
   const [count, setCount] = React.useState(0);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
+  // Stable ref so the useEffect doesn't re-run due to onComplete identity changing
+  const onCompleteRef = React.useRef(onComplete);
+  React.useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
   // Success auto-complete
   React.useEffect(() => {
     if (state === 'success') {
       const timer = setTimeout(() => {
-        onComplete();
+        onCompleteRef.current();
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [state, onComplete]);
+  }, [state]);
 
   const saveContactsToFirestore = async (contactsList: { name: string; birthday: string }[]) => {
     if (contactsList.length === 0) {
@@ -153,12 +154,9 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
       }
 
       const response = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&maxResults=500&fields=items(summary,start)`
-        , {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&maxResults=500&fields=items(summary,start)`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -166,12 +164,9 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
           token = await signInWithGoogle();
           if (!token) throw new Error("Google API unauthorized and authentication failed.");
           const responseRetry = await fetch(
-            `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&maxResults=500&fields=items(summary,start)`
-            , {
-              headers: {
-                Authorization: `Bearer ${token}`
-              }
-            });
+            `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&maxResults=500&fields=items(summary,start)`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
           if (!responseRetry.ok) {
             throw new Error(`Google Calendar API error: ${responseRetry.statusText}`);
           }
@@ -201,14 +196,13 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
           bday = item.start.dateTime.substring(0, 10);
         }
         if (cleaned && bday && /^\d{4}-\d{2}-\d{2}$/.test(bday)) {
-          list.push({
-            name: cleaned,
-            birthday: bday
-          });
+          // Google returns next occurrence year for recurring events, not birth year.
+          // Store 1900 as placeholder so Dashboard shows 🎂 instead of wrong age.
+          const monthDay = bday.substring(4);
+          list.push({ name: cleaned, birthday: `1900${monthDay}` });
         }
       }
     });
-
     await saveContactsToFirestore(list);
   };
 
@@ -231,7 +225,6 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Background overlay */}
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -240,7 +233,6 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
         onClick={() => state === 'default' && onComplete()}
       />
 
-      {/* Main card */}
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -267,12 +259,11 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
             )}
 
             <div className="space-y-3 pt-2">
-              {/* Option A: Google Calendar */}
               <button
                 onClick={handleGoogleImport}
                 className="w-full py-4 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 rounded-2xl font-bold text-sm tracking-wide transition shadow-lg flex items-center justify-center gap-3 hover:opacity-90"
               >
-                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
@@ -281,16 +272,10 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
                 Sync Google Calendar
               </button>
 
-              {/* Option B: Apple Calendar Upload */}
               <label className="w-full py-4 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-800 dark:text-zinc-200 rounded-2xl font-bold text-sm tracking-wide transition flex items-center justify-center gap-3 cursor-pointer">
                 <Upload size={18} />
                 Upload Apple Calendar (.ics)
-                <input
-                  type="file"
-                  accept=".ics"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
+                <input type="file" accept=".ics" onChange={handleFileUpload} className="hidden" />
               </label>
             </div>
 
@@ -312,31 +297,17 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
               <div className="h-6 w-48 bg-zinc-200 dark:bg-zinc-800 rounded-xl mx-auto animate-pulse" />
               <div className="h-4 w-64 bg-zinc-200 dark:bg-zinc-800 rounded-xl mx-auto animate-pulse" />
             </div>
-
             <div className="space-y-3 px-4">
-              <div className="h-12 bg-zinc-100 dark:bg-zinc-800/50 rounded-2xl w-full animate-pulse flex items-center px-4 justify-between">
-                <div className="flex gap-3 items-center">
-                  <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-                  <div className="h-3 w-20 bg-zinc-200 dark:bg-zinc-700 rounded" />
+              {[20, 28, 24].map((w, i) => (
+                <div key={i} className="h-12 bg-zinc-100 dark:bg-zinc-800/50 rounded-2xl w-full animate-pulse flex items-center px-4 justify-between">
+                  <div className="flex gap-3 items-center">
+                    <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+                    <div className={`h-3 w-${w} bg-zinc-200 dark:bg-zinc-700 rounded`} />
+                  </div>
+                  <div className="h-3 w-16 bg-zinc-200 dark:bg-zinc-700 rounded" />
                 </div>
-                <div className="h-3 w-16 bg-zinc-200 dark:bg-zinc-700 rounded" />
-              </div>
-              <div className="h-12 bg-zinc-100 dark:bg-zinc-800/50 rounded-2xl w-full animate-pulse flex items-center px-4 justify-between">
-                <div className="flex gap-3 items-center">
-                  <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-                  <div className="h-3 w-28 bg-zinc-200 dark:bg-zinc-700 rounded" />
-                </div>
-                <div className="h-3 w-12 bg-zinc-200 dark:bg-zinc-700 rounded" />
-              </div>
-              <div className="h-12 bg-zinc-100 dark:bg-zinc-800/50 rounded-2xl w-full animate-pulse flex items-center px-4 justify-between">
-                <div className="flex gap-3 items-center">
-                  <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-                  <div className="h-3 w-24 bg-zinc-200 dark:bg-zinc-700 rounded" />
-                </div>
-                <div className="h-3 w-20 bg-zinc-200 dark:bg-zinc-700 rounded" />
-              </div>
+              ))}
             </div>
-
             <p className="text-zinc-500 dark:text-zinc-400 font-bold text-sm tracking-wide">
               Importing your friends...
             </p>
@@ -352,13 +323,21 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
             <div className="space-y-2">
               <h2 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">Success!</h2>
               <p className="text-zinc-500 dark:text-zinc-400 font-semibold text-sm">
-                Imported <span className="text-emerald-500 dark:text-emerald-400 font-black text-base">{count}</span> contacts successfully.
+                Imported <span className="text-emerald-500 dark:text-emerald-400 font-black text-base">{count}</span> friends successfully.
               </p>
             </div>
 
             <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest animate-pulse">
-              Initializing your relationship dashboard...
+              Initializing your dashboard...
             </p>
+
+            {/* Manual fallback button in case auto-close doesn't fire */}
+            <button
+              onClick={() => onCompleteRef.current()}
+              className="w-full py-3 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-500/20 hover:opacity-90 transition-opacity"
+            >
+              Go to Dashboard →
+            </button>
           </div>
         )}
       </motion.div>
