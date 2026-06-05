@@ -102,7 +102,7 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
     }
   }, [state]);
 
-  const saveContactsToFirestore = async (contactsList: { name: string; birthday: string }[]) => {
+  const saveContactsToFirestore = async (contactsList: { name: string; birthday: string; birthYearUnknown: boolean }[]) => {
     if (contactsList.length === 0) {
       throw new Error("No birthday events found in your calendar.");
     }
@@ -116,6 +116,7 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
             user_id: firebaseUserId,
             name: contact.name,
             birthday: contact.birthday,
+            birthYearUnknown: contact.birthYearUnknown,
             category: 'friend',
             importance: 5,
             friendshipScore: 0,
@@ -187,7 +188,7 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
   };
 
   const parseAndSaveGoogleEvents = async (items: any[]) => {
-    const list: { name: string; birthday: string }[] = [];
+    const list: { name: string; birthday: string; birthYearUnknown: boolean }[] = [];
     items.forEach((item: any) => {
       if (item.summary && item.summary.toLowerCase().includes('birthday')) {
         const cleaned = cleanName(item.summary);
@@ -199,7 +200,7 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
           // Google returns next occurrence year for recurring events, not birth year.
           // Store 1900 as placeholder so Dashboard shows 🎂 instead of wrong age.
           const monthDay = bday.substring(4);
-          list.push({ name: cleaned, birthday: `1900${monthDay}` });
+          list.push({ name: cleaned, birthday: `1900${monthDay}`, birthYearUnknown: true });
         }
       }
     });
@@ -214,7 +215,7 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
     setState('loading');
     try {
       const text = await file.text();
-      const list = parseIcsText(text);
+      const list = parseIcsText(text).map(c => ({ ...c, birthYearUnknown: false }));
       await saveContactsToFirestore(list);
     } catch (err: any) {
       console.error(err);
