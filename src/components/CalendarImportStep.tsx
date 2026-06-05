@@ -1,0 +1,367 @@
+import React from 'react';
+import { motion } from 'motion/react';
+import { Calendar, Upload, Check, Loader2, ChevronRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { db } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+
+interface CalendarImportStepProps {
+  onComplete: () => void;
+  firebaseUserId: string;
+}
+
+function cleanName(summary: string): string {
+  if (!summary) return "";
+  let s = summary
+    .replace(/birthdays?/gi, '')
+    .replace(/'s/gi, '')
+    .replace(/\bof\b/gi, '')
+    .replace(/\bfor\b/gi, '')
+    .replace(/[^a-zA-Z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  return s
+    .toLowerCase()
+    .split(' ')
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+function parseIcsText(text: string) {
+  const unfoldedText = text.replace(/\r?\n[ \t]/g, '');
+  const blocks = unfoldedText.split('BEGIN:VEVENT');
+  const contacts: { name: string; birthday: string }[] = [];
+
+  for (let i = 1; i < blocks.length; i++) {
+    const block = blocks[i].split('END:VEVENT')[0];
+    
+    // Find SUMMARY
+    let summary = '';
+    const summaryMatch = block.match(/^SUMMARY[;:][^\r\n]*/mi);
+    if (summaryMatch) {
+      const parts = summaryMatch[0].split(':');
+      parts.shift();
+      summary = parts.join(':').trim();
+    }
+
+    // Find DTSTART
+    let dtstart = '';
+    const dtstartMatch = block.match(/^DTSTART[;:][^\r\n]*/mi);
+    if (dtstartMatch) {
+      const parts = dtstartMatch[0].split(':');
+      parts.shift();
+      dtstart = parts.join(':').trim();
+    }
+
+    // Find CATEGORIES
+    let categories = '';
+    const categoriesMatch = block.match(/^CATEGORIES[;:][^\r\n]*/mi);
+    if (categoriesMatch) {
+      const parts = categoriesMatch[0].split(':');
+      parts.shift();
+      categories = parts.join(':').trim();
+    }
+
+    const isBirthdayCategory = categories.toLowerCase().includes('birthday');
+    const isBirthdaySummary = summary.toLowerCase().includes('birthday');
+
+    if ((isBirthdayCategory || isBirthdaySummary) && summary && dtstart) {
+      const cleanedName = cleanName(summary);
+      if (!cleanedName) continue;
+
+      const digitsMatch = dtstart.match(/\d{8}/);
+      if (digitsMatch) {
+        const digits = digitsMatch[0];
+        const birthdayDate = `${digits.substring(0, 4)}-${digits.substring(4, 6)}-${digits.substring(6, 8)}`;
+        contacts.push({
+          name: cleanedName,
+          birthday: birthdayDate
+        });
+      }
+    }
+  }
+  return contacts;
+}
+
+export default function CalendarImportStep({ onComplete, firebaseUserId }: CalendarImportStepProps) {
+  const { signInWithGoogle } = useAuth();
+  const [state, setState] = React.useState<'default' | 'loading' | 'success'>('default');
+  const [count, setCount] = React.useState(0);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+  // Success auto-complete
+  React.useEffect(() => {
+    if (state === 'success') {
+      const timer = setTimeout(() => {
+        onComplete();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [state, onComplete]);
+
+  const saveContactsToFirestore = async (contactsList: { name: string; birthday: string }[]) => {
+    if (contactsList.length === 0) {
+      throw new Error("No birthday events found in your calendar.");
+    }
+    const peopleRef = collection(db, 'people');
+    let savedCount = 0;
+
+    await Promise.all(
+      contactsList.map(async (contact) => {
+        try {
+          await addDoc(peopleRef, {
+            user_id: firebaseUserId,
+            name: contact.name,
+            birthday: contact.birthday,
+            category: 'friend',
+            importance: 5,
+            friendshipScore: 0,
+            notes: '',
+            interests: '',
+            nickname: '',
+            photo_url: '',
+            created_at: serverTimestamp(),
+            reminder_settings: {
+              "30_days": true,
+              "7_days": true,
+              "morning": true
+            }
+          });
+          savedCount++;
+        } catch (e) {
+          console.error("Error saving contact: ", e);
+        }
+      })
+    );
+
+    setCount(savedCount);
+    setState('success');
+  };
+
+  const handleGoogleImport = async () => {
+    setErrorMessage(null);
+    setState('loading');
+    try {
+      let token = localStorage.getItem('gcal_token');
+      if (!token) {
+        token = await signInWithGoogle();
+      }
+      if (!token) {
+        throw new Error("Failed to get Google Calendar authorization token.");
+      }
+
+      const response = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&maxResults=500&fields=items(summary,start)`
+        , {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('gcal_token');
+          token = await signInWithGoogle();
+          if (!token) throw new Error("Google API unauthorized and authentication failed.");
+          const responseRetry = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&maxResults=500&fields=items(summary,start)`
+            , {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            });
+          if (!responseRetry.ok) {
+            throw new Error(`Google Calendar API error: ${responseRetry.statusText}`);
+          }
+          const data = await responseRetry.json();
+          await parseAndSaveGoogleEvents(data.items || []);
+          return;
+        }
+        throw new Error(`Google Calendar API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      await parseAndSaveGoogleEvents(data.items || []);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(err.message || "An error occurred while importing from Google Calendar.");
+      setState('default');
+    }
+  };
+
+  const parseAndSaveGoogleEvents = async (items: any[]) => {
+    const list: { name: string; birthday: string }[] = [];
+    items.forEach((item: any) => {
+      if (item.summary && item.summary.toLowerCase().includes('birthday')) {
+        const cleaned = cleanName(item.summary);
+        let bday = item.start?.date;
+        if (!bday && item.start?.dateTime) {
+          bday = item.start.dateTime.substring(0, 10);
+        }
+        if (cleaned && bday && /^\d{4}-\d{2}-\d{2}$/.test(bday)) {
+          list.push({
+            name: cleaned,
+            birthday: bday
+          });
+        }
+      }
+    });
+
+    await saveContactsToFirestore(list);
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    setErrorMessage(null);
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setState('loading');
+    try {
+      const text = await file.text();
+      const list = parseIcsText(text);
+      await saveContactsToFirestore(list);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(err.message || "An error occurred while parsing and importing the .ics file.");
+      setState('default');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      {/* Background overlay */}
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/80 backdrop-blur-md"
+        onClick={() => state === 'default' && onComplete()}
+      />
+
+      {/* Main card */}
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-[40px] p-10 text-center space-y-8 shadow-2xl overflow-hidden"
+      >
+        {state === 'default' && (
+          <div className="space-y-6">
+            <div className="w-16 h-16 bg-emerald-500 text-white rounded-3xl flex items-center justify-center mx-auto rotate-12 shadow-xl shadow-emerald-500/20">
+              <Calendar size={32} />
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">Import Your Friends</h2>
+              <p className="text-zinc-500 dark:text-zinc-400 font-medium text-sm px-2">
+                Sync birthdays instantly from your calendars. Choose an option below to fill RelateOS with your favorite people.
+              </p>
+            </div>
+
+            {errorMessage && (
+              <div className="text-xs text-red-500 font-bold bg-red-50 dark:bg-red-950/20 p-3 rounded-xl border border-red-100 dark:border-red-900/30">
+                {errorMessage}
+              </div>
+            )}
+
+            <div className="space-y-3 pt-2">
+              {/* Option A: Google Calendar */}
+              <button
+                onClick={handleGoogleImport}
+                className="w-full py-4 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 rounded-2xl font-bold text-sm tracking-wide transition shadow-lg flex items-center justify-center gap-3 hover:opacity-90"
+              >
+                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+                </svg>
+                Sync Google Calendar
+              </button>
+
+              {/* Option B: Apple Calendar Upload */}
+              <label className="w-full py-4 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-800 dark:text-zinc-200 rounded-2xl font-bold text-sm tracking-wide transition flex items-center justify-center gap-3 cursor-pointer">
+                <Upload size={18} />
+                Upload Apple Calendar (.ics)
+                <input
+                  type="file"
+                  accept=".ics"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            <button
+              onClick={onComplete}
+              className="text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 font-bold text-xs tracking-wider uppercase pt-2 transition-colors flex items-center justify-center gap-1 mx-auto"
+            >
+              Skip for now <ChevronRight size={14} />
+            </button>
+          </div>
+        )}
+
+        {state === 'loading' && (
+          <div className="space-y-8 py-4">
+            <div className="space-y-4">
+              <div className="w-16 h-16 bg-zinc-200 dark:bg-zinc-800 rounded-3xl mx-auto animate-pulse flex items-center justify-center">
+                <Loader2 size={24} className="text-zinc-400 dark:text-zinc-600 animate-spin" />
+              </div>
+              <div className="h-6 w-48 bg-zinc-200 dark:bg-zinc-800 rounded-xl mx-auto animate-pulse" />
+              <div className="h-4 w-64 bg-zinc-200 dark:bg-zinc-800 rounded-xl mx-auto animate-pulse" />
+            </div>
+
+            <div className="space-y-3 px-4">
+              <div className="h-12 bg-zinc-100 dark:bg-zinc-800/50 rounded-2xl w-full animate-pulse flex items-center px-4 justify-between">
+                <div className="flex gap-3 items-center">
+                  <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+                  <div className="h-3 w-20 bg-zinc-200 dark:bg-zinc-700 rounded" />
+                </div>
+                <div className="h-3 w-16 bg-zinc-200 dark:bg-zinc-700 rounded" />
+              </div>
+              <div className="h-12 bg-zinc-100 dark:bg-zinc-800/50 rounded-2xl w-full animate-pulse flex items-center px-4 justify-between">
+                <div className="flex gap-3 items-center">
+                  <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+                  <div className="h-3 w-28 bg-zinc-200 dark:bg-zinc-700 rounded" />
+                </div>
+                <div className="h-3 w-12 bg-zinc-200 dark:bg-zinc-700 rounded" />
+              </div>
+              <div className="h-12 bg-zinc-100 dark:bg-zinc-800/50 rounded-2xl w-full animate-pulse flex items-center px-4 justify-between">
+                <div className="flex gap-3 items-center">
+                  <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+                  <div className="h-3 w-24 bg-zinc-200 dark:bg-zinc-700 rounded" />
+                </div>
+                <div className="h-3 w-20 bg-zinc-200 dark:bg-zinc-700 rounded" />
+              </div>
+            </div>
+
+            <p className="text-zinc-500 dark:text-zinc-400 font-bold text-sm tracking-wide">
+              Importing your friends...
+            </p>
+          </div>
+        )}
+
+        {state === 'success' && (
+          <div className="space-y-6 py-4">
+            <div className="w-16 h-16 bg-emerald-500 text-white rounded-3xl flex items-center justify-center mx-auto scale-110 shadow-xl shadow-emerald-500/20">
+              <Check size={32} />
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">Success!</h2>
+              <p className="text-zinc-500 dark:text-zinc-400 font-semibold text-sm">
+                Imported <span className="text-emerald-500 dark:text-emerald-400 font-black text-base">{count}</span> contacts successfully.
+              </p>
+            </div>
+
+            <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest animate-pulse">
+              Initializing your relationship dashboard...
+            </p>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+}
