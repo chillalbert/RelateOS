@@ -23,6 +23,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import Navigation from '../components/Navigation';
+import CalendarImportStep from '../components/CalendarImportStep';
 import { getDaysUntil, formatDate, cn, getRelationshipScore, getPreciseCountdown, getTurningAge } from '../lib/utils';
 import { Gift, MessageSquare, Sparkles as SparklesIcon, Trash2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -285,6 +286,7 @@ export default function Dashboard() {
   };
 
   const [showBirthdayOnboarding, setShowBirthdayOnboarding] = React.useState(false);
+  const [showCalendarImport, setShowCalendarImport] = React.useState(false);
 
   React.useEffect(() => {
     if (user && !user.birthday) {
@@ -299,6 +301,7 @@ export default function Dashboard() {
       await setDoc(userRef, { birthday: bday }, { merge: true });
       setShowBirthdayOnboarding(false);
       await refreshUser();
+      setShowCalendarImport(true);
     } catch (err) {
       console.error(err);
     }
@@ -873,6 +876,16 @@ export default function Dashboard() {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Calendar Import Modal Onboarding */}
+      <AnimatePresence>
+        {showCalendarImport && (
+          <CalendarImportStep 
+            onComplete={() => setShowCalendarImport(false)} 
+            firebaseUserId={firebaseUser?.uid || ''} 
+          />
         )}
       </AnimatePresence>
     </div>
