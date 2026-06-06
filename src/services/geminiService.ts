@@ -150,9 +150,10 @@ export async function generateBirthdayMessage(params: {
   relationship: string;
   interests: string;
   notes: string;
+  reflection?: string;
 }) {
   try {
-    const prompt = `
+    let prompt = `
 You are a warm, emotionally intelligent birthday message writer. Your job is to generate two versions of a personalized birthday message:
 1. A "Short Text": This MUST be a complete, natural message you would send over iMessage or WhatsApp. It should be punchy, warm, and feel like a real person sent it. Use emojis naturally. DO NOT truncate the message. It should be a full thought. End the message naturally with a period or emoji, never in the middle of a sentence.
 2. A "Card Message": This is a slightly longer, more heartfelt version (3-5 sentences) suitable for a physical card or a long-form digital note.
@@ -173,6 +174,10 @@ Recipient Info:
 - Interests: ${params.interests}
 - Notes: ${params.notes}
 `;
+
+    if (params.reflection && params.reflection.trim() !== '') {
+      prompt += `\n- Yearly reflection about this person: ${params.reflection}\n`;
+    }
 
     const text = await callGemini(prompt, { responseMimeType: "application/json" });
     const result = JSON.parse(text || '{}');
@@ -258,7 +263,7 @@ Return a JSON array of objects. Each object must have:
 - "title": The name of the gift.
 - "price": Estimated price (e.g. "$25").
 - "reason": Why this is a good gift based on the interests.
-- "searchUrl": A Google Search URL for the gift (e.g. "https://www.google.com/search?q=gift+name").
+- "searchUrl": A Google Search URL for the gift (e.g. "https://www.google.com/search?q=gift+name"). MAKE SURE THE PRICE IS ACCURATE TO THE GOOGLE SEARCH RESULTS. THE GOAL IS TO MAKE IT AS CHEAP AS POSSIBLE BUT WITH THE BEST QUALITY, SO DO RESEARCH IF NEEDED.
 
 # FOLLOW THIS WRITING STYLE:
 • SHOULD use clear, simple language.
@@ -281,6 +286,7 @@ Return a JSON array of objects. Each object must have:
 • AVOID markdown.
 • AVOID asterisks.
 • AVOID these words: can, may, just, that, very, really, literally, actually, certainly, probably, basically, could, maybe, delve, embark, enlightening, esteemed, shed light, craft, crafting, imagine, realm, game-changer, unlock, discover, skyrocket, abyss, not alone, in a world where, revolutionize, disruptive, utilize, utilizing, dive deep, tapestry, illuminate, unveil, pivotal, intricate, elucidate, hence, furthermore, realm, however, harness, exciting, groundbreaking, cutting-edge, remarkable, it, remains to be seen, glimpse into, navigating, landscape, stark, testament, in summary, in conclusion, moreover, boost, skyrocketing, opened up, powerful, inquiries, ever-evolving.
+• SHOULD sound like a human. NO GRAMMATICAL MISTAKES but needs to sound like a human.
 
 # IMPORTANT
 Review your response and ensure no em dashes!
