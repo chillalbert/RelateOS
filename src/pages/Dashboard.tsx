@@ -318,8 +318,8 @@ export default function Dashboard() {
           <p className="text-zinc-500 text-sm">Welcome back, {user?.name}</p>
         </div>
         <div className="flex gap-3">
-          <Link to="/groups/create" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800" title="Join Group">
-            <Users size={20} />
+          <Link to="/settings" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800" title="Settings">
+            <Settings size={20} />
           </Link>
           <Link to="/notifications" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 relative">
             <Bell size={20} />
