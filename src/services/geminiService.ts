@@ -121,7 +121,7 @@ async function callGemini(prompt: string, config?: any) {
   try {
     const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.5-flash",
       contents: [{ parts: [{ text: prompt }] }],
       config: {
         ...config,
@@ -297,5 +297,47 @@ Review your response and ensure no em dashes!
   } catch (error) {
     console.error("AI Gift Suggestion Error:", error);
     return ["Book", "Personalized mug", "Gift card"];
+  }
+}
+
+export async function callCoachModel(contents: any[], config?: any) {
+  let apiKey = '';
+  apiKey = cleanKey(await initializeGeminiKey());
+  if (!apiKey) {
+    apiKey = cleanKey(process.env.GEMINI_API_KEY);
+  }
+  if (!apiKey) {
+    apiKey = cleanKey((import.meta as any).env?.VITE_GEMINI_API_KEY);
+  }
+  if (!apiKey) {
+    apiKey = cleanKey((import.meta as any).env?.GEMINI_API_KEY);
+  }
+  if (!apiKey) {
+    apiKey = cleanKey(localStorage.getItem('GEMINI_API_KEY'));
+  }
+
+  if (!apiKey || apiKey.trim() === '') {
+    return "Hey! I'm your AI Relationship Coach. I can help you draft messages, brainstorm gift ideas, remember key dates, or give advice about your friends. (Running in Demo Mode: Please add a real Gemini API key in Settings to unlock actual AI interactions!)";
+  }
+
+  try {
+    const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: contents,
+      config: config,
+    });
+
+    if (!response || !response.text) {
+      throw new Error("Empty response from Gemini API");
+    }
+
+    return response.text;
+  } catch (error: any) {
+    console.error("[GeminiService] Coach API Call Error:", error);
+    if (error?.message?.includes("leaked") || error?.message?.includes("403") || error?.message?.includes("API_KEY_INVALID")) {
+      return "{\"reply\": \"Hey! It looks like there's an issue with the Gemini API key (invalid or revoked). I'm running in offline/demo mode. Tell me, how can I help you show up for your friends today?\", \"action\": null}";
+    }
+    throw error;
   }
 }
