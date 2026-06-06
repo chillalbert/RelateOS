@@ -75,7 +75,7 @@ export function getPreciseCountdown(birthday: string) {
   return { days, hours, minutes, seconds };
 }
 
-export function getRelationshipScore(person: any) {
+export function getConnectionScore(person: any) {
   let score = 0;
   if (person.importance) score += person.importance * 10;
   if (person.memories?.length) score += person.memories.length * 5;
@@ -83,6 +83,7 @@ export function getRelationshipScore(person: any) {
     const completed = person.tasks.filter((t: any) => t.completed).length;
     score += completed * 15;
   }
-  if (person.relationshipScore) score += person.relationshipScore;
+  const friendshipScore = person.friendshipScore ?? person.relationshipScore;
+  if (friendshipScore) score += friendshipScore;
   return Math.min(score, 100);
 }
