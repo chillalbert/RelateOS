@@ -81,10 +81,10 @@ export default function Vaults() {
             <div className="p-2 bg-emerald-500 rounded-xl text-white shadow-lg shadow-emerald-500/20">
               <Shield size={24} />
             </div>
-            <h1 className="text-2xl font-black tracking-tight">My Vaults</h1>
+            <h1 className="text-2xl font-black tracking-tight">My Lockers</h1>
           </div>
           <p className="text-zinc-500 text-sm leading-relaxed">
-            Secret vaults created for you by your friends. They remain locked until your birthday to keep the surprises secret!
+            Secret lockers created for you by your friends. They remain locked until your birthday to keep the surprises secret!
           </p>
         </div>
       </header>
@@ -126,10 +126,10 @@ export default function Vaults() {
                         </div>
                         <div>
                           <h3 className="text-2xl font-black tracking-tight">Happy Birthday!</h3>
-                          <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs mt-1">Your secret vault is officially unlocked</p>
+                          <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs mt-1">Your secret locker is officially unlocked</p>
                         </div>
                         <div className="pt-4 flex items-center gap-2 text-emerald-500 font-bold text-sm">
-                          Open Vault <ChevronRight size={16} />
+                          Open Locker <ChevronRight size={16} />
                         </div>
                       </div>
                     </Link>
@@ -149,7 +149,7 @@ export default function Vaults() {
                         </div>
                         
                         <div className="space-y-1">
-                          <h3 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Secret Vault</h3>
+                          <h3 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Secret Locker</h3>
                           <p className="text-zinc-500 text-sm font-medium">From your friends & family</p>
                         </div>
 
@@ -191,9 +191,9 @@ export default function Vaults() {
               <Shield size={48} />
             </div>
             <div className="space-y-2">
-              <h3 className="text-xl font-black">No vaults yet</h3>
+              <h3 className="text-xl font-black">No lockers yet</h3>
               <p className="text-zinc-500 text-sm max-w-[280px] mx-auto leading-relaxed">
-                When your friends create a secret birthday room for you, the vault will appear here!
+                When your friends create a secret birthday room for you, the locker will appear here!
               </p>
             </div>
           </div>
