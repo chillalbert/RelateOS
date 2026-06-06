@@ -6,9 +6,9 @@ import {
   Users, 
   Plus, 
   BarChart3, 
-  Settings,
   Shield,
-  MessageSquare
+  MessageSquare,
+  Brain
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -61,10 +61,11 @@ export default function Navigation() {
         <BarChart3 size={24} />
       </Link>
       <Link 
-        to="/settings" 
-        className={cn("p-3 transition-colors", isActive('/settings') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        to="/coach" 
+        className={cn("p-3 transition-colors", isActive('/coach') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="AI Coach"
       >
-        <Settings size={24} />
+        <Brain size={24} />
       </Link>
     </nav>
   );
