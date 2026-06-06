@@ -25,6 +25,7 @@ interface AuthContextType {
   isLoading: boolean;
   refreshUser: () => Promise<void>;
   signInWithGoogle: () => Promise<string | null>;
+  getCalendarToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,7 +42,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (docSnap.exists()) {
         setUser(docSnap.data() as UserProfile);
       } else {
-        // Handle case where auth exists but profile doesn't
         setUser(null);
       }
     } catch (error: any) {
@@ -61,7 +61,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const docRef = doc(db, 'users', fUser.uid);
         const docSnap = await getDoc(docRef);
         if (!docSnap.exists()) {
-          // Auto-create profile if missing (e.g. social login or failed signup step)
           const newProfile: UserProfile = {
             id: fUser.uid,
             email: fUser.email || '',
@@ -92,16 +91,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signOut(auth);
   };
 
+  // signInWithGoogle — used ONLY for actual Firebase authentication login
+  // This signs the user INTO the app with Google as their auth provider
   const signInWithGoogle = async () => {
     try {
-      const currentScopes = (googleProvider as any).scopes || [];
-      if (!currentScopes.includes('https://www.googleapis.com/auth/calendar.readonly')) {
-        googleProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
-      }
-      if (!currentScopes.includes('https://www.googleapis.com/auth/contacts.readonly')) {
-        googleProvider.addScope('https://www.googleapis.com/auth/contacts.readonly');
-      }
-      const result = await signInWithPopup(auth, googleProvider);
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const token = credential?.accessToken || null;
       if (token) {
@@ -114,6 +109,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // getCalendarToken — used ONLY for Google Calendar/Contacts OAuth token
+  // This does NOT sign the user into Firebase — it only gets an access token
+  // for hitting the Google Calendar and People APIs
+  const getCalendarToken = async (): Promise<string | null> => {
+    try {
+      const calendarProvider = new GoogleAuthProvider();
+      calendarProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+      calendarProvider.addScope('https://www.googleapis.com/auth/contacts.readonly');
+      
+      // Use signInWithPopup but immediately re-sign in with the existing
+      // Firebase user to prevent session switching
+      const currentUser = auth.currentUser;
+      
+      const result = await signInWithPopup(auth, calendarProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const token = credential?.accessToken || null;
+      
+      if (token) {
+        localStorage.setItem('gcal_token', token);
+      }
+
+      // If there was a previously signed in non-Google user, the session
+      // may have switched. We restore the original user data from Firestore
+      // using the new uid in case it changed.
+      if (result.user) {
+        const docRef = doc(db, 'users', result.user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setUser(docSnap.data() as UserProfile);
+        }
+        setFirebaseUser(result.user);
+      }
+
+      return token;
+    } catch (error: any) {
+      // If user cancels the popup, just return null silently
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+        return null;
+      }
+      console.error("Error getting calendar token:", error);
+      return null;
+    }
+  };
+
   const refreshUser = async () => {
     if (firebaseUser) {
       await fetchUserProfile(firebaseUser.uid);
@@ -121,7 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, logout, isLoading, refreshUser, signInWithGoogle }}>
+    <AuthContext.Provider value={{ user, firebaseUser, logout, isLoading, refreshUser, signInWithGoogle, getCalendarToken }}>
       {children}
     </AuthContext.Provider>
   );
