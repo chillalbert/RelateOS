@@ -12,6 +12,7 @@ import Vaults from './pages/Vaults';
 import BirthdayCalendar from './pages/BirthdayCalendar';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
+import AICoach from './pages/AICoach';
 
 import LoadingScreen from './components/LoadingScreen';
 import NotificationManager from './components/NotificationManager';
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="/person/:id" element={<PrivateRoute><PersonProfile /></PrivateRoute>} />
               <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
               <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+              <Route path="/coach" element={<PrivateRoute><AICoach /></PrivateRoute>} />
               <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
               <Route path="/groups" element={<PrivateRoute><Groups /></PrivateRoute>} />
               <Route path="/groups/create" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
