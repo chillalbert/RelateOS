@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoadingScreen from '../components/LoadingScreen';
-import { formatDate, getDaysUntil, getRelationshipScore, cn, getTurningAge } from '../lib/utils';
+import { formatDate, getDaysUntil, getConnectionScore, cn, getTurningAge } from '../lib/utils';
 import { generateBirthdayMessage, generateRecoveryPlan } from '../services/geminiService';
 import { db } from '../lib/firebase';
 import confetti from 'canvas-confetti';
@@ -51,6 +51,8 @@ export default function PersonProfile() {
   const [showGiftForm, setShowGiftForm] = React.useState(false);
   const [newGift, setNewGift] = React.useState({ name: '', status: 'idea', price: '', notes: '' });
   const [reflectionText, setReflectionText] = React.useState('');
+  const [hasReflectedThisYear, setHasReflectedThisYear] = React.useState(false);
+  const [existingReflection, setExistingReflection] = React.useState<string>('');
 
   const addGift = async () => {
     if (!id) return;
@@ -178,22 +180,24 @@ export default function PersonProfile() {
         created_at: serverTimestamp()
       });
 
-      // Increment relationship score of the person by 15 points
+      // Increment friendship score of the person by 15 points
       const personRef = doc(db, 'people', id);
       await updateDoc(personRef, {
-        relationshipScore: increment(15)
+        friendshipScore: increment(15)
       });
 
       setPerson((prev: any) => {
         if (!prev) return prev;
         return {
           ...prev,
-          relationshipScore: (prev.relationshipScore || 0) + 15
+          friendshipScore: (prev.friendshipScore || prev.relationshipScore || 0) + 15
         };
       });
 
+      setHasReflectedThisYear(true);
+      setExistingReflection(reflectionText);
       setReflectionText('');
-      alert("Yearly Reflection has been successfully saved! Relationship score increased by +15.");
+      alert("Yearly Reflection has been successfully saved! Connection score increased by +15.");
     } catch (err) {
       console.error("Error saving reflection:", err);
       alert("Failed to save yearly reflection.");
@@ -237,6 +241,19 @@ export default function PersonProfile() {
         const giftsRef = collection(db, 'people', id, 'gifts');
         const giftsSnap = await getDocs(giftsRef);
         const gifts = giftsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Fetch reflections
+        const reflectionsRef = collection(db, 'people', id, 'reflections');
+        const reflectionsSnap = await getDocs(reflectionsRef);
+        const currentYear = new Date().getFullYear();
+        const thisYearReflection = reflectionsSnap.docs.find(doc => doc.data().year === currentYear);
+        if (thisYearReflection) {
+          setHasReflectedThisYear(true);
+          setExistingReflection(thisYearReflection.data().text || '');
+        } else {
+          setHasReflectedThisYear(false);
+          setExistingReflection('');
+        }
 
         const fullData = { ...data, tasks, memories, gifts };
         setPerson(fullData);
@@ -283,7 +300,8 @@ export default function PersonProfile() {
       age: (person.birthday && !person.birthYearUnknown) ? new Date().getFullYear() - new Date(person.birthday).getFullYear() : 'Unknown',
       relationship: person.category,
       interests: person.interests || 'No specific interests mentioned',
-      notes: person.notes || 'No specific notes mentioned'
+      notes: person.notes || 'No specific notes mentioned',
+      reflection: existingReflection || ''
     });
     setAiMessage(message);
     setIsGenerating(false);
@@ -306,14 +324,14 @@ export default function PersonProfile() {
       const personRef = doc(db, 'people', id);
       const currentYear = new Date().getFullYear();
       await updateDoc(personRef, {
-        relationshipScore: increment(15),
+        friendshipScore: increment(15),
         lastWishedYear: currentYear,
         lastWishedDate: new Date().toISOString()
       });
 
       setPerson((prev: any) => ({
         ...prev,
-        relationshipScore: (prev?.relationshipScore || 0) + 15,
+        friendshipScore: (prev?.friendshipScore || prev?.relationshipScore || 0) + 15,
         lastWishedYear: currentYear,
         lastWishedDate: new Date().toISOString()
       }));
@@ -334,7 +352,7 @@ export default function PersonProfile() {
       }
 
       await refreshUser();
-      alert(`Happy Birthday wished! Your relationship streak is now ${newStreak} 🔥`);
+      alert(`Happy Birthday wished! Your connection streak is now ${newStreak} 🔥`);
     } catch (err) {
       console.error(err);
     }
@@ -370,7 +388,7 @@ export default function PersonProfile() {
   const daysUntil = getDaysUntil(person.birthday);
   const isMissed = daysUntil > 350; // Roughly, if it was in the last 15 days
   const daysLate = 365 - daysUntil;
-  const score = getRelationshipScore(person);
+  const score = getConnectionScore(person);
 
   const handleRecovery = async () => {
     setIsRecovering(true);
@@ -838,20 +856,29 @@ export default function PersonProfile() {
                 <MessageSquare size={18} className="text-emerald-400" />
                 Yearly Reflection
               </h3>
-              <p className="text-sm text-zinc-400">What's one thing that changed about {person.name.split(' ')[0]} this year?</p>
-              <form onSubmit={handleSaveReflection} className="space-y-4">
-                <textarea 
-                  className="w-full bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-1 focus:ring-emerald-500 text-white placeholder-zinc-500 focus:outline-none"
-                  placeholder="Type your reflection..."
-                  value={reflectionText}
-                  onChange={(e) => setReflectionText(e.target.value)}
-                  rows={3}
-                  required
-                />
-                <button type="submit" className="w-full py-3 bg-white text-zinc-900 rounded-xl font-bold text-sm hover:bg-zinc-100 transition-colors">
-                  Save Reflection
-                </button>
-              </form>
+              {hasReflectedThisYear ? (
+                <div className="space-y-2">
+                  <p className="text-xs uppercase font-bold text-zinc-400 tracking-wider">Your {new Date().getFullYear()} reflection</p>
+                  <p className="text-sm text-zinc-200 bg-zinc-800 p-4 rounded-xl leading-relaxed whitespace-pre-wrap">{existingReflection}</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-zinc-400">What's one thing that changed about {person.name.split(' ')[0]} this year?</p>
+                  <form onSubmit={handleSaveReflection} className="space-y-4">
+                    <textarea 
+                      className="w-full bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-1 focus:ring-emerald-500 text-white placeholder-zinc-500 focus:outline-none"
+                      placeholder="Type your reflection..."
+                      value={reflectionText}
+                      onChange={(e) => setReflectionText(e.target.value)}
+                      rows={3}
+                      required
+                    />
+                    <button type="submit" className="w-full py-3 bg-white text-zinc-900 rounded-xl font-bold text-sm hover:bg-zinc-100 transition-colors">
+                      Save Reflection
+                    </button>
+                  </form>
+                </>
+              )}
             </section>
           </motion.div>
         )}
@@ -990,7 +1017,7 @@ export default function PersonProfile() {
             className="space-y-6"
           >
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-black tracking-tight">Relationship Timeline</h2>
+              <h2 className="text-xl font-black tracking-tight">Connection Timeline</h2>
             </div>
             {/* Timeline content already exists below in the original code, 
                 but we'll move it here for better organization */}
