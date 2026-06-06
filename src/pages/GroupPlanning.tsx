@@ -356,7 +356,7 @@ export default function GroupPlanning() {
                     className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all" 
                     placeholder="The person we are surprising" 
                   />
-                  <p className="text-[10px] text-zinc-500 ml-1">This links the vault to their account for the auto-reveal.</p>
+                  <p className="text-[10px] text-zinc-500 ml-1">This links the locker to their account for the auto-reveal.</p>
                 </div>
               </div>
 
@@ -451,7 +451,7 @@ export default function GroupPlanning() {
                   : "text-zinc-400"
               )}
             >
-              {tab}
+              {tab === 'vault' ? 'Locker' : tab}
             </button>
           ))}
         </div>
@@ -632,11 +632,11 @@ export default function GroupPlanning() {
               <div className="relative z-10">
                 <h2 className="text-2xl font-black tracking-tight flex items-center gap-3">
                   {isUnlocked ? <Unlock className="text-emerald-500" /> : <Lock className="text-amber-500" />}
-                  Secret Vault
+                  Secret Locker
                 </h2>
                 <p className="text-sm text-zinc-400 mt-2">
                   {isUnlocked 
-                    ? "The vault is open! Enjoy all the surprises your friends left for you."
+                    ? "The locker is open! Enjoy all the surprises your friends left for you."
                     : `Locked until ${group.person_name}'s birthday. Add surprises below!`}
                 </p>
               </div>
@@ -682,7 +682,7 @@ export default function GroupPlanning() {
                   />
                   <div className="flex gap-2">
                     <button onClick={() => setShowSurpriseForm(false)} className="flex-1 py-3 text-sm font-bold text-zinc-500">Cancel</button>
-                    <button onClick={handleAddSurprise} className="flex-1 py-3 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-xl font-bold text-sm">Add to Vault</button>
+                    <button onClick={handleAddSurprise} className="flex-1 py-3 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-xl font-bold text-sm">Add to Locker</button>
                   </div>
                 </motion.div>
               )}
@@ -716,7 +716,7 @@ export default function GroupPlanning() {
                 <div className="p-12 text-center space-y-4 bg-zinc-100 dark:bg-zinc-900/50 rounded-[40px] border border-dashed border-zinc-200 dark:border-zinc-800">
                   <Lock className="mx-auto text-zinc-300" size={48} />
                   <div className="space-y-1">
-                    <p className="font-bold text-zinc-400 uppercase tracking-widest text-xs">Vault Locked</p>
+                    <p className="font-bold text-zinc-400 uppercase tracking-widest text-xs">Locker Locked</p>
                     <p className="text-sm text-zinc-500">Only members can see what's inside until the big reveal.</p>
                   </div>
                 </div>
