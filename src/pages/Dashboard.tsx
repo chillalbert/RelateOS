@@ -24,7 +24,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import CalendarImportStep from '../components/CalendarImportStep';
-import { getDaysUntil, formatDate, cn, getRelationshipScore, getPreciseCountdown, getTurningAge } from '../lib/utils';
+import { getDaysUntil, formatDate, cn, getConnectionScore, getPreciseCountdown, getTurningAge } from '../lib/utils';
 import { Gift, MessageSquare, Sparkles as SparklesIcon, Trash2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { db } from '../lib/firebase';
@@ -239,7 +239,7 @@ export default function Dashboard() {
       const personRef = doc(db, 'people', personId);
       const currentYear = new Date().getFullYear();
       await updateDoc(personRef, {
-        relationshipScore: increment(15),
+        friendshipScore: increment(15),
         lastWishedYear: currentYear,
         lastWishedDate: new Date().toISOString()
       });
@@ -261,7 +261,7 @@ export default function Dashboard() {
       }
 
       await refreshUser();
-      alert(`Happy Birthday wished to ${personName}! Your relationship streak is now ${newStreak} 🔥`);
+      alert(`Happy Birthday wished to ${personName}! Your connection streak is now ${newStreak} 🔥`);
       fetchDashboardData(); // Refresh UI State
     } catch (err) {
       console.error(err);
@@ -383,7 +383,7 @@ export default function Dashboard() {
           animate={{ opacity: 1, y: 0 }}
           className="p-6 rounded-2xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 space-y-1 shadow-xl shadow-zinc-900/10 dark:shadow-white/5"
         >
-          <p className="label-micro text-zinc-400 dark:text-zinc-500">Total Birthdays</p>
+          <p className="label-micro text-zinc-400 dark:text-zinc-500">Friends Tracked</p>
           <p className="text-4xl font-black tracking-tighter"><AnimatedNumber value={analytics?.totalPeople || 0} /></p>
         </motion.div>
         <motion.div 
@@ -392,7 +392,7 @@ export default function Dashboard() {
           transition={{ delay: 0.1 }}
           className="p-6 rounded-2xl bg-emerald-500 text-white space-y-1 shadow-xl shadow-emerald-500/20"
         >
-          <p className="label-micro text-emerald-100">Relationship Streak</p>
+          <p className="label-micro text-emerald-100">Connection Streak</p>
           <p className="text-4xl font-black tracking-tighter">
             <AnimatedNumber value={user?.streak || 0} /> 🔥
           </p>
@@ -639,7 +639,7 @@ export default function Dashboard() {
         </div>
         <div className="space-y-6">
           {priorityPeople.map((person) => {
-            const score = getRelationshipScore(person);
+            const score = getConnectionScore(person);
             return (
               <div key={person.id} className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -649,7 +649,7 @@ export default function Dashboard() {
                     </div>
                     <span className="text-sm font-bold">{person.name}</span>
                   </div>
-                  <span className="text-[10px] font-black text-emerald-500 uppercase tracking-wider">{score}% Score</span>
+                  <span className="text-[10px] font-black text-emerald-500 uppercase tracking-wider">{score}% Vibe</span>
                 </div>
                 <div className="h-2 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
                   <motion.div 
@@ -666,7 +666,7 @@ export default function Dashboard() {
             );
           })}
         </div>
-        <p className="text-[10px] text-zinc-400 text-center pt-2">Algorithm based on interaction frequency, memories & importance</p>
+        <p className="text-[10px] text-zinc-400 text-center pt-2">Based on memories, interactions & how much you show up</p>
       </section>
 
       {/* Navigation Bar */}
@@ -861,7 +861,7 @@ export default function Dashboard() {
               
               <div className="space-y-2">
                 <h2 className="text-2xl font-black tracking-tight">When's the big day?</h2>
-                <p className="text-zinc-500 font-medium">We need your birthday to unlock your secret vaults and show your countdown!</p>
+                <p className="text-zinc-500 font-medium">We need your birthday to unlock your secret lockers and show your countdown!</p>
               </div>
 
               <div className="space-y-4">
