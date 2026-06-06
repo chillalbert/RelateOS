@@ -1,9 +1,10 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Bell, Shield, Moon, LogOut, ChevronRight, Sparkles, X, Check, Lock, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, User, Bell, Shield, Moon, LogOut, ChevronRight, Sparkles, X, Calendar, Check, Lock, Trash2, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Navigation from '../components/Navigation';
+import CalendarImportStep from '../components/CalendarImportStep';
 import { db, auth } from '../lib/firebase';
 import { doc, updateDoc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
@@ -85,6 +86,7 @@ export default function Settings() {
       alert('Failed to update username.');
     }
   };
+
   const [passwordData, setPasswordData] = React.useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [passwordError, setPasswordError] = React.useState('');
   const [passwordSuccess, setPasswordSuccess] = React.useState(false);
@@ -151,11 +153,8 @@ export default function Settings() {
     }
 
     try {
-      // Re-authenticate user first
       const credential = EmailAuthProvider.credential(firebaseUser.email, passwordData.currentPassword);
       await reauthenticateWithCredential(auth.currentUser, credential);
-      
-      // Update password
       await updatePassword(auth.currentUser, passwordData.newPassword);
       
       setPasswordSuccess(true);
@@ -185,6 +184,7 @@ export default function Settings() {
   };
 
   const [showBirthdayModal, setShowBirthdayModal] = React.useState(false);
+  const [showCalendarImport, setShowCalendarImport] = React.useState(false);
   const [isResetting, setIsResetting] = React.useState(false);
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
 
@@ -194,7 +194,6 @@ export default function Settings() {
     if (!isAdmin) return;
     setIsResetting(true);
     try {
-      // Delete all rooms and their subcollections
       const roomsRef = collection(db, 'rooms');
       let roomsSnap;
       try {
@@ -207,7 +206,6 @@ export default function Settings() {
       const roomDeletes: Promise<void>[] = [];
       
       for (const roomDoc of roomsSnap.docs) {
-        // Delete subcollections
         const subcollections = ['ideas', 'contributions', 'surprises'];
         for (const sub of subcollections) {
           const subRef = collection(db, 'rooms', roomDoc.id, sub);
@@ -222,11 +220,9 @@ export default function Settings() {
             roomDeletes.push(deleteDoc(d.ref).catch(e => handleFirestoreError(e, OperationType.DELETE, d.ref.path)));
           });
         }
-        // Delete the room itself
         roomDeletes.push(deleteDoc(roomDoc.ref).catch(e => handleFirestoreError(e, OperationType.DELETE, roomDoc.ref.path)));
       }
       
-      // Delete all memories, tasks, and gifts in all people
       const peopleRef = collection(db, 'people');
       let peopleSnap;
       try {
@@ -260,10 +256,8 @@ export default function Settings() {
       setShowResetConfirm(false);
     } catch (err) {
       console.error("Reset error:", err);
-      // If it's a JSON error, the ErrorBoundary will catch it if we re-throw it
-      // but here we might want to alert if it's not caught by boundary
       if (err instanceof Error && err.message.startsWith('{')) {
-        throw err; // Let ErrorBoundary handle it
+        throw err;
       }
       alert('Failed to reset data.');
     } finally {
@@ -277,6 +271,7 @@ export default function Settings() {
       items: [
         { icon: <User size={20} />, label: 'Profile Information', value: user?.name, onClick: () => { setUsername(user?.name || ''); setShowUsernameModal(true); } },
         { icon: <Sparkles size={20} />, label: 'My Birthday', value: birthday || 'Not set', onClick: () => setShowBirthdayModal(true) },
+        { icon: <Calendar size={20} />, label: 'Import Contacts', value: 'Google Sync', onClick: () => setShowCalendarImport(true) },
         { icon: <Shield size={20} />, label: 'Security & Password', value: '••••••••', onClick: () => setShowPasswordModal(true) },
       ]
     },
@@ -384,6 +379,13 @@ export default function Settings() {
 
       <Navigation />
 
+      {showCalendarImport && (
+        <CalendarImportStep
+          onComplete={() => setShowCalendarImport(false)}
+          firebaseUserId={firebaseUser?.uid || ''}
+        />
+      )}
+
       <AnimatePresence>
         {showResetConfirm && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
@@ -449,9 +451,8 @@ export default function Settings() {
                   <X size={20} />
                 </button>
               </div>
-
               <div className="space-y-6">
-                <p className="text-sm text-zinc-500">We use your birthday to show you a precise countdown and unlock special vaults on your big day!</p>
+                <p className="text-sm text-zinc-500">We use your birthday to show you a precise countdown and unlock special features on your big day!</p>
                 <div className="space-y-1">
                   <label className="text-xs font-bold uppercase text-zinc-400">Date of Birth</label>
                   <input
@@ -473,7 +474,6 @@ export default function Settings() {
         )}
       </AnimatePresence>
 
-      {/* Username Modal */}
       <AnimatePresence>
         {showUsernameModal && (
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
@@ -496,7 +496,6 @@ export default function Settings() {
                   <X size={20} />
                 </button>
               </div>
-
               <form onSubmit={handleUsernameChange} className="space-y-6">
                 <div className="space-y-1">
                   <label className="text-xs font-bold uppercase text-zinc-400">Username / Display Name</label>
@@ -520,7 +519,6 @@ export default function Settings() {
         )}
       </AnimatePresence>
 
-      {/* Password Modal */}
       <AnimatePresence>
         {showPasswordModal && (
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
@@ -543,7 +541,6 @@ export default function Settings() {
                   <X size={20} />
                 </button>
               </div>
-
               {passwordSuccess ? (
                 <div className="py-12 text-center space-y-4">
                   <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-500 rounded-full flex items-center justify-center mx-auto">
@@ -597,7 +594,6 @@ export default function Settings() {
         )}
       </AnimatePresence>
 
-      {/* Notifications Modal */}
       <AnimatePresence>
         {showNotifModal && (
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
@@ -620,7 +616,6 @@ export default function Settings() {
                   <X size={20} />
                 </button>
               </div>
-
               <div className="space-y-4">
                 {[
                   { id: 'birthdays', label: 'Birthdays', desc: 'Get notified when someone has a birthday' },
