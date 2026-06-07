@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Heart } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
@@ -10,6 +10,7 @@ import { doc, setDoc } from 'firebase/firestore';
 export default function Login() {
   const { signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLogin, setIsLogin] = React.useState(true);
   const [formData, setFormData] = React.useState({ email: '', password: '', name: '' });
   const [error, setError] = React.useState('');
@@ -40,7 +41,8 @@ export default function Login() {
           created_at: new Date().toISOString()
         });
       }
-      navigate('/');
+      const redirectTo = (location.state as any)?.redirectTo || '/';
+      navigate(redirectTo);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -53,7 +55,8 @@ export default function Login() {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-      navigate('/');
+      const redirectTo = (location.state as any)?.redirectTo || '/';
+      navigate(redirectTo);
     } catch (err: any) {
       setError(err.message || 'Failed to sign in with Google.');
     } finally {
