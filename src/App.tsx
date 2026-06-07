@@ -14,16 +14,23 @@ import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 import AICoach from './pages/AICoach';
 import SurpriseReveal from './pages/SurpriseReveal';
+import PublicProfileCollector from './pages/PublicProfileCollector';
 
 import LoadingScreen from './components/LoadingScreen';
 import NotificationManager from './components/NotificationManager';
 import ErrorBoundary from './components/ErrorBoundary';
+import OnboardingFlow from './components/OnboardingFlow';
 import { initializeGeminiKey } from './services/geminiService';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
-  const { firebaseUser, isLoading } = useAuth();
+  const { firebaseUser, user, isLoading } = useAuth();
   if (isLoading) return <LoadingScreen />;
-  return firebaseUser ? <>{children}</> : <Navigate to="/login" />;
+  if (!firebaseUser) return <Navigate to="/login" />;
+  
+  if (user && user.has_completed_onboarding !== true && user.onboarding_completed !== true) {
+    return <OnboardingFlow />;
+  }
+  return <>{children}</>;
 };
 
 const ThemeHandler = ({ children }: { children: React.ReactNode }) => {
@@ -68,6 +75,7 @@ export default function App() {
               <Route path="/groups" element={<PrivateRoute><Groups /></PrivateRoute>} />
               <Route path="/groups/create" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
               <Route path="/groups/:id" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
+              <Route path="/u/:username" element={<PublicProfileCollector />} />
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
