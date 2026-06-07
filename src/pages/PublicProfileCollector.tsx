@@ -117,18 +117,23 @@ export default function PublicProfileCollector() {
       });
 
       // 3. Fire push ping request to Notify host immediately
-      try {
-        await fetch('/.netlify/functions/send-push-ping', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            host_uid: hostUser.id,
-            title: '🎉 Birthday sync!',
-            message: `${user.name} has added your birthday to their list!`
-          })
-        });
-      } catch (err) {
-        console.warn('Failed sending push ping notify:', err);
+      const hostUid = hostUser?.id;
+      const visitorName = user?.name || 'A Friend';
+      if (hostUid && visitorName) {
+        try {
+          await fetch('/.netlify/functions/send-push-ping', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userIds: [hostUid],
+              title: "Profile Saved! ⚡",
+              body: `${visitorName} just added your profile card to their list.`,
+              url: "/notifications"
+            })
+          });
+        } catch (err) {
+          console.warn('Failed sending push ping notify:', err);
+        }
       }
 
       setHasGrabbed(true);
