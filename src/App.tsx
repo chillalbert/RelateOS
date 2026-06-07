@@ -27,7 +27,7 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   if (isLoading) return <LoadingScreen />;
   if (!firebaseUser) return <Navigate to="/login" />;
   
-  if (user && user.has_completed_onboarding !== true && user.onboarding_completed !== true) {
+  if (user && user.has_completed_onboarding !== true) {
     return <OnboardingFlow />;
   }
   return <>{children}</>;
