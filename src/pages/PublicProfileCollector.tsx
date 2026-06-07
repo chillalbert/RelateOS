@@ -1,47 +1,37 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
-import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Check, User, Heart, Gift, ShieldAlert, Lock } from 'lucide-react';
+import { 
+  Sparkles, Check, User, Heart, Lock, ShieldAlert, 
+  HelpCircle, Copy, Share2, CornerDownRight, ArrowRight, Home
+} from 'lucide-react';
 
 export default function PublicProfileCollector() {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
+  const { firebaseUser, user, isLoading } = useAuth();
 
   // Host search states
   const [hostUser, setHostUser] = React.useState<any>(null);
   const [isSearching, setIsSearching] = React.useState(true);
   
-  // Visitor form states
-  const [visitorName, setVisitorName] = React.useState('');
-  const [visitorNickname, setVisitorNickname] = React.useState('');
-  const [visitorCategory, setVisitorCategory] = React.useState<'friend' | 'family' | 'partner' | 'coworker' | 'other'>('friend');
-  const [birthMonth, setBirthMonth] = React.useState('01');
-  const [birthDay, setBirthDay] = React.useState('01');
-  const [birthYear, setBirthYear] = React.useState('');
-  const [notes, setNotes] = React.useState('');
-  const [interests, setInterests] = React.useState('');
-  
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [isSuccessful, setIsSuccessful] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  // Interaction states
+  const [isGrabbing, setIsGrabbing] = React.useState(false);
+  const [hasGrabbed, setHasGrabbed] = React.useState(false);
+  const [friendRequestSent, setFriendRequestSent] = React.useState(false);
+  const [isSendingRequest, setIsSendingRequest] = React.useState(false);
 
-  // Month array
-  const months = [
-    { value: '01', label: 'January' },
-    { value: '02', label: 'February' },
-    { value: '03', label: 'March' },
-    { value: '04', label: 'April' },
-    { value: '05', label: 'May' },
-    { value: '06', label: 'June' },
-    { value: '07', label: 'July' },
-    { value: '08', label: 'August' },
-    { value: '09', label: 'September' },
-    { value: '10', label: 'October' },
-    { value: '11', label: 'November' },
-    { value: '12', label: 'December' },
-  ];
+  // Month labels helper
+  const getMonthLabel = (m: number) => {
+    const list = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return list[m - 1] || 'Special Month';
+  };
 
   React.useEffect(() => {
     const fetchHostUser = async () => {
@@ -52,30 +42,28 @@ export default function PublicProfileCollector() {
 
       try {
         const usersRef = collection(db, 'users');
-        const querySnapshot = await getDocs(usersRef);
         
-        // Find matching host user using standard username slug logic, supporting custom_handle
-        const matched = querySnapshot.docs.find(doc => {
-          const uData = doc.data();
-          const name = uData.name || '';
-          const emailPrefix = (uData.email || '').split('@')[0];
-          const customHandle = uData.custom_handle || '';
-          
-          const slugFromName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-          const slugFromEmail = emailPrefix.toLowerCase().replace(/[^a-z0-9]/g, '');
-          const targetSlug = username.toLowerCase().replace(/[^a-z0-9]/g, '');
-          const slugFromCustomHandle = customHandle.toLowerCase().replace(/[^a-z0-9]/g, '');
-          
-          return (
-            slugFromName === targetSlug || 
-            slugFromEmail === targetSlug || 
-            name.toLowerCase() === username.toLowerCase() ||
-            (customHandle && slugFromCustomHandle === targetSlug)
-          );
-        });
+        // Exact lowercase matches for handle or custom_handle
+        const q1 = query(usersRef, where('handle', '==', username.toLowerCase()));
+        const q2 = query(usersRef, where('custom_handle', '==', username.toLowerCase()));
+        const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+        const matchedDoc = snap1.docs[0] || snap2.docs[0];
 
-        if (matched) {
-          setHostUser({ id: matched.id, ...matched.data() });
+        if (matchedDoc) {
+          const uData = matchedDoc.data();
+          // ONLY load safe public fields, strictly omitting email and birth_year
+          setHostUser({
+            id: matchedDoc.id,
+            name: uData.name || 'User',
+            profile_picture_url: uData.profile_picture_url || '',
+            birthday_month: uData.birthday_month || 1,
+            birthday_day: uData.birthday_day || 1,
+            is_private: uData.is_private || false,
+            fav_sports_teams: uData.fav_sports_teams || '',
+            fav_artists: uData.fav_artists || '',
+            weekend_activities: uData.weekend_activities || '',
+            blocked_uids: uData.blocked_uids || []
+          });
         }
       } catch (err) {
         console.error('Error fetching public host user:', err);
@@ -87,32 +75,30 @@ export default function PublicProfileCollector() {
     fetchHostUser();
   }, [username]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!hostUser) return;
-
-    setIsSubmitting(true);
-    setError(null);
+  // Handler to add host birthday & save social activity
+  const handleGrabData = async () => {
+    if (!hostUser || !firebaseUser || !user) return;
+    setIsGrabbing(true);
 
     try {
-      const yearStr = birthYear.trim();
-      const monthStr = birthMonth;
-      const dayStr = birthDay.trim().padStart(2, '0');
-      const hasYear = yearStr.length > 0;
-      const birthdayStr = hasYear ? `${yearStr}-${monthStr}-${dayStr}` : `1900-${monthStr}-${dayStr}`;
-
+      // 1. Add static doc to visitor's private 'people' roster in firestore:
       const peopleRef = collection(db, 'people');
+      const formattedMonth = String(hostUser.birthday_month).padStart(2, '0');
+      const formattedDay = String(hostUser.birthday_day).padStart(2, '0');
+      const bDayStr = `2000-${formattedMonth}-${formattedDay}`;
+
       await addDoc(peopleRef, {
-        name: visitorName,
-        nickname: visitorNickname,
-        birthday: birthdayStr,
-        birthYearUnknown: !hasYear,
-        category: visitorCategory,
+        name: hostUser.name,
+        nickname: hostUser.name,
+        birthday: bDayStr,
+        birthYearUnknown: true, 
+        category: 'friend',
         importance: 4, 
-        notes: notes || 'Connected via Public Profile Link',
-        interests: interests,
-        photo_url: '',
-        user_id: hostUser.id,
+        notes: `Grabbed from handle link /u/${username}`,
+        interests: hostUser.fav_artists || '',
+        photo_url: hostUser.profile_picture_url || '',
+        user_id: firebaseUser.uid, // visitor's UID
+        host_uid: hostUser.id, 
         created_at: serverTimestamp(),
         reminder_settings: {
           one_week_before: true,
@@ -121,16 +107,61 @@ export default function PublicProfileCollector() {
         }
       });
 
-      setIsSuccessful(true);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Failed to submit profile. Please try again.');
+      // 2. Add a record to 'social_activity' collection:
+      const activityRef = collection(db, 'social_activity');
+      await addDoc(activityRef, {
+        host_uid: hostUser.id,
+        grabber_uid: firebaseUser.uid,
+        grabber_name: user.name || 'Anonymous Friend',
+        timestamp: serverTimestamp()
+      });
+
+      // 3. Fire push ping request to Notify host immediately
+      try {
+        await fetch('/.netlify/functions/send-push-ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            host_uid: hostUser.id,
+            title: '🎉 Birthday sync!',
+            message: `${user.name} has added your birthday to their list!`
+          })
+        });
+      } catch (err) {
+        console.warn('Failed sending push ping notify:', err);
+      }
+
+      setHasGrabbed(true);
+    } catch (err) {
+      console.error('Error syncing birthday info:', err);
     } finally {
-      setIsSubmitting(false);
+      setIsGrabbing(false);
     }
   };
 
-  if (isSearching) {
+  // Handler to send outbound friend request
+  const handleSendFriendRequest = async () => {
+    if (!hostUser || !firebaseUser || !user) return;
+    setIsSendingRequest(true);
+    try {
+      const frRef = collection(db, 'friend_requests');
+      await addDoc(frRef, {
+        sender_uid: firebaseUser.uid,
+        receiver_uid: hostUser.id,
+        sender_name: user.name || 'A Friend',
+        status: 'pending',
+        timestamp: serverTimestamp()
+      });
+      setFriendRequestSent(true);
+    } catch (err) {
+      console.error('Error sending friend request:', err);
+    } finally {
+      setIsSendingRequest(false);
+    }
+  };
+
+  // Loading spinner
+  if (isLoading || isSearching) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950">
         <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
@@ -139,56 +170,129 @@ export default function PublicProfileCollector() {
     );
   }
 
-  if (!hostUser) {
+  // Guest Handling View: If visitor is NOT logged in, freeze screen with a marketing card
+  if (!firebaseUser) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 select-none">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-8 rounded-[32px] text-center space-y-6 shadow-sm"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 p-8 rounded-[36px] text-center space-y-6 shadow-xl relative overflow-hidden"
         >
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400">
-            <ShieldAlert size={36} />
+          <div className="w-16 h-16 rounded-[24px] bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
+            <Sparkles size={32} />
           </div>
           <div className="space-y-2">
-            <h1 className="text-xl font-extrabold tracking-tight">Orbit Not Found</h1>
-            <p className="text-xs text-zinc-500 leading-relaxed">
-              We couldn't locate a profile matching "{username}". Double check the spelling of your friend's name or link handle.
+            <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">
+              Connect with {username || 'Friend'} 🎂
+            </h1>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
+              RelateOS is a modern, clean social utility to sync birthdays, current vibes, and sport teams with your closest circle. 
             </p>
           </div>
-          <button 
-            onClick={() => navigate('/login')}
-            className="w-full py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl font-bold text-xs transition-colors hover:bg-zinc-805"
+          <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl text-[11px] text-zinc-400 font-semibold leading-relaxed">
+            ✨ Register today to grab {username}'s birthday list and sync your calendar in 1 click.
+          </div>
+          <button
+            onClick={() => {
+              if (username) {
+                sessionStorage.setItem('cached_host_handle', username);
+              }
+              navigate('/login');
+            }}
+            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/15 cursor-pointer flex items-center justify-center gap-1.5 transition-all"
           >
-            Launch My Own Circle
+            Claim My Free Account <ArrowRight size={13} />
           </button>
         </motion.div>
       </div>
     );
   }
 
-  if (hostUser.is_private) {
+  // Profile not found
+  if (!hostUser) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 p-8 rounded-[32px] text-center space-y-6 shadow-xl"
         >
           <div className="mx-auto w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400">
-            <Lock size={32} className="text-zinc-500" />
+            <ShieldAlert size={36} />
           </div>
           <div className="space-y-2">
-            <h1 className="text-xl font-extrabold tracking-tight text-zinc-900 dark:text-white">This Profile is Private 🔒</h1>
-            <p className="text-xs text-zinc-500 leading-relaxed dark:text-zinc-400">
-              {hostUser.name}'s workspace is configured for maximum confidentiality. Public invitation requests are disabled.
+            <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Orbit Not Found</h1>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
+              We couldn't locate a profile matching "{username}". Verify that the handle link is correct.
             </p>
           </div>
           <button 
-            onClick={() => navigate('/login')}
-            className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-wider transition-all hover:bg-emerald-600 shadow-md shadow-emerald-500/10"
+            onClick={() => navigate('/')}
+            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1 shadow-md cursor-pointer"
           >
-            Launch My Own Circle ⚡
+            Go to Dashboard <Home size={14} />
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Security Block Checker
+  const visitorUid = firebaseUser.uid;
+  const isBlockedByHost = hostUser.blocked_uids?.includes(visitorUid);
+  
+  if (isBlockedByHost) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 select-none">
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 p-8 rounded-[32px] text-center space-y-6 shadow-xl"
+        >
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
+            <Lock size={32} />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Profile is Locked 🔒</h1>
+            <p className="text-xs text-zinc-450 dark:text-zinc-400 leading-relaxed font-semibold">
+              This profile has been locked by the host and is currently unavailable.
+            </p>
+          </div>
+          <button 
+            onClick={() => navigate('/')}
+            className="w-full py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl font-black text-xs uppercase tracking-wider cursor-pointer"
+          >
+            Back to Dashboard
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Host Private Shield Check
+  if (hostUser.is_private) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 select-none">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 p-8 rounded-[32px] text-center space-y-6 shadow-xl"
+        >
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-zinc-105 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
+            <Lock size={32} />
+          </div>
+          <div className="space-y-3">
+            <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">This Profile is Private 🔒</h1>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
+              {hostUser.name}'s workspace is configured for maximum confidentiality. Direct public invitations are disabled.
+            </p>
+          </div>
+          <button 
+            onClick={() => navigate('/')}
+            className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-wider transition-all hover:bg-emerald-600 shadow-md cursor-pointer"
+          >
+            Launch My Dashboard ⚡
           </button>
         </motion.div>
       </div>
@@ -197,194 +301,145 @@ export default function PublicProfileCollector() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 pt-[var(--sat)] select-none">
-      <AnimatePresence mode="wait">
-        {!isSuccessful ? (
-          <motion.div 
-            key="collector-form"
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            className="w-full max-w-md space-y-6"
-          >
-            {/* High-energy header avatar badge */}
-            <div className="flex flex-col items-center space-y-3 text-center">
-              <div className="relative">
-                <div className="w-24 h-24 rounded-full overflow-hidden border-[4px] border-emerald-500 shadow-xl shadow-emerald-500/10 bg-white dark:bg-zinc-900 relative z-10">
-                  {hostUser.profile_picture_url ? (
-                    <img 
-                      src={hostUser.profile_picture_url} 
-                      alt={hostUser.name} 
-                      className="w-full h-full object-cover" 
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-emerald-500 text-white font-black text-2xl uppercase">
-                      {hostUser.name?.charAt(0)}
-                    </div>
-                  )}
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md space-y-6"
+      >
+        {/* Modern high-energy circular badge avatar representation */}
+        <div className="flex flex-col items-center text-center space-y-3">
+          <div className="relative">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-[4px] border-emerald-500 shadow-xl shadow-emerald-500/10 bg-white dark:bg-zinc-900 relative z-10">
+              {hostUser.profile_picture_url ? (
+                <img 
+                  src={hostUser.profile_picture_url} 
+                  alt={hostUser.name} 
+                  className="w-full h-full object-cover" 
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-emerald-500 text-white font-black text-2xl uppercase">
+                  {hostUser.name?.charAt(0)}
                 </div>
-                {/* Visual energy rings */}
-                <div className="absolute inset-0 w-24 h-24 rounded-full border-2 border-emerald-500 animate-ping opacity-25" />
-              </div>
-              
-              <div className="space-y-1">
-                <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white flex items-center gap-1.5 justify-center">
-                  Lock into {hostUser.name}'s Inner Circle <span className="animate-pulse">⚡</span>
-                </h1>
-                <p className="text-xs text-zinc-400 font-medium">Add yourself to their circle so they never miss your milestones or birthdays!</p>
-              </div>
+              )}
             </div>
+            <div className="absolute inset-0 w-24 h-24 rounded-full border-2 border-emerald-500 animate-ping opacity-20" />
+          </div>
+          <div>
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-extrabold text-[10px] uppercase tracking-wider">
+              Profile Invite Link
+            </span>
+            <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white mt-1.5">
+              {hostUser.name}
+            </h1>
+            <p className="text-xs text-zinc-400 font-bold">@{username}</p>
+          </div>
+        </div>
 
-            {/* Collector Form card */}
-            <div className="bg-white dark:bg-zinc-900 p-8 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm space-y-5">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                
-                {/* Name */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Your Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none text-xs text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 font-semibold outline-none"
-                    placeholder="e.g., Jennifer Aniston"
-                    value={visitorName}
-                    onChange={(e) => setVisitorName(e.target.value)}
-                  />
-                </div>
-
-                {/* Nickname / Met */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Nickname / How We Met</label>
-                  <input
-                    type="text"
-                    className="w-full p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none text-xs text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                    placeholder="e.g., Jen / Coding Camp"
-                    value={visitorNickname}
-                    onChange={(e) => setVisitorNickname(e.target.value)}
-                  />
-                </div>
-
-                {/* Relationship Category */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Category</label>
-                  <div className="grid grid-cols-5 bg-zinc-50 dark:bg-zinc-800 p-1 rounded-2xl">
-                    {(['friend', 'family', 'partner', 'coworker', 'other'] as const).map((cat) => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => setVisitorCategory(cat)}
-                        className={`py-2 text-[10px] font-black rounded-xl capitalize transition-all cursor-pointer ${
-                          visitorCategory === cat 
-                            ? 'bg-white dark:bg-zinc-700 text-emerald-555 dark:text-emerald-400 shadow-sm font-extrabold' 
-                            : 'text-zinc-400 hover:text-zinc-600'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Birthday Selector */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Birthday Info</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <select
-                      value={birthMonth}
-                      onChange={(e) => setBirthMonth(e.target.value)}
-                      className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-2xl border-none text-xs text-zinc-900 dark:text-white font-semibold focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer"
-                    >
-                      {months.map(m => (
-                        <option key={m.value} value={m.value}>{m.label}</option>
-                      ))}
-                    </select>
-
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      max={31}
-                      className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-2xl border-none text-xs text-zinc-900 dark:text-white font-semibold text-center focus:ring-2 focus:ring-emerald-500 outline-none"
-                      placeholder="Day (e.g. 15)"
-                      value={birthDay}
-                      onChange={(e) => setBirthDay(e.target.value)}
-                    />
-
-                    <input
-                      type="number"
-                      min={1920}
-                      max={new Date().getFullYear()}
-                      className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-2xl border-none text-xs text-zinc-900 dark:text-white font-semibold text-center focus:ring-2 focus:ring-emerald-500 outline-none"
-                      placeholder="Year (Optional)"
-                      value={birthYear}
-                      onChange={(e) => setBirthYear(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                {/* Interests / Passions */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Your Passions / Interests (separated by commas)</label>
-                  <input
-                    type="text"
-                    className="w-full p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none text-xs text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                    placeholder="e.g., espresso, synth music, surfing, React"
-                    value={interests}
-                    onChange={(e) => setInterests(e.target.value)}
-                  />
-                </div>
-
-                {/* Notes */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Notes, Secret Memories or Wishes</label>
-                  <textarea
-                    rows={2}
-                    className="w-full p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none text-xs text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none resize-none"
-                    placeholder="A funny catchphrase or memory we share..."
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                  />
-                </div>
-
-                {error && <p className="text-red-500 text-xs text-center font-bold">{error}</p>}
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !visitorName.trim()}
-                  className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs transition-all disabled:opacity-50 shadow-lg shadow-emerald-500/15 uppercase tracking-wide cursor-pointer"
-                >
-                  {isSubmitting ? 'Locking in...' : 'Lock in ⚡'}
-                </button>
-              </form>
+        {/* Digital Identity Premium Card showing only allowed fields */}
+        <div className="w-full bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-[32px] p-6 shadow-md space-y-5">
+          <div className="flex items-center gap-3 pb-4 border-b border-zinc-100 dark:border-zinc-800">
+            <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center">
+              🎂
             </div>
-          </motion.div>
-        ) : (
-          <motion.div 
-            key="collector-success"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-sm bg-white dark:bg-zinc-900 p-8 rounded-[32px] border border-zinc-100 dark:border-zinc-800 text-center space-y-6 shadow-xl"
-          >
-            <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <Check size={36} strokeWidth={3} />
-            </div>
-            
-            <div className="space-y-2">
-              <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">Profile Locked In! ⚡</h1>
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                You are now officially in <span className="font-extrabold text-zinc-700 dark:text-zinc-200">{hostUser.name}'s</span> inner circle. They'll be alerted whenever your special days approach!
+            <div>
+              <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400">Birthday Month & Day</h2>
+              <p className="text-sm font-extrabold text-zinc-900 dark:text-white">
+                {getMonthLabel(hostUser.birthday_month)} {hostUser.birthday_day}
               </p>
             </div>
+          </div>
 
-            <button 
-              onClick={() => navigate('/login')}
-              className="w-full py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl font-bold text-xs"
+          <div className="space-y-4">
+            {hostUser.fav_sports_teams && (
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">🏅 Cheering For</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {hostUser.fav_sports_teams.split(',').map((team: string, idx: number) => (
+                    <span 
+                      key={idx} 
+                      className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg border border-zinc-100 dark:border-zinc-750"
+                    >
+                      {team.trim()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {hostUser.fav_artists && (
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">🎵 Currently Jaming</span>
+                <p className="text-xs text-zinc-700 dark:text-zinc-305 font-bold">
+                  {hostUser.fav_artists}
+                </p>
+              </div>
+            )}
+
+            {hostUser.weekend_activities && (
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">⚡ Favorite Weekend Activity</span>
+                <p className="p-3 bg-zinc-50 dark:bg-zinc-850 rounded-2xl text-xs text-zinc-650 dark:text-zinc-350 italic font-medium leading-relaxed">
+                  "{hostUser.weekend_activities}"
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Dynamic Action Panel */}
+        <div className="space-y-3">
+          {!hasGrabbed ? (
+            <button
+              onClick={handleGrabData}
+              disabled={isGrabbing}
+              className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 font-black text-xs text-white uppercase tracking-wider rounded-2xl shadow-lg shadow-emerald-500/15 cursor-pointer flex items-center justify-center gap-2 transition-all"
             >
-              Build My Own Circles
+              {isGrabbing ? 'Saving to list...' : `Add ${hostUser.name} to My Birthday List 🎂`}
             </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          ) : (
+            <div className="space-y-4 pt-2">
+              <div className="p-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-black text-center rounded-2xl flex items-center justify-center gap-1.5 animate-bounce">
+                <Check size={14} strokeWidth={3} /> Saved to Your Personal Birthday List!
+              </div>
+
+              {/* POST-COPY SPLIT ACTION CHOICE LAYOUT */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Left Card: Send Friend Request */}
+                <button
+                  type="button"
+                  disabled={friendRequestSent || isSendingRequest}
+                  onClick={handleSendFriendRequest}
+                  className={`p-4 rounded-2xl border text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer ${
+                    friendRequestSent 
+                      ? 'border-emerald-500 bg-emerald-500/5 text-emerald-600' 
+                      : 'border-zinc-200 dark:border-zinc-800 hover:border-emerald-500 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-350 shadow-sm'
+                  }`}
+                >
+                  <span className="text-[11px] font-black uppercase tracking-wider">
+                    {friendRequestSent ? 'Sent! 🤝' : 'Send Friend Request 🤝'}
+                  </span>
+                  <span className="text-[9px] text-zinc-400 font-semibold leading-tight">
+                    {friendRequestSent ? 'Outbound request pending' : 'Connect accounts to sync updates'}
+                  </span>
+                </button>
+
+                {/* Right Card: Done */}
+                <button
+                  type="button"
+                  onClick={() => navigate('/')}
+                  className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-350 text-center flex flex-col items-center justify-center gap-2 hover:border-zinc-400 transition-all shadow-sm cursor-pointer"
+                >
+                  <span className="text-[11px] font-black uppercase tracking-wider">Done</span>
+                  <span className="text-[9px] text-zinc-400 font-semibold leading-tight">
+                    See my dashboard calendar
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </motion.div>
     </div>
   );
 }
