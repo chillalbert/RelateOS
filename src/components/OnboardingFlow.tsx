@@ -14,7 +14,6 @@ export default function OnboardingFlow() {
 
   // Step 1: About You
   const [name, setName] = React.useState(user?.name || '');
-  const [birthday, setBirthday] = React.useState(user?.birthday || '2008-01-01');
   const [customHandle, setCustomHandle] = React.useState('');
   const [profilePicUrl, setProfilePicUrl] = React.useState(user?.profile_picture_url || '');
   const [isUploading, setIsUploading] = React.useState(false);
@@ -22,6 +21,32 @@ export default function OnboardingFlow() {
   const [handleChecking, setHandleChecking] = React.useState(false);
   const [handleError, setHandleError] = React.useState('');
   const [handleSuccess, setHandleSuccess] = React.useState(false);
+
+  // Separate birthday month, day, optional birth_year
+  const [bMonth, setBMonth] = React.useState<number>(() => {
+    if (user?.birthday_month) return user.birthday_month;
+    if (user?.birthday) {
+      const parts = user.birthday.split('-');
+      if (parts.length === 3) return parseInt(parts[1], 10);
+    }
+    return 6;
+  });
+  const [bDay, setBDay] = React.useState<number>(() => {
+    if (user?.birthday_day) return user.birthday_day;
+    if (user?.birthday) {
+      const parts = user.birthday.split('-');
+      if (parts.length === 3) return parseInt(parts[2], 10);
+    }
+    return 15;
+  });
+  const [bYear, setBYear] = React.useState<string>(() => {
+    if (user?.birth_year) return user.birth_year.toString();
+    if (user?.birthday) {
+      const parts = user.birthday.split('-');
+      if (parts.length === 3 && parts[0] !== '2000') return parts[0];
+    }
+    return '';
+  });
 
   // Step 2: Your Social Vibes
   const [sportsInput, setSportsInput] = React.useState('');
@@ -48,7 +73,7 @@ export default function OnboardingFlow() {
 
   // Handle unique handle check
   const checkHandleUniqueness = async (handleToCheck: string) => {
-    const cleanHandle = handleToCheck.trim().toLowerCase().replace(/[^a-z0-0_\-]/g, '');
+    const cleanHandle = handleToCheck.trim().toLowerCase().replace(/[^a-z0-9_\-]/g, '');
     if (!cleanHandle) {
       setHandleError('Handle cannot be empty');
       setHandleSuccess(false);
@@ -161,9 +186,18 @@ export default function OnboardingFlow() {
       const cleanHandle = customHandle.toLowerCase().trim().replace(/[^a-z0-9_\-]/g, '');
       const finalProfilePic = profilePicUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=10b981&color=fff&size=256&bold=true`;
 
+      const formattedMonth = String(bMonth).padStart(2, '0');
+      const formattedDay = String(bDay).padStart(2, '0');
+      const formattedYear = bYear ? String(bYear).padStart(4, '0') : '2000';
+      const finalBirthday = `${formattedYear}-${formattedMonth}-${formattedDay}`;
+
       await updateDoc(userRef, {
         name,
-        birthday,
+        birthday: finalBirthday,
+        birthday_month: Number(bMonth),
+        birthday_day: Number(bDay),
+        birth_year: bYear ? Number(bYear) : '',
+        blocked_uids: user?.blocked_uids || [],
         custom_handle: cleanHandle,
         handle: cleanHandle,
         profile_picture_url: finalProfilePic,
@@ -288,13 +322,53 @@ export default function OnboardingFlow() {
                   <label className="text-[10px] uppercase font-black tracking-wider text-zinc-400 ml-0.5 flex items-center gap-1">
                     <Calendar size={11} /> Birthday
                   </label>
-                  <input
-                    type="date"
-                    required
-                    className="w-full p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none text-xs font-semibold text-zinc-950 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                    value={birthday}
-                    onChange={(e) => setBirthday(e.target.value)}
-                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    {/* Month Dropdown */}
+                    <select
+                      value={bMonth}
+                      onChange={(e) => setBMonth(parseInt(e.target.value, 10))}
+                      className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none text-[11px] font-bold text-zinc-950 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                    >
+                      {[
+                        { val: 1, label: 'Jan' },
+                        { val: 2, label: 'Feb' },
+                        { val: 3, label: 'Mar' },
+                        { val: 4, label: 'Apr' },
+                        { val: 5, label: 'May' },
+                        { val: 6, label: 'Jun' },
+                        { val: 7, label: 'Jul' },
+                        { val: 8, label: 'Aug' },
+                        { val: 9, label: 'Sep' },
+                        { val: 10, label: 'Oct' },
+                        { val: 11, label: 'Nov' },
+                        { val: 12, label: 'Dec' },
+                      ].map((m) => (
+                        <option key={m.val} value={m.val} className="dark:bg-zinc-850 p-2 text-xs">{m.label}</option>
+                      ))}
+                    </select>
+
+                    {/* Day Dropdown */}
+                    <select
+                      value={bDay}
+                      onChange={(e) => setBDay(parseInt(e.target.value, 10))}
+                      className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none text-[11px] font-bold text-zinc-950 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                    >
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                        <option key={d} value={d} className="dark:bg-zinc-850 p-2 text-xs">{d}</option>
+                      ))}
+                    </select>
+
+                    {/* Optional Year Input */}
+                    <input
+                      type="number"
+                      placeholder="Year (Optional)"
+                      className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none text-[11px] font-bold text-zinc-950 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                      value={bYear}
+                      onChange={(e) => setBYear(e.target.value)}
+                      min={1900}
+                      max={new Date().getFullYear()}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-1">
