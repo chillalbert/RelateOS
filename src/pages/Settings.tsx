@@ -66,11 +66,24 @@ export default function Settings() {
   const [personality, setPersonality] = React.useState(user?.personality || 'Chill');
   const [appearance, setAppearance] = React.useState(user?.appearance || 'light');
   const [notifSettings, setNotifSettings] = React.useState(user?.notification_settings || { birthdays: true, tasks: true, groups: true });
+  const [notificationTime, setNotificationTime] = React.useState(user?.notification_time || '09:00');
   
   const [showPasswordModal, setShowPasswordModal] = React.useState(false);
   const [showNotifModal, setShowNotifModal] = React.useState(false);
   const [showUsernameModal, setShowUsernameModal] = React.useState(false);
   const [username, setUsername] = React.useState(user?.name || '');
+
+  const handleNotificationTimeChange = async (newTime: string) => {
+    if (!firebaseUser) return;
+    try {
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      await setDoc(userRef, { notification_time: newTime }, { merge: true });
+      setNotificationTime(newTime);
+      await refreshUser();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleUsernameChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -278,7 +291,7 @@ export default function Settings() {
     {
       title: 'Preferences',
       items: [
-        { icon: <Bell size={20} />, label: 'Notification Settings', value: Object.values(notifSettings).filter(Boolean).length + ' Active', onClick: () => setShowNotifModal(true) },
+        { icon: <Bell size={20} />, label: 'Notification Settings', value: `${Object.values(notifSettings).filter(Boolean).length} Active (@ ${notificationTime})`, onClick: () => setShowNotifModal(true) },
         { icon: <Sparkles size={20} />, label: 'AI Personality', value: personality, onClick: handlePersonalityChange },
         { icon: <Moon size={20} />, label: 'Appearance', value: appearance.charAt(0).toUpperCase() + appearance.slice(1), onClick: handleAppearanceToggle },
       ]
@@ -636,6 +649,18 @@ export default function Settings() {
                     </div>
                   </button>
                 ))}
+
+                <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
+                  <label className="text-xs font-bold uppercase text-zinc-400 block mb-1">
+                    When do you want to receive birthday morning alerts? ⏰
+                  </label>
+                  <input
+                    type="time"
+                    className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500 text-sm font-semibold"
+                    value={notificationTime}
+                    onChange={(e) => handleNotificationTimeChange(e.target.value)}
+                  />
+                </div>
               </div>
             </motion.div>
           </div>
