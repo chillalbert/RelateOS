@@ -65,6 +65,7 @@ export default function GroupPlanning() {
   const [newSurprise, setNewSurprise] = React.useState({ type: 'message', content: '' });
   const [surprises, setSurprises] = React.useState<any[]>([]);
   const [linkCopied, setLinkCopied] = React.useState(false);
+  const [ideas, setIdeas] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     if (!id || !firebaseUser) return;
@@ -84,21 +85,22 @@ export default function GroupPlanning() {
           return;
         }
 
-        // Fetch ideas
-        const ideasRef = collection(db, 'rooms', id, 'ideas');
-        const ideasSnap = await getDocs(ideasRef);
-        const ideas = ideasSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
         // Fetch contributions
         const contributionsRef = collection(db, 'rooms', id, 'contributions');
         const contributionsSnap = await getDocs(contributionsRef);
         const contributions = contributionsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-        setGroup({ ...groupData, ideas, contributions, isMember, isRecipient });
+        setGroup({ ...groupData, contributions, isMember, isRecipient });
         setLoading(false);
       } else {
         setLoading(false);
       }
+    });
+
+    // Ideas subscription
+    const ideasRef = collection(db, 'rooms', id, 'ideas');
+    const unsubscribeIdeas = onSnapshot(ideasRef, (snapshot) => {
+      setIdeas(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
     // Surprises subscription
@@ -109,6 +111,7 @@ export default function GroupPlanning() {
 
     return () => {
       unsubscribeGroup();
+      unsubscribeIdeas();
       unsubscribeSurprises();
     };
   }, [id, firebaseUser, user?.email]);
@@ -600,7 +603,7 @@ export default function GroupPlanning() {
               </div>
               
               <div className="space-y-4">
-                {group.ideas?.map((idea: any) => (
+                {ideas?.map((idea: any) => (
                   <motion.div 
                     key={idea.id}
                     initial={{ opacity: 0, y: 10 }}
