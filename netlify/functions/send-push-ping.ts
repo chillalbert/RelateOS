@@ -2,7 +2,7 @@ import { Handler } from "@netlify/functions";
 import webpush from "web-push";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
-import firebaseConfig from "../../firebase-applet-config.json" assert { type: "json" };
+import firebaseConfig from "../../firebase-applet-config.json" with { type: "json" };
 
 // Initialize Firebase App directly using the imported JSON
 const app = initializeApp(firebaseConfig);
