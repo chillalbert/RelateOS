@@ -1,5 +1,4 @@
 import { Handler } from "@netlify/functions";
-import webpush from "web-push";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json" with { type: "json" };
@@ -9,10 +8,6 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
 
 const publicKey = "BCFXI0MEi3CVogRK6TZVK7B0zuqcuwU_K8mBNr7sD1yXkdXHTr-Z_vwDZaYiF4VdhstF4V-I1ncoFdoR4E2IIFA";
-const privateKey = process.env.VAPID_PRIVATE_KEY || "YOUR_PRIVATE_VAPID_KEY_HERE_AS_PLACEHOLDER";
-
-// Set VAPID details
-webpush.setVapidDetails("mailto:smayansri@gmail.com", publicKey, privateKey);
 
 export const handler: Handler = async (event) => {
   const headers = {
@@ -48,16 +43,11 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const payload = JSON.stringify({
-      title,
-      body,
-      url: url || "/"
-    });
-
     let sentCount = 0;
     let failedCount = 0;
+    const tokens: string[] = [];
 
-    // Send notification to each user's subscriptions
+    // Retrieve active tokens for each specified user
     for (const uid of userIds) {
       try {
         const userDocRef = doc(db, "users", uid);
@@ -71,19 +61,54 @@ export const handler: Handler = async (event) => {
         const subscriptions = userData?.push_subscriptions || [];
 
         for (const sub of subscriptions) {
-          if (sub && sub.endpoint) {
-            try {
-              await webpush.sendNotification(sub, payload);
-              sentCount++;
-            } catch (err: any) {
-              console.error(`[PUSH ERROR] Failed for user ${uid}. Status: ${err.statusCode}, Body: ${err.body}, Message: ${err.message}`);
-              failedCount++;
-            }
+          if (typeof sub === "string") {
+            tokens.push(sub);
           }
         }
       } catch (err: any) {
-        // Log silently without breaking the delivery sequence to remaining users
         console.error(`Error querying user ${uid}:`, err.message);
+      }
+    }
+
+    if (tokens.length > 0) {
+      const serverKey = process.env.FCM_SERVER_KEY || process.env.VAPID_PRIVATE_KEY || "YOUR_PRIVATE_VAPID_KEY_HERE_AS_PLACEHOLDER";
+      
+      try {
+        const response = await fetch("https://fcm.googleapis.com/fcm/send", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `key=${serverKey}`
+          },
+          body: JSON.stringify({
+            registration_ids: tokens,
+            notification: {
+              title,
+              body,
+              sound: "default"
+            },
+            data: {
+              title,
+              body,
+              url: url || "/"
+            },
+            priority: "high"
+          })
+        });
+
+        const result: any = await response.json();
+        
+        if (!response.ok) {
+          console.error(`[FCM ERROR] Non-200 Response: ${response.status}`, result);
+          failedCount += tokens.length;
+        } else {
+          console.log("[FCM SUCCESS] API Response:", result);
+          sentCount += result.success || 0;
+          failedCount += result.failure || 0;
+        }
+      } catch (err: any) {
+        console.error(`[PUSH ERROR] Failed to send via FCM legacy gateway: ${err.message}`);
+        failedCount += tokens.length;
       }
     }
 
@@ -100,3 +125,4 @@ export const handler: Handler = async (event) => {
     };
   }
 };
+
