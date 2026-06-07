@@ -11,7 +11,7 @@ import { formatDate } from '../lib/utils';
 import { db } from '../lib/firebase';
 import { 
   collection, query, where, getDocs, doc, updateDoc, deleteDoc, 
-  orderBy, addDoc, serverTimestamp, arrayUnion 
+  orderBy, addDoc, serverTimestamp, arrayUnion, onSnapshot 
 } from 'firebase/firestore';
 
 export default function Notifications() {
@@ -30,6 +30,8 @@ export default function Notifications() {
   const [activitiesLoading, setActivitiesLoading] = React.useState(true);
   const [actionStatus, setActionStatus] = React.useState<{[key: string]: string}>({});
 
+  const [friendRequests, setFriendRequests] = React.useState<any[]>([]);
+
   const fetchNotifications = async () => {
     if (!firebaseUser) return;
     try {
@@ -47,28 +49,40 @@ export default function Notifications() {
     }
   };
 
-  const fetchActivities = async () => {
+  React.useEffect(() => {
     if (!firebaseUser) return;
-    try {
-      const actRef = collection(db, 'social_activity');
-      const q = query(actRef, where('host_uid', '==', firebaseUser.uid));
-      const querySnapshot = await getDocs(q);
+
+    fetchNotifications();
+
+    // 1. Real-time onSnapshot listener for 'social_activity' scoped by host_uid
+    const actRef = collection(db, 'social_activity');
+    const qAct = query(actRef, where('host_uid', '==', firebaseUser.uid));
+
+    const unsubscribeActivities = onSnapshot(qAct, (querySnapshot) => {
       const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-      // Sort by timestamp
       data.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
       setActivities(data);
-    } catch (err) {
-      console.error('Error fetching social activities:', err);
-    } finally {
       setActivitiesLoading(false);
-    }
-  };
+    }, (err) => {
+      console.error('Error in social_activity listener:', err);
+      setActivitiesLoading(false);
+    });
 
-  React.useEffect(() => {
-    if (firebaseUser) {
-      fetchNotifications();
-      fetchActivities();
-    }
+    // 2. Real-time onSnapshot listener for 'friend_requests' scoped by receiver_uid
+    const frRef = collection(db, 'friend_requests');
+    const qFr = query(frRef, where('receiver_uid', '==', firebaseUser.uid));
+
+    const unsubscribeFriendRequests = onSnapshot(qFr, (querySnapshot) => {
+      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      setFriendRequests(data);
+    }, (err) => {
+      console.error('Error in friend_requests listener:', err);
+    });
+
+    return () => {
+      unsubscribeActivities();
+      unsubscribeFriendRequests();
+    };
   }, [firebaseUser]);
 
   const markAsRead = async (id: string) => {
@@ -189,6 +203,77 @@ export default function Notifications() {
     } catch (err) {
       console.error('Error blocking user:', err);
       setActionStatus(prev => ({ ...prev, [targetUid + '_block']: 'Error' }));
+    }
+  };
+
+  const handleAcceptRequest = async (reqId: string, senderUid: string, senderName: string) => {
+    if (!firebaseUser) return;
+    setActionStatus(prev => ({ ...prev, [reqId]: 'Accepting...' }));
+    try {
+      // 1. Update friend request status to accepted
+      const frDoc = doc(db, 'friend_requests', reqId);
+      await updateDoc(frDoc, { status: 'accepted' });
+      
+      // 2. Add sender to recipient's private 'people' roster so databases sync
+      const peopleRef = collection(db, 'people');
+      
+      // Search if this friend is already in our people list
+      const pq = query(peopleRef, where('user_id', '==', firebaseUser.uid), where('host_uid', '==', senderUid));
+      const psnap = await getDocs(pq);
+      
+      if (psnap.empty) {
+        // Query target users's profile card details if exists
+        const userRef = collection(db, 'users');
+        const userSnap = doc(userRef, senderUid);
+        let bMonth = 1;
+        let bDay = 1;
+        let bPhotoUrl = '';
+        try {
+          const uDoc = await getDocs(query(userRef, where('name', '==', senderName)));
+          if (!uDoc.empty) {
+            const uData = uDoc.docs[0].data();
+            bMonth = uData.birthday_month || 1;
+            bDay = uData.birthday_day || 1;
+            bPhotoUrl = uData.profile_picture_url || '';
+          }
+        } catch (e) {
+          console.warn('Failed querying profile stats for acceptor:', e);
+        }
+
+        const formattedMonth = String(bMonth).padStart(2, '0');
+        const formattedDay = String(bDay).padStart(2, '0');
+        const bDayStr = `2000-${formattedMonth}-${formattedDay}`;
+
+        await addDoc(peopleRef, {
+          name: senderName,
+          nickname: senderName,
+          birthday: bDayStr,
+          birthYearUnknown: true,
+          category: 'friend',
+          notes: `Accepted friend request 🤝`,
+          user_id: firebaseUser.uid,
+          photo_url: bPhotoUrl,
+          host_uid: senderUid,
+          created_at: serverTimestamp()
+        });
+      }
+      
+      setActionStatus(prev => ({ ...prev, [reqId]: 'Accepted 🤝' }));
+    } catch (err) {
+      console.error('Error accepting friend request:', err);
+      setActionStatus(prev => ({ ...prev, [reqId]: 'Error' }));
+    }
+  };
+
+  const handleDeclineRequest = async (reqId: string) => {
+    setActionStatus(prev => ({ ...prev, [reqId + '_decline']: 'Declining...' }));
+    try {
+      const frDoc = doc(db, 'friend_requests', reqId);
+      await updateDoc(frDoc, { status: 'declined' });
+      setActionStatus(prev => ({ ...prev, [reqId + '_decline']: 'Ignored' }));
+    } catch (err) {
+      console.error('Error declining friend request:', err);
+      setActionStatus(prev => ({ ...prev, [reqId + '_decline']: 'Error' }));
     }
   };
 
@@ -348,6 +433,67 @@ export default function Notifications() {
               exit={{ opacity: 0, y: -5 }}
               className="space-y-4"
             >
+              {/* Core Real-time Scoped Pending Connections List */}
+              {friendRequests.filter(fr => fr.status === 'pending').length > 0 && (
+                <div className="space-y-3 mb-6">
+                  <h3 className="text-xs font-black uppercase text-amber-500 tracking-wider flex items-center gap-1.5 px-1">
+                    🤝 Pending Connections ({friendRequests.filter(fr => fr.status === 'pending').length})
+                  </h3>
+                  {friendRequests.filter(fr => fr.status === 'pending').map((invite) => {
+                    const isAccepting = actionStatus[invite.id] === 'Accepting...';
+                    const isAccepted = actionStatus[invite.id] === 'Accepted 🤝';
+                    const isDeclining = actionStatus[invite.id + '_decline'] === 'Declining...';
+                    const isDeclined = actionStatus[invite.id + '_decline'] === 'Ignored';
+
+                    return (
+                      <div 
+                        key={invite.id}
+                        className="p-4 rounded-3xl border border-amber-100 dark:border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 flex items-center justify-between gap-4"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center font-black text-xs uppercase">
+                            {invite.sender_name?.charAt(0) || '?'}
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-black text-zinc-900 dark:text-white">
+                              {invite.sender_name}
+                            </h4>
+                            <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider">
+                              wants to connect birthday calendars
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          {isAccepted || isDeclined ? (
+                            <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 px-3 py-2">
+                              {isAccepted ? 'Accepted 🤝' : 'Ignored'}
+                            </span>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleAcceptRequest(invite.id, invite.sender_uid, invite.sender_name)}
+                                disabled={isAccepting || isDeclining}
+                                className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-[10px] font-black uppercase tracking-wider text-white rounded-xl cursor-pointer disabled:opacity-50"
+                              >
+                                {isAccepting ? 'Accepting...' : 'Accept'}
+                              </button>
+                              <button
+                                onClick={() => handleDeclineRequest(invite.id)}
+                                disabled={isAccepting || isDeclining}
+                                className="px-3 py-2 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 text-[10px] font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300 rounded-xl cursor-pointer disabled:opacity-50"
+                              >
+                                {isDeclining ? 'Declining...' : 'Ignore'}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {activitiesLoading ? (
                 <div className="text-center py-12 text-zinc-400 font-bold text-xs tracking-tight uppercase">Loading Stream...</div>
               ) : activities.length > 0 ? (
