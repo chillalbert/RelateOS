@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Heart } from 'lucide-react';
+import { Heart, Camera, User } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -17,6 +17,42 @@ export default function Login() {
   const [loading, setLoading] = React.useState(false);
   const [googleLoading, setGoogleLoading] = React.useState(false);
 
+  // Avatar states
+  const [profilePicUrl, setProfilePicUrl] = React.useState('');
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [uploadError, setUploadError] = React.useState('');
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadError('');
+
+    try {
+      const uploadData = new FormData();
+      uploadData.append('file', file);
+      uploadData.append('upload_preset', 'relateos_uploads');
+
+      const response = await fetch('https://api.cloudinary.com/v1_1/dffkrlv1k/image/upload', {
+        method: 'POST',
+        body: uploadData
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload image to Cloudinary');
+      }
+
+      const data = await response.json();
+      setProfilePicUrl(data.secure_url);
+    } catch (err: any) {
+      console.error('Avatar upload failed:', err);
+      setUploadError('Failed to upload option. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -28,10 +64,15 @@ export default function Login() {
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
         const user = userCredential.user;
+        
+        // If skipped, assign a clean, aesthetic letter-initial avatar background placeholder based on their Full Name.
+        const finalProfilePic = profilePicUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name || 'User')}&background=10b981&color=fff&size=256&bold=true`;
+
         await setDoc(doc(db, 'users', user.uid), {
           id: user.uid,
           email: formData.email,
           name: formData.name,
+          profile_picture_url: finalProfilePic,
           appearance: 'light',
           notification_time: '09:00',
           notification_settings: {
@@ -83,15 +124,64 @@ export default function Login() {
         <div className="space-y-4 bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-sm border border-zinc-100 dark:border-zinc-800">
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
-              <div className="space-y-1">
-                <label className="text-xs font-bold uppercase text-zinc-400">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
-                  value={formData.name || ''}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
+              <div className="space-y-4">
+                {/* Upload Profile Picture section */}
+                <div className="flex flex-col items-center space-y-3 pb-4 border-b border-zinc-100 dark:border-zinc-800">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Upload Profile Picture</span>
+                  <div className="relative group">
+                    <div className="w-24 h-24 rounded-full border-4 border-emerald-500/20 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center transition-all duration-300 relative shadow-inner">
+                      {profilePicUrl ? (
+                        <img src={profilePicUrl} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : formData.name ? (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-emerald-500 to-teal-500 text-white text-3xl font-black uppercase">
+                          {formData.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </div>
+                      ) : (
+                        <User size={40} className="text-zinc-400 animate-pulse" />
+                      )}
+                      
+                      {isUploading && (
+                        <div className="absolute inset-x-0 bottom-0 bg-black/60 py-1 flex items-center justify-center text-white text-[9px] font-bold">
+                          <span>Uploading...</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <label className="absolute bottom-0 right-0 p-2 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 text-white rounded-full shadow-md cursor-pointer hover:scale-110 transition-transform">
+                      <Camera size={14} />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleAvatarUpload}
+                        disabled={isUploading}
+                      />
+                    </label>
+                  </div>
+                  
+                  {uploadError && <p className="text-red-500 text-[10px] font-medium">{uploadError}</p>}
+                  {profilePicUrl && (
+                    <button 
+                      type="button" 
+                      onClick={() => setProfilePicUrl('')}
+                      className="text-[10px] uppercase font-bold tracking-wider text-red-500 hover:underline cursor-pointer"
+                    >
+                      Remove Photo
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-zinc-400">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="e.g., Smayan Sri"
+                    value={formData.name || ''}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  />
+                </div>
               </div>
             )}
             <div className="space-y-1">
