@@ -43,6 +43,16 @@ export const handler: Handler = async (event) => {
       };
     }
 
+    const serverKey = process.env.FCM_SERVER_KEY;
+    if (!serverKey) {
+      console.error("[CONFIG ERROR] FCM_SERVER_KEY is completely missing from environment variables.");
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: "Server configuration error: missing auth key" }),
+      };
+    }
+
     let sentCount = 0;
     let failedCount = 0;
     const tokens: string[] = [];
@@ -71,14 +81,12 @@ export const handler: Handler = async (event) => {
     }
 
     if (tokens.length > 0) {
-      const serverKey = process.env.FCM_SERVER_KEY || process.env.VAPID_PRIVATE_KEY || "YOUR_PRIVATE_VAPID_KEY_HERE_AS_PLACEHOLDER";
-      
       try {
         const response = await fetch("https://fcm.googleapis.com/fcm/send", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `key=${serverKey}`
+            "Authorization": `key=${serverKey.trim()}`
           },
           body: JSON.stringify({
             registration_ids: tokens,
