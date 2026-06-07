@@ -8,6 +8,10 @@ interface UserProfile {
   email: string;
   name: string;
   birthday?: string;
+  birthday_month?: number;
+  birthday_day?: number;
+  birth_year?: string | number;
+  blocked_uids?: string[];
   personality?: string;
   appearance?: 'light' | 'dark';
   streak?: number;
@@ -78,6 +82,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             appearance: 'light',
             streak: 0,
             notification_time: '09:00',
+            blocked_uids: [],
+            onboarding_completed: false,
+            has_completed_onboarding: false,
             notification_settings: {
               birthdays: true,
               tasks: true,
