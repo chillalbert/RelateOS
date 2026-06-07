@@ -1,12 +1,12 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Bell, Shield, Moon, LogOut, ChevronRight, Sparkles, X, Calendar, Check, Lock, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, User, Bell, Shield, Moon, LogOut, ChevronRight, Sparkles, X, Calendar, Check, Lock, Trash2, AlertTriangle, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Navigation from '../components/Navigation';
 import CalendarImportStep from '../components/CalendarImportStep';
 import { db, auth } from '../lib/firebase';
-import { doc, updateDoc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, collection, getDocs, deleteDoc, query, where } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 
 enum OperationType {
@@ -67,6 +67,87 @@ export default function Settings() {
   const [appearance, setAppearance] = React.useState(user?.appearance || 'light');
   const [notifSettings, setNotifSettings] = React.useState(user?.notification_settings || { birthdays: true, tasks: true, groups: true });
   const [notificationTime, setNotificationTime] = React.useState(user?.notification_time || '09:00');
+
+  // Profile Privacy Management Section
+  const [handle, setHandle] = React.useState(user?.custom_handle || '');
+  const [isPrivate, setIsPrivate] = React.useState(user?.is_private ?? false);
+  const [favSports, setFavSports] = React.useState(user?.fav_sports_teams || '');
+  const [favArtists, setFavArtists] = React.useState(user?.fav_artists || '');
+  const [weekendVibes, setWeekendVibes] = React.useState(user?.weekend_activities || '');
+  
+  const [saveLoading, setSaveLoading] = React.useState(false);
+  const [saveSuccess, setSaveSuccess] = React.useState(false);
+  const [handleError, setHandleError] = React.useState('');
+  const [handleChecking, setHandleChecking] = React.useState(false);
+
+  React.useEffect(() => {
+    if (user) {
+      if (user.custom_handle && !handle) setHandle(user.custom_handle);
+      if (user.is_private !== undefined) setIsPrivate(user.is_private);
+      if (user.fav_sports_teams && !favSports) setFavSports(user.fav_sports_teams);
+      if (user.fav_artists && !favArtists) setFavArtists(user.fav_artists);
+      if (user.weekend_activities && !weekendVibes) setWeekendVibes(user.weekend_activities);
+    }
+  }, [user]);
+
+  const checkHandleUniquenessOnBlur = async (val: string) => {
+    const cleanHandle = val.trim().toLowerCase().replace(/[^a-z0-9_\-]/g, '');
+    if (!cleanHandle) {
+      setHandleError('Handle cannot be empty');
+      return;
+    }
+    if (cleanHandle === user?.custom_handle || cleanHandle === user?.handle) {
+      setHandleError('');
+      return;
+    }
+    setHandleChecking(true);
+    setHandleError('');
+    try {
+      const usersRef = collection(db, 'users');
+      const q1 = query(usersRef, where('custom_handle', '==', cleanHandle));
+      const q2 = query(usersRef, where('handle', '==', cleanHandle));
+      
+      const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+      const otherUserWithHandle = snap1.docs.find(d => d.id !== user?.id) || snap2.docs.find(d => d.id !== user?.id);
+      
+      if (otherUserWithHandle) {
+        setHandleError('Handle is already taken 😔');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setHandleChecking(false);
+    }
+  };
+
+  const handleSaveProfileCard = async () => {
+    if (!firebaseUser) return;
+    setSaveLoading(true);
+    setSaveSuccess(false);
+    
+    try {
+      const cleanHandle = handle.trim().toLowerCase().replace(/[^a-z0-9_\-]/g, '');
+      if (handleError) return;
+      
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      await setDoc(userRef, {
+        custom_handle: cleanHandle,
+        handle: cleanHandle,
+        is_private: isPrivate,
+        fav_sports_teams: favSports,
+        fav_artists: favArtists,
+        weekend_activities: weekendVibes
+      }, { merge: true });
+      await refreshUser();
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save profile privacy settings.');
+    } finally {
+      setSaveLoading(false);
+    }
+  };
   
   const [showPasswordModal, setShowPasswordModal] = React.useState(false);
   const [showNotifModal, setShowNotifModal] = React.useState(false);
@@ -312,9 +393,18 @@ export default function Settings() {
       <div className="p-6 space-y-8 max-w-2xl mx-auto">
         {/* Profile Card */}
         <div className="p-6 card-premium flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center text-2xl font-black">
-            {user?.name?.[0]}
-          </div>
+          {user?.profile_picture_url ? (
+            <img 
+              src={user.profile_picture_url} 
+              alt={user.name} 
+              className="w-16 h-16 rounded-2xl object-cover bg-zinc-200 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" 
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-2xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center text-2xl font-black">
+              {user?.name?.[0]}
+            </div>
+          )}
           <div>
             <h2 className="font-black text-xl tracking-tight">{user?.name}</h2>
             <p className="text-sm text-zinc-500 font-medium">{user?.email}</p>
@@ -346,6 +436,126 @@ export default function Settings() {
             </div>
           </div>
         ))}
+
+        {/* Your Public Profile Card & Privacy Section */}
+        <div className="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+          <div className="flex items-center gap-2 px-2">
+            <Shield size={18} className="text-emerald-500" />
+            <h3 className="font-extrabold text-sm uppercase tracking-wide text-zinc-900 dark:text-white">Your Public Profile Card & Privacy</h3>
+          </div>
+          
+          <div className="p-6 card-premium space-y-6">
+            {/* Custom Handle Input */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Custom Handle URL</label>
+              <div className="flex items-center bg-zinc-50 dark:bg-zinc-800/80 rounded-xl p-0.5 border border-zinc-100 dark:border-zinc-800">
+                <span className="pl-3 text-zinc-400 text-xs font-semibold font-mono">relateos.app/u/</span>
+                <input
+                  type="text"
+                  className="flex-1 p-2.5 pl-0 bg-transparent border-none text-xs font-bold text-zinc-950 dark:text-white outline-none focus:ring-0"
+                  placeholder="handle"
+                  value={handle}
+                  onChange={(e) => {
+                    const cleanVal = e.target.value.toLowerCase().replace(/[^a-z0-9_\-]/g, '');
+                    setHandle(cleanVal);
+                    setHandleError('');
+                  }}
+                  onBlur={(e) => checkHandleUniquenessOnBlur(e.target.value)}
+                />
+                {handleChecking && <span className="text-[10px] text-zinc-400 pr-3">Checking...</span>}
+              </div>
+              {handleError && <p className="text-red-500 text-[10px] font-bold ml-1">{handleError}</p>}
+              {!handleError && handle && (
+                <p className="text-[10px] text-zinc-400 font-semibold ml-1">
+                  Live Preview: <a href={`/u/${handle}`} target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline">{window.location.origin}/u/{handle}</a>
+                </p>
+              )}
+            </div>
+
+            {/* Privacy Toggle Cards */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Privacy Preference</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsPrivate(false)}
+                  className={`p-3.5 rounded-2xl border-2 text-left space-y-2 transition-all relative cursor-pointer ${
+                    !isPrivate 
+                      ? 'border-emerald-500 bg-emerald-500/5 dark:bg-emerald-500/10' 
+                      : 'border-zinc-150 dark:border-zinc-800 hover:border-zinc-300 hover:bg-zinc-50/50'
+                  }`}
+                >
+                  <Globe size={16} className={!isPrivate ? 'text-emerald-500' : 'text-zinc-500'} />
+                  <div>
+                    <h4 className="font-extrabold text-[11px] text-zinc-900 dark:text-white">Go Public ⚡</h4>
+                    <p className="text-[9px] text-zinc-400 font-medium leading-relaxed mt-0.5">Bio link active.</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPrivate(true)}
+                  className={`p-3.5 rounded-2xl border-2 text-left space-y-2 transition-all relative cursor-pointer ${
+                    isPrivate 
+                      ? 'border-zinc-900 dark:border-white bg-zinc-950/5 dark:bg-white/5' 
+                      : 'border-zinc-150 dark:border-zinc-800 hover:border-zinc-300 hover:bg-zinc-50/50'
+                  }`}
+                >
+                  <Lock size={16} className={isPrivate ? 'text-zinc-900 dark:text-white' : 'text-zinc-500'} />
+                  <div>
+                    <h4 className="font-extrabold text-[11px] text-zinc-900 dark:text-white">Go Private 🔒</h4>
+                    <p className="text-[9px] text-zinc-400 font-medium leading-relaxed mt-0.5">Completely offline.</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Social Vibes Fields */}
+            <div className="space-y-4 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1">Favorite Sports Teams</label>
+                <input
+                  type="text"
+                  className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none"
+                  placeholder="e.g. Lakers, Real Madrid"
+                  value={favSports}
+                  onChange={(e) => setFavSports(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1">Favorite Artists / Albums</label>
+                <input
+                  type="text"
+                  className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none"
+                  placeholder="e.g. Drake, Billie Eilish"
+                  value={favArtists}
+                  onChange={(e) => setFavArtists(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">My Favorite thing to do on a weekend is...</label>
+                <textarea
+                  rows={2}
+                  className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none resize-none"
+                  placeholder="e.g. record vinyl, hike with friends"
+                  value={weekendVibes}
+                  onChange={(e) => setWeekendVibes(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={saveLoading || !!handleError || handleChecking}
+              onClick={handleSaveProfileCard}
+              className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/10 cursor-pointer"
+            >
+              {saveLoading ? 'Saving...' : saveSuccess ? 'Profile Card Saved ✓' : 'Save Profile Card & Privacy'}
+            </button>
+          </div>
+        </div>
 
         <button 
           onClick={logout}
