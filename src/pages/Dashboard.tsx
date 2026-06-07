@@ -30,6 +30,7 @@ import confetti from 'canvas-confetti';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit, setDoc, addDoc, serverTimestamp, increment, deleteDoc } from 'firebase/firestore';
 import { generateGiftSuggestions, generateBirthdayMessage } from '../services/geminiService';
+import { subscribeUserToPush } from '../lib/pushManager';
 
 const AnimatedNumber = ({ value }: { value: number }) => {
   const [displayValue, setDisplayValue] = React.useState(0);
@@ -70,6 +71,24 @@ export default function Dashboard() {
   const [generatingMessagePerson, setGeneratingMessagePerson] = React.useState<any>(null);
   const [dashboardAiMessage, setDashboardAiMessage] = React.useState<any>(null);
   const [countdown, setCountdown] = React.useState<any>(null);
+  const [showPushBanner, setShowPushBanner] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        setShowPushBanner(true);
+      }
+    }
+  }, []);
+
+  const handleEnablePush = async () => {
+    if (firebaseUser) {
+      const success = await subscribeUserToPush(firebaseUser.uid);
+      if (success) {
+        setShowPushBanner(false);
+      }
+    }
+  };
 
   React.useEffect(() => {
     if (user?.birthday) {
@@ -332,6 +351,40 @@ export default function Dashboard() {
           </button>
         </div>
       </header>
+
+      <AnimatePresence>
+        {showPushBanner && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, y: -20 }}
+            animate={{ opacity: 1, height: 'auto', y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -20 }}
+            className="overflow-hidden"
+          >
+            <div className="p-5 bg-emerald-500/10 border border-emerald-500/20 rounded-3xl flex items-start gap-4 relative shadow-sm">
+              <span className="text-2xl mt-0.5 select-none">🔔</span>
+              <div className="flex-1 space-y-3">
+                <p className="text-xs font-semibold leading-relaxed text-emerald-850 dark:text-emerald-305">
+                  Turn on home screen pings to catch group countdowns, live poll votes, and crew chat instantly.
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleEnablePush}
+                    className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm"
+                  >
+                    Enable Alerts
+                  </button>
+                  <button
+                    onClick={() => setShowPushBanner(false)}
+                    className="py-1.5 px-2.5 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 text-[10px] font-bold cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* User Birthday Countdown */}
       {countdown && (
