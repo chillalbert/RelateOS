@@ -538,7 +538,7 @@ export default function Settings() {
                 <div className="space-y-1.5">
                   <label className="text-[9px] text-zinc-500 font-bold uppercase">Day</label>
                   <select
-                    className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-805 border border-zinc-100 dark:border-zinc-800 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none cursor-pointer"
+                    className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none cursor-pointer"
                     value={editedBirthDay}
                     onChange={(e) => setEditedBirthDay(parseInt(e.target.value, 10))}
                   >
