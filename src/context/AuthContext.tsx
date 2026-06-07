@@ -12,6 +12,15 @@ interface UserProfile {
   appearance?: 'light' | 'dark';
   streak?: number;
   notification_time?: string;
+  profile_picture_url?: string;
+  onboarding_completed?: boolean;
+  has_completed_onboarding?: boolean;
+  custom_handle?: string;
+  handle?: string;
+  is_private?: boolean;
+  fav_sports_teams?: string;
+  fav_artists?: string;
+  weekend_activities?: string;
   notification_settings?: {
     birthdays: boolean;
     tasks: boolean;
