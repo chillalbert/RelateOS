@@ -2,14 +2,11 @@ import { Handler } from "@netlify/functions";
 import webpush from "web-push";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
-import { createRequire } from "module";
+import firebaseConfig from "../../firebase-applet-config.json" assert { type: "json" };
 
-const require = createRequire(import.meta.url);
-const firebaseConfig = require("../../firebase-applet-config.json");
-
-// Initialize Firebase App
+// Initialize Firebase App directly using the imported JSON
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
 
 const publicKey = "BCFXI0MEi3CVogRK6TZVK7B0zuqcuwU_K8mBNr7sD1yXkdXHTr-Z_vwDZaYiF4VdhstF4V-I1ncoFdoR4E2IIFA";
 const privateKey = process.env.VAPID_PRIVATE_KEY || "YOUR_PRIVATE_VAPID_KEY_HERE_AS_PLACEHOLDER";
