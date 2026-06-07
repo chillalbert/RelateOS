@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Lock,
   Unlock,
+  X,
   MessageSquare,
   Gift,
   Image as ImageIcon,
@@ -142,6 +143,11 @@ export default function GroupPlanning() {
   const [isUploadingImage, setIsUploadingImage] = React.useState(false);
   const hasSentBirthdayPush = React.useRef(false);
 
+  // Notify crew states
+  const [showNotifyCrewModal, setShowNotifyCrewModal] = React.useState(false);
+  const [adminTypedMessage, setAdminTypedMessage] = React.useState('');
+  const [isSendingNotifyCrew, setIsSendingNotifyCrew] = React.useState(false);
+
   React.useEffect(() => {
     if (!id || !firebaseUser) return;
 
@@ -193,19 +199,19 @@ export default function GroupPlanning() {
         // Action A: Birthday Locker Countdown
         if (groupData.person_birthday && !hasSentBirthdayPush.current) {
           const days = getDaysUntil(groupData.person_birthday);
-          if (days === 0) {
+          if (days <= 0) {
             hasSentBirthdayPush.current = true;
             (async () => {
               try {
-                const targetMembers = (groupData.members || []).filter((mId: string) => mId !== celebrantUid);
+                const targetMembers = groupData.members || [];
                 if (targetMembers.length > 0) {
                   await fetch('/.netlify/functions/send-push-ping', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       userIds: targetMembers,
-                      title: "It's birthday time! 🎂",
-                      body: `Unlock the locker for ${groupData.person_name || 'your friend'} right now!`,
+                      title: "The Vault is UNLOCKED! 🔓",
+                      body: `Surprises for ${groupData.person_name || 'your friends'} are officially live! Tap to watch the reveal!`,
                       url: `/groups/${id}`
                     })
                   });
@@ -441,6 +447,30 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
         content: newSurprise.content,
         created_at: serverTimestamp()
       });
+
+      // Trigger C — Card Message Added push:
+      if (newSurprise.type === 'message') {
+        (async () => {
+          try {
+            const targetUserIds = (group?.members || []).filter((uid: string) => uid !== firebaseUser.uid);
+            if (targetUserIds.length > 0) {
+              await fetch('/.netlify/functions/send-push-ping', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userIds: targetUserIds,
+                  title: "New birthday card note 📝",
+                  body: `${user?.name || firebaseUser.email} left a secret message in the locker!`,
+                  url: `/groups/${id}`
+                })
+              });
+            }
+          } catch (e) {
+            console.error("Failed to send secret message push notification:", e);
+          }
+        })();
+      }
+
       setNewSurprise({ type: 'message', content: '' });
       setShowSurpriseForm(false);
     } catch (err) {
@@ -451,14 +481,64 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
   const handleContribute = async () => {
     if (!id || !firebaseUser) return;
     try {
+      const amt = parseFloat(contributionAmount) || 0;
       const contributionsRef = collection(db, 'rooms', id, 'contributions');
       await addDoc(contributionsRef, {
         user_id: firebaseUser.uid,
         user_name: user?.name || 'Anonymous',
-        amount: parseFloat(contributionAmount),
+        amount: amt,
         created_at: serverTimestamp()
       });
+
+      // Trigger B — Target Achievement / Gift Decision Confirmed push:
+      if (totalContributed + amt >= targetAmount) {
+        (async () => {
+          try {
+            await fetch('/.netlify/functions/send-push-ping', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userIds: group?.members || [],
+                title: "Gift Finalized! 🎁",
+                body: `The crew has locked in the gift choice for ${group?.person_name || 'our friend'}! Check it out.`,
+                url: `/groups/${id}`
+              })
+            });
+          } catch (e) {
+            console.error("Failed to send gift pool complete push notification:", e);
+          }
+        })();
+      }
+
       setIsContributing(false);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleFinalizeGift = async () => {
+    if (!id || !group) return;
+    try {
+      const roomRef = doc(db, 'rooms', id);
+      await updateDoc(roomRef, { gift_finalized: true });
+      // Trigger B — Gift Decision Confirmed push:
+      (async () => {
+        try {
+          await fetch('/.netlify/functions/send-push-ping', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userIds: group.members || [],
+              title: "Gift Finalized! 🎁",
+              body: `The crew has locked in the gift choice for ${group.person_name || 'our friend'}! Check it out.`,
+              url: `/groups/${id}`
+            })
+          });
+        } catch (pushErr) {
+          console.error("Failed to send gift finalized push:", pushErr);
+        }
+      })();
+      alert('Gift choice finalized & crew notified! 🎁');
     } catch (err) {
       console.error(err);
     }
@@ -1270,6 +1350,28 @@ Return strictly as a JSON array (no markdown code fence blocks, just the array i
         created_at: serverTimestamp(),
         is_active: true
       });
+
+      // Trigger A — New Poll Released push:
+      (async () => {
+        try {
+          const targetUserIds = (group?.members || []).filter((uid: string) => uid !== firebaseUser.uid);
+          if (targetUserIds.length > 0) {
+            await fetch('/.netlify/functions/send-push-ping', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userIds: targetUserIds,
+                title: "New Poll dropped! 🗳️",
+                body: `${user?.name || firebaseUser.email} just posted a question in ${group?.name || 'the group'}. Go vote!`,
+                url: `/groups/${id}`
+              })
+            });
+          }
+        } catch (pushErr) {
+          console.error("Failed to send new poll push notification:", pushErr);
+        }
+      })();
+
       setNewPollQuestion('');
       setNewPollOptions(['', '']);
       setShowPollForm(false);
@@ -1423,12 +1525,43 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
     }
   };
 
+  const handleSendNotifyCrew = async (msgText: string) => {
+    if (!msgText.trim() || !firebaseUser || !group) return;
+    setIsSendingNotifyCrew(true);
+    try {
+      const targetUserIds = (group.members || []).filter((uid: string) => uid !== firebaseUser.uid);
+      if (targetUserIds.length > 0) {
+        await fetch('/.netlify/functions/send-push-ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userIds: targetUserIds,
+            title: `Alert from ${group.name} 🚨`,
+            body: msgText,
+            url: `/groups/${id}`
+          })
+        });
+        alert('Alert sent successfully to everyone in the party planning room!');
+        setAdminTypedMessage('');
+        setShowNotifyCrewModal(false);
+      } else {
+        alert('No other members in this group to notify.');
+      }
+    } catch (err) {
+      console.error('Error sending notify crew:', err);
+      alert('Failed to send push notifications.');
+    } finally {
+      setIsSendingNotifyCrew(false);
+    }
+  };
+
   // --- RENDER PARTY ROOM VIEW ---
   const renderPartyRoom = () => {
     const isFlat = group?.room_structure === 'flat';
     const isCrewAdmin = isFlat || group.admins?.includes(firebaseUser?.uid) || group.created_by === firebaseUser?.uid;
     const isCrewMod = isFlat || group.mods?.includes(firebaseUser?.uid);
     const isCrewAdminOrMod = isFlat || isCrewAdmin || isCrewMod;
+    const isAdminOrMod = group?.admins?.includes(firebaseUser?.uid) || group?.mods?.includes(firebaseUser?.uid) || group?.created_by === firebaseUser?.uid;
 
     const formatDate = (dateStr: string) => {
       if (!dateStr) return '';
@@ -1569,6 +1702,25 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
         <div className="p-6 space-y-8 max-w-2xl mx-auto">
           {partyActiveTab === 'plan' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+
+              {/* Administrative Broadcast banner */}
+              {group?.room_type === 'party' && isAdminOrMod && (
+                <section className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-[32px] flex items-center justify-between gap-4 animate-fade-in">
+                  <div className="space-y-1">
+                    <h3 className="font-extrabold text-sm tracking-tight text-amber-850 dark:text-amber-300">📣 Host Controls</h3>
+                    <p className="text-xs text-zinc-500">Send an urgent home screen ping to everyone in the party planning room.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setAdminTypedMessage('');
+                      setShowNotifyCrewModal(true);
+                    }}
+                    className="py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-amber-500/10 flex-shrink-0 cursor-pointer"
+                  >
+                    Notify Crew
+                  </button>
+                </section>
+              )}
               
               {/* Theme suggestions */}
               <section className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-805 p-6 rounded-[32px] space-y-4">
@@ -2019,6 +2171,25 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
           {/* TAB: GUESTS */}
           {partyActiveTab === 'guests' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+
+              {/* Administrative Broadcast banner */}
+              {group?.room_type === 'party' && isAdminOrMod && (
+                <section className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-[32px] flex items-center justify-between gap-4 animate-fade-in">
+                  <div className="space-y-1">
+                    <h3 className="font-extrabold text-sm tracking-tight text-amber-850 dark:text-amber-300">📣 Host Controls</h3>
+                    <p className="text-xs text-zinc-500">Send an urgent home screen ping to everyone in the party planning room.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setAdminTypedMessage('');
+                      setShowNotifyCrewModal(true);
+                    }}
+                    className="py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-amber-500/10 flex-shrink-0 cursor-pointer"
+                  >
+                    Notify Crew
+                  </button>
+                </section>
+              )}
               
               {/* Date Polling Section */}
               <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[32px] p-6 space-y-4">
@@ -2604,6 +2775,7 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
   const bday = group.person_birthday?.slice(5);
   const isBirthday = today === bday;
   const isUnlocked = isBirthday || group.isMember;
+  const isCrewAdminOrMod = group.admins?.includes(firebaseUser?.uid) || group.mods?.includes(firebaseUser?.uid) || group.created_by === firebaseUser?.uid;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
@@ -2729,12 +2901,27 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
                     </div>
                   </motion.div>
                 ) : (
-                  <button 
-                    onClick={() => setIsContributing(true)}
-                    className="w-full py-3 bg-emerald-500/10 text-emerald-600 rounded-xl font-bold text-sm"
-                  >
-                    Contribute to Pool
-                  </button>
+                  <div className="space-y-2">
+                    <button 
+                      onClick={() => setIsContributing(true)}
+                      className="w-full py-3 bg-emerald-500/10 text-emerald-600 rounded-xl font-bold text-sm cursor-pointer"
+                    >
+                      Contribute to Pool
+                    </button>
+                    {isCrewAdminOrMod && !group?.gift_finalized && (
+                      <button 
+                        onClick={handleFinalizeGift}
+                        className="w-full py-3 bg-amber-500 text-white rounded-xl font-bold text-sm cursor-pointer shadow-sm shadow-amber-500/10"
+                      >
+                        Finalize Gift Choice 🎁
+                      </button>
+                    )}
+                    {group?.gift_finalized && (
+                      <div className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded-xl font-bold text-sm text-center">
+                        Gift Choice Finalized ✓ 🎁
+                      </div>
+                    )}
+                  </div>
                 )}
               </AnimatePresence>
             </section>
@@ -3059,6 +3246,72 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
           </motion.div>
         )}
       </div>
+
+      {/* Notify Crew Modal overlay */}
+      <AnimatePresence>
+        {showNotifyCrewModal && (
+          <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowNotifyCrewModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ y: '100%', scale: 0.95 }}
+              animate={{ y: 0, scale: 1 }}
+              exit={{ y: '100%', scale: 0.95 }}
+              className="relative w-full max-w-sm bg-white dark:bg-zinc-900 rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl space-y-5"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-black tracking-tight">📣 Host Controls</h2>
+                <button 
+                  onClick={() => setShowNotifyCrewModal(false)} 
+                  className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Send an urgent home screen ping to everyone in the party planning room...
+                </p>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block ml-1">Message Text</label>
+                  <textarea
+                    required
+                    rows={4}
+                    className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-amber-500 text-xs placeholder-zinc-400 text-zinc-900 dark:text-zinc-100 outline-none"
+                    placeholder="e.g., Hey crew, please vote on the final venue tonight! 🍕"
+                    value={adminTypedMessage}
+                    onChange={(e) => setAdminTypedMessage(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowNotifyCrewModal(false)}
+                    className="flex-1 py-3 bg-zinc-100 dark:bg-zinc-800 font-bold text-xs rounded-xl text-zinc-600 dark:text-zinc-300"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => handleSendNotifyCrew(adminTypedMessage)}
+                    disabled={isSendingNotifyCrew || !adminTypedMessage.trim()}
+                    className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-amber-500/10 disabled:opacity-50"
+                  >
+                    {isSendingNotifyCrew ? 'Sending...' : 'Send Alert'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <Navigation />
     </div>
   );
