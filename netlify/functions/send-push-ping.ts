@@ -76,8 +76,7 @@ export const handler: Handler = async (event) => {
               await webpush.sendNotification(sub, payload);
               sentCount++;
             } catch (err: any) {
-              // Expired or invalid endpoint status code/error
-              console.error(`Failed to send push to sub of user ${uid}:`, err.message);
+              console.error(`[PUSH ERROR] Failed for user ${uid}. Status: ${err.statusCode}, Body: ${err.body}, Message: ${err.message}`);
               failedCount++;
             }
           }
