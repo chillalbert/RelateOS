@@ -11,6 +11,7 @@ interface UserProfile {
   personality?: string;
   appearance?: 'light' | 'dark';
   streak?: number;
+  notification_time?: string;
   notification_settings?: {
     birthdays: boolean;
     tasks: boolean;
@@ -67,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: fUser.displayName || 'User',
             appearance: 'light',
             streak: 0,
+            notification_time: '09:00',
             notification_settings: {
               birthdays: true,
               tasks: true,
