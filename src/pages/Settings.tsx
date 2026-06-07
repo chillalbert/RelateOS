@@ -74,6 +74,8 @@ export default function Settings() {
   const [favSports, setFavSports] = React.useState(user?.fav_sports_teams || '');
   const [favArtists, setFavArtists] = React.useState(user?.fav_artists || '');
   const [weekendVibes, setWeekendVibes] = React.useState(user?.weekend_activities || '');
+  const [editedBirthMonth, setEditedBirthMonth] = React.useState<number>(user?.birthday_month || 1);
+  const [editedBirthDay, setEditedBirthDay] = React.useState<number>(user?.birthday_day || 1);
   
   const [saveLoading, setSaveLoading] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
@@ -87,6 +89,8 @@ export default function Settings() {
       if (user.fav_sports_teams && !favSports) setFavSports(user.fav_sports_teams);
       if (user.fav_artists && !favArtists) setFavArtists(user.fav_artists);
       if (user.weekend_activities && !weekendVibes) setWeekendVibes(user.weekend_activities);
+      if (user.birthday_month !== undefined) setEditedBirthMonth(user.birthday_month);
+      if (user.birthday_day !== undefined) setEditedBirthDay(user.birthday_day);
     }
   }, [user]);
 
@@ -130,14 +134,16 @@ export default function Settings() {
       if (handleError) return;
       
       const userRef = doc(db, 'users', firebaseUser.uid);
-      await setDoc(userRef, {
+      await updateDoc(userRef, {
         custom_handle: cleanHandle,
         handle: cleanHandle,
         is_private: isPrivate,
         fav_sports_teams: favSports,
         fav_artists: favArtists,
-        weekend_activities: weekendVibes
-      }, { merge: true });
+        weekend_activities: weekendVibes,
+        birthday_month: parseInt(String(editedBirthMonth), 10),
+        birthday_day: parseInt(String(editedBirthDay), 10)
+      });
       await refreshUser();
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2500);
@@ -510,6 +516,42 @@ export default function Settings() {
               </div>
             </div>
 
+            {/* Editable Card Birthday Details Month and Day Dropdown Select inputs */}
+            <div className="space-y-3 pt-4 border-t border-zinc-150 dark:border-zinc-800">
+              <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Card Birthday Details</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[9px] text-zinc-500 font-bold uppercase">Month</label>
+                  <select
+                    className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none cursor-pointer"
+                    value={editedBirthMonth}
+                    onChange={(e) => setEditedBirthMonth(parseInt(e.target.value, 10))}
+                  >
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                      <option key={m} value={m}>
+                        {new Date(2020, m - 1, 1).toLocaleString('default', { month: 'long' })}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[9px] text-zinc-500 font-bold uppercase">Day</label>
+                  <select
+                    className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-805 border border-zinc-100 dark:border-zinc-800 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none cursor-pointer"
+                    value={editedBirthDay}
+                    onChange={(e) => setEditedBirthDay(parseInt(e.target.value, 10))}
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
             {/* Social Vibes Fields */}
             <div className="space-y-4 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
               <div className="space-y-1.5">
@@ -545,6 +587,12 @@ export default function Settings() {
                 />
               </div>
             </div>
+
+            {saveSuccess && (
+              <p className="text-emerald-500 font-extrabold text-[11px] text-center uppercase tracking-wider animate-pulse pt-2">
+                Profile card updated successfully! ⚡
+              </p>
+            )}
 
             <button
               type="button"
