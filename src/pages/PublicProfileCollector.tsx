@@ -384,7 +384,7 @@ export default function PublicProfileCollector() {
             {hostUser.weekend_activities && (
               <div className="space-y-1">
                 <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">⚡ Favorite Weekend Activity</span>
-                <p className="p-3 bg-zinc-50 dark:bg-zinc-850 rounded-2xl text-xs text-zinc-650 dark:text-zinc-350 italic font-medium leading-relaxed">
+                <p className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-xs text-zinc-650 dark:text-zinc-350 italic font-medium leading-relaxed">
                   "{hostUser.weekend_activities}"
                 </p>
               </div>
