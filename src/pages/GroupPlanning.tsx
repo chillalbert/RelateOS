@@ -1482,7 +1482,7 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
             <div className="w-10" />
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none px-1 -mx-6 md:mx-0 px-6 md:px-0">
+          <div className="grid grid-cols-6 w-full gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl border border-zinc-200/50 dark:border-zinc-800/50">
             {([
               { id: 'plan', label: 'Plan', icon: Sparkles },
               { id: 'polls', label: 'Polls', icon: BarChart2 },
@@ -1498,14 +1498,14 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
                   key={tab.id}
                   onClick={() => setPartyActiveTab(tab.id)}
                   className={cn(
-                    "py-2 px-3.5 text-xs font-bold whitespace-nowrap rounded-full transition-all duration-205 flex-shrink-0 flex items-center gap-1.5 cursor-pointer border border-transparent",
+                    "w-full flex flex-col sm:flex-row items-center justify-center gap-1 py-1.5 sm:py-2 rounded-xl text-center transition-all duration-200 cursor-pointer",
                     isSelected 
-                      ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm" 
-                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-750"
+                      ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm font-semibold" 
+                      : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 font-medium"
                   )}
                 >
-                  <Icon size={13} />
-                  <span>{tab.label}</span>
+                  <Icon size={14} className="flex-shrink-0" />
+                  <span className="text-[10px] sm:text-xs leading-none">{tab.label}</span>
                 </button>
               );
             })}
