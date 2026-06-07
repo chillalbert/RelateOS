@@ -140,6 +140,7 @@ export default function GroupPlanning() {
   const [selectedImageFile, setSelectedImageFile] = React.useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = React.useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = React.useState(false);
+  const hasSentBirthdayPush = React.useRef(false);
 
   React.useEffect(() => {
     if (!id || !firebaseUser) return;
@@ -162,6 +163,7 @@ export default function GroupPlanning() {
         // Fetch member names
         const membersList = groupData.members || [];
         const namesMap: {[uid: string]: string} = {};
+        let celebrantUid: string | null = null;
         if (membersList.length > 0) {
           try {
             const chunks = [];
@@ -175,6 +177,9 @@ export default function GroupPlanning() {
                 if (uData.name) {
                   namesMap[d.id] = uData.name;
                 }
+                if (uData.email && groupData.recipient_email && uData.email.toLowerCase() === groupData.recipient_email.toLowerCase()) {
+                  celebrantUid = d.id;
+                }
               });
             }
           } catch (err) {
@@ -184,6 +189,34 @@ export default function GroupPlanning() {
         setMemberNames(namesMap);
 
         setGroup({ ...groupData, isMember, isRecipient });
+
+        // Action A: Birthday Locker Countdown
+        if (groupData.person_birthday && !hasSentBirthdayPush.current) {
+          const days = getDaysUntil(groupData.person_birthday);
+          if (days === 0) {
+            hasSentBirthdayPush.current = true;
+            (async () => {
+              try {
+                const targetMembers = (groupData.members || []).filter((mId: string) => mId !== celebrantUid);
+                if (targetMembers.length > 0) {
+                  await fetch('/.netlify/functions/send-push-ping', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      userIds: targetMembers,
+                      title: "It's birthday time! 🎂",
+                      body: `Unlock the locker for ${groupData.person_name || 'your friend'} right now!`,
+                      url: `/groups/${id}`
+                    })
+                  });
+                }
+              } catch (err) {
+                console.error("Error sending birthday push notification:", err);
+              }
+            })();
+          }
+        }
+
         setLoading(false);
       } else {
         setLoading(false);
@@ -1343,6 +1376,27 @@ Return strictly as a JSON object (no markdown code fence blocks, just the object
         user_name: user?.name || 'Someone',
         created_at: serverTimestamp()
       });
+
+      // Action B: Photo Dump Drops
+      (async () => {
+        try {
+          const targetMembers = (group?.members || []).filter((mId: string) => mId !== firebaseUser.uid);
+          if (targetMembers.length > 0) {
+            await fetch('/.netlify/functions/send-push-ping', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userIds: targetMembers,
+                title: "New photo drop! 📸",
+                body: `${user?.name || 'Someone'} added a photo to the memory wall for ${group?.name || 'the group'}.`,
+                url: `/groups/${id}`
+              })
+            });
+          }
+        } catch (err) {
+          console.error("Error sending photo push notification:", err);
+        }
+      })();
     } catch (err) {
       console.error("Error uploading photo:", err);
       alert("Failed to upload photo. Please try again!");
