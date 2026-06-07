@@ -332,9 +332,23 @@ export default function Dashboard() {
     <div className="pb-24 pt-[calc(1.5rem+var(--sat))] px-4 max-w-2xl mx-auto space-y-8">
       {/* Header */}
       <header className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">RelateOS</h1>
-          <p className="text-zinc-500 text-sm">Welcome back, {user?.name}</p>
+        <div className="flex items-center gap-3">
+          {user?.profile_picture_url ? (
+            <img 
+              src={user.profile_picture_url} 
+              alt={user.name} 
+              className="w-12 h-12 rounded-full object-cover border border-zinc-200 dark:border-zinc-850 shadow-inner" 
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center font-black text-lg uppercase shadow-inner">
+              {user?.name?.charAt(0) || 'U'}
+            </div>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight leading-tight">RelateOS</h1>
+            <p className="text-zinc-550 dark:text-zinc-400 text-xs font-semibold">Welcome back, {user?.name}</p>
+          </div>
         </div>
         <div className="flex gap-3">
           <Link to="/settings" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800" title="Settings">
