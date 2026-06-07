@@ -16,7 +16,8 @@ import {
   MessageSquare,
   Gift,
   Image as ImageIcon,
-  Heart
+  Heart,
+  Share2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Navigation from '../components/Navigation';
@@ -63,6 +64,7 @@ export default function GroupPlanning() {
   const [showSurpriseForm, setShowSurpriseForm] = React.useState(false);
   const [newSurprise, setNewSurprise] = React.useState({ type: 'message', content: '' });
   const [surprises, setSurprises] = React.useState<any[]>([]);
+  const [linkCopied, setLinkCopied] = React.useState(false);
 
   React.useEffect(() => {
     if (!id || !firebaseUser) return;
@@ -461,15 +463,30 @@ export default function GroupPlanning() {
         {activeTab === 'planning' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
             {/* Invite Code */}
-            <div className="p-4 bg-zinc-900 text-white rounded-2xl flex justify-between items-center">
-              <div>
-                <p className="text-[10px] uppercase font-bold text-zinc-400">Invite Code</p>
-                <p className="text-xl font-mono font-bold tracking-widest">{group.invite_code}</p>
+            <div className="space-y-3">
+              <div className="p-4 bg-zinc-900 text-white rounded-2xl flex justify-between items-center">
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-zinc-400">Invite Code</p>
+                  <p className="text-xl font-mono font-bold tracking-widest">{group.invite_code}</p>
+                </div>
+                <button className="px-4 py-2 bg-white/10 rounded-xl text-xs font-bold" onClick={() => {
+                  navigator.clipboard.writeText(group.invite_code);
+                  alert('Code copied!');
+                }}>Copy Code</button>
               </div>
-              <button className="px-4 py-2 bg-white/10 rounded-xl text-xs font-bold" onClick={() => {
-                navigator.clipboard.writeText(group.invite_code);
-                alert('Code copied!');
-              }}>Copy Code</button>
+
+              {/* Share Surprise Link */}
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/surprise/${id}`);
+                  setLinkCopied(true);
+                  setTimeout(() => setLinkCopied(false), 2000);
+                }} 
+                className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.99] text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/10 text-sm"
+              >
+                <Share2 size={16} />
+                {linkCopied ? "Link copied!" : "Share Surprise Link"}
+              </button>
             </div>
 
             {/* Contribution Pool */}
