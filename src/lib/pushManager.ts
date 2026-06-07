@@ -1,57 +1,49 @@
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { db } from './firebase';
+import { getMessaging, getToken } from "firebase/messaging";
+import { doc, updateDoc, arrayUnion } from "firebase/firestore";
+import { db, auth } from "./firebase";
 
-export async function subscribeUserToPush(firebaseUserId: string): Promise<boolean> {
-  if (typeof window === 'undefined') return false;
-
-  // Verify if 'serviceWorker' and 'PushManager' exist inside the current navigator window context.
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    console.warn('Push messaging is not supported in this browser.');
-    return false;
-  }
+export const enableNativeNotifications = async () => {
+  if (typeof window === 'undefined') return;
 
   try {
-    // Execute a browser permission query
+    // Request permission from the Android Operating System / Browser
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-      console.warn('Notification permission not granted.');
-      return false;
+      console.log('Android notification permission denied.');
+      return;
     }
 
-    // Ensure service worker is registered
-    await navigator.serviceWorker.register('/sw.js').catch(err => {
-      console.warn('Service worker registration failed:', err);
+    const messaging = getMessaging();
+    // Fetch the native FCM device token using your Firebase Web/App VAPID pair
+    const currentToken = await getToken(messaging, {
+      vapidKey: 'BCFXI0MEi3CVogRK6TZVK7B0zuqcuwU_K8mBNr7sD1yXkdXHTr-Z_vwDZaYiF4VdhstF4V-I1ncoFdoR4E2IIFA'
     });
 
-    // Await the ready state sequence
-    const registration = await navigator.serviceWorker.ready;
-
-    // Read for an active subscription pointer on the machine
-    let subscription = await registration.pushManager.getSubscription();
-
-    // If no active token is linked, generate a new connection string
-    if (!subscription) {
-      const applicationServerKey = 'BCFXI0MEi3CVogRK6TZVK7B0zuqcuwU_K8mBNr7sD1yXkdXHTr-Z_vwDZaYiF4VdhstF4V-I1ncoFdoR4E2IIFA';
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: applicationServerKey
-      });
+    if (currentToken) {
+      const user = auth.currentUser;
+      if (user) {
+        const userRef = doc(db, "users", user.uid);
+        // Save the raw string token directly into your push_subscriptions array
+        await updateDoc(userRef, {
+          push_subscriptions: arrayUnion(currentToken)
+        });
+        console.log("Native Android FCM Token saved successfully!");
+      }
+    } else {
+      console.log('No native registration token available.');
     }
-
-    if (subscription) {
-      // Convert the resulting subscription target map into a JSON object
-      const subscriptionJSON = subscription.toJSON();
-
-      // Write it cleanly to the target user profile inside Firestore
-      const userRef = doc(db, 'users', firebaseUserId);
-      await updateDoc(userRef, {
-        push_subscriptions: arrayUnion(subscriptionJSON)
-      });
-      return true;
-    }
-    return false;
   } catch (error) {
-    console.error('Error in subscribeUserToPush:', error);
+    console.error('Error setting up native FCM:', error);
+  }
+};
+
+export async function subscribeUserToPush(firebaseUserId: string): Promise<boolean> {
+  try {
+    await enableNativeNotifications();
+    return true;
+  } catch (err) {
+    console.error('Error subscription helper:', err);
     return false;
   }
 }
+
