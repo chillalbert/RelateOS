@@ -5,6 +5,12 @@ import { db, auth } from "./firebase";
 export const enableNativeNotifications = async () => {
   if (typeof window === 'undefined') return;
 
+  // Safe browser capability check for PWA/environments without standard support
+  if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) {
+    console.warn('Native or standard web push notifications are not supported in this frame/browser environment.');
+    return;
+  }
+
   try {
     // Request permission from the Android Operating System / Browser
     const permission = await Notification.requestPermission();
