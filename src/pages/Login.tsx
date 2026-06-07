@@ -33,6 +33,7 @@ export default function Login() {
           email: formData.email,
           name: formData.name,
           appearance: 'light',
+          notification_time: '09:00',
           notification_settings: {
             birthdays: true,
             tasks: true,
