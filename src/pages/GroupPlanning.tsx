@@ -69,6 +69,7 @@ export default function GroupPlanning() {
   const [selectedVibe, setSelectedVibe] = React.useState('🏠 House Party');
   const [guestCount, setGuestCount] = React.useState('');
   const [partyNotes, setPartyNotes] = React.useState('');
+  const [roomStructure, setRoomStructure] = React.useState<'flat' | 'roles'>('flat');
 
   // Party active tab state
   const [partyActiveTab, setPartyActiveTab] = React.useState<'plan' | 'polls' | 'guests' | 'vibes' | 'photos' | 'chat'>('plan');
@@ -528,7 +529,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
         return;
       }
 
-      await fetch('https://api.resend.com/emails', {
+      fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${resendKey}`,
@@ -642,6 +643,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
         vibe: selectedVibe,
         guest_count: Number(guestCount) || 0,
         notes: partyNotes,
+        room_structure: roomStructure,
         created_by: firebaseUser.uid,
         members: [firebaseUser.uid],
         admins: [firebaseUser.uid],
@@ -991,6 +993,51 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
                       placeholder="Any details, theme ideas, or special requests..." 
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 ml-1">Room Structure *</label>
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Option A: Everyone's Equal */}
+                      <button
+                        type="button"
+                        onClick={() => setRoomStructure('flat')}
+                        className={cn(
+                          "p-4 rounded-2xl border text-left flex flex-col gap-2 transition-all cursor-pointer h-full",
+                          roomStructure === 'flat'
+                            ? "bg-emerald-500 text-white border-emerald-500 shadow-md"
+                            : "bg-zinc-100 dark:bg-zinc-800 border-transparent text-zinc-600 hover:bg-zinc-200 dark:hover:bg-zinc-750"
+                        )}
+                      >
+                        <Users size={20} className={cn(roomStructure === 'flat' ? 'text-white' : 'text-zinc-650 dark:text-zinc-400')} />
+                        <div>
+                          <p className="text-xs font-bold leading-tight">Everyone's Equal</p>
+                          <p className={cn("text-[10px] leading-snug mt-1", roomStructure === 'flat' ? "text-emerald-100" : "text-zinc-400")}>
+                            Simple. Everyone can do everything.
+                          </p>
+                        </div>
+                      </button>
+
+                      {/* Option B: Roles */}
+                      <button
+                        type="button"
+                        onClick={() => setRoomStructure('roles')}
+                        className={cn(
+                          "p-4 rounded-2xl border text-left flex flex-col gap-2 transition-all cursor-pointer h-full",
+                          roomStructure === 'roles'
+                            ? "bg-zinc-900 text-white border-zinc-900 shadow-md dark:bg-zinc-800 dark:border-zinc-800"
+                            : "bg-zinc-100 dark:bg-zinc-800 border-transparent text-zinc-600 hover:bg-zinc-200 dark:hover:bg-zinc-750"
+                        )}
+                      >
+                        <Shield size={20} className={cn(roomStructure === 'roles' ? 'text-white' : 'text-zinc-650 dark:text-zinc-400')} />
+                        <div>
+                          <p className="text-xs font-bold leading-tight">Roles</p>
+                          <p className={cn("text-[10px] leading-snug mt-1", roomStructure === 'roles' ? "text-zinc-300" : "text-zinc-400")}>
+                            Admin controls who can do what.
+                          </p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <button type="submit" className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all">
@@ -1108,9 +1155,10 @@ Return strictly as a JSON array (no markdown code fence blocks, just the array i
 
   const handleToggleTask = async (taskId: string, currentCompleted: boolean, assignedTo: string) => {
     if (!id || !firebaseUser) return;
-    const isCrewAdmin = group?.admins?.includes(firebaseUser.uid) || group?.created_by === firebaseUser.uid;
-    const isCrewMod = group?.mods?.includes(firebaseUser.uid);
-    const isCrewAdminOrMod = isCrewAdmin || isCrewMod;
+    const isFlat = group?.room_structure === 'flat';
+    const isCrewAdmin = isFlat || group?.admins?.includes(firebaseUser.uid) || group?.created_by === firebaseUser.uid;
+    const isCrewMod = isFlat || group?.mods?.includes(firebaseUser.uid);
+    const isCrewAdminOrMod = isFlat || isCrewAdmin || isCrewMod;
     
     if (assignedTo !== firebaseUser.uid && !isCrewAdminOrMod) {
       alert("Only the assignee or a Coordinator (Admin/Mod) can toggle this task's status!");
@@ -1307,9 +1355,10 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
 
   // --- RENDER PARTY ROOM VIEW ---
   const renderPartyRoom = () => {
-    const isCrewAdmin = group.admins?.includes(firebaseUser?.uid) || group.created_by === firebaseUser?.uid;
-    const isCrewMod = group.mods?.includes(firebaseUser?.uid);
-    const isCrewAdminOrMod = isCrewAdmin || isCrewMod;
+    const isFlat = group?.room_structure === 'flat';
+    const isCrewAdmin = isFlat || group.admins?.includes(firebaseUser?.uid) || group.created_by === firebaseUser?.uid;
+    const isCrewMod = isFlat || group.mods?.includes(firebaseUser?.uid);
+    const isCrewAdminOrMod = isFlat || isCrewAdmin || isCrewMod;
 
     const rsvps = group.rsvps || {};
     const rsvpCounts = { going: 0, maybe: 0, not_going: 0 };
