@@ -43,7 +43,8 @@ import {
   arrayUnion, 
   getDocs,
   orderBy,
-  deleteDoc
+  deleteDoc,
+  deleteField
 } from 'firebase/firestore';
 import { cn, getDaysUntil } from '../lib/utils';
 
@@ -81,6 +82,11 @@ export default function GroupPlanning() {
   const [tasks, setTasks] = React.useState<any[]>([]);
   const [polls, setPolls] = React.useState<any[]>([]);
   const [photos, setPhotos] = React.useState<any[]>([]);
+  const [contributions, setContributions] = React.useState<any[]>([]);
+  const [datePolls, setDatePolls] = React.useState<any[]>([]);
+  const [newPollDate, setNewPollDate] = React.useState('');
+  const [newPollTime, setNewPollTime] = React.useState('');
+  const [showAddDatePoll, setShowAddDatePoll] = React.useState(false);
 
   // Plan tab states
   const [partyThemes, setPartyThemes] = React.useState<any[]>([]);
@@ -153,11 +159,6 @@ export default function GroupPlanning() {
           return;
         }
 
-        // Fetch contributions
-        const contributionsRef = collection(db, 'rooms', id, 'contributions');
-        const contributionsSnap = await getDocs(contributionsRef);
-        const contributions = contributionsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
         // Fetch member names
         const membersList = groupData.members || [];
         const namesMap: {[uid: string]: string} = {};
@@ -182,11 +183,23 @@ export default function GroupPlanning() {
         }
         setMemberNames(namesMap);
 
-        setGroup({ ...groupData, contributions, isMember, isRecipient });
+        setGroup({ ...groupData, isMember, isRecipient });
         setLoading(false);
       } else {
         setLoading(false);
       }
+    });
+
+    // Contributions subscription
+    const contributionsRef = collection(db, 'rooms', id, 'contributions');
+    const unsubscribeContributions = onSnapshot(contributionsRef, (snapshot) => {
+      setContributions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    // Date polls subscription
+    const datePollsRef = collection(db, 'rooms', id, 'date_polls');
+    const unsubscribeDatePolls = onSnapshot(datePollsRef, (snapshot) => {
+      setDatePolls(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
     // Ideas subscription
@@ -246,6 +259,8 @@ export default function GroupPlanning() {
       unsubscribeTasks();
       unsubscribePolls();
       unsubscribePhotos();
+      unsubscribeContributions();
+      unsubscribeDatePolls();
     };
   }, [id, firebaseUser, user?.email]);
 
@@ -297,7 +312,7 @@ export default function GroupPlanning() {
           const cleanPrompt = trimmedText.replace(/@spark/gi, '').trim();
           
           // Calculate total contributed for context
-          const totalContributed = group.contributions?.reduce((sum: number, c: any) => sum + c.amount, 0) || 0;
+          const totalContributed = contributions?.reduce((sum: number, c: any) => sum + c.amount, 0) || 0;
 
           // Build context:
           let systemContext = '';
@@ -467,7 +482,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
       combinedInterests += `\nVisual context from friends: ${imageUrls.join(', ')}`;
     }
     
-    const totalContributed = group.contributions?.reduce((sum: number, c: any) => sum + c.amount, 0) || 0;
+    const totalContributed = contributions?.reduce((sum: number, c: any) => sum + c.amount, 0) || 0;
     const suggestions = await generateGiftSuggestions({
       interests: combinedInterests,
       budget: totalContributed || 50,
@@ -529,14 +544,12 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
         return;
       }
 
-      fetch('https://api.resend.com/emails', {
+      fetch('/.netlify/functions/send-email', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${resendKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          from: 'onboarding@resend.dev',
           to: recipientEmail,
           subject: `Your friends are planning something special 🎁`,
           html: `
@@ -558,7 +571,8 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
                 Built with RelateOS
               </p>
             </div>
-          `
+          `,
+          resendKey: resendKey
         })
       });
     } catch (err) {
@@ -625,7 +639,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
   const handleCreatePartyGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firebaseUser) return;
-    if (!partyName.trim() || !partyPersonName.trim() || !partyDate) {
+    if (!partyName.trim() || !partyPersonName.trim()) {
       alert("Please fill in all required fields!");
       return;
     }
@@ -922,14 +936,16 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 ml-1">Party Date *</label>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 ml-1">Party Date</label>
                       <input 
                         type="date"
                         value={partyDate} 
                         onChange={(e) => setPartyDate(e.target.value)}
-                        required 
                         className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100" 
                       />
+                      <p className="text-[9px] text-zinc-400 mt-1 ml-1 leading-relaxed">
+                        Not sure yet? Leave blank and use Date Polling below
+                      </p>
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 ml-1">Party Time</label>
@@ -1360,6 +1376,79 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
     const isCrewMod = isFlat || group.mods?.includes(firebaseUser?.uid);
     const isCrewAdminOrMod = isFlat || isCrewAdmin || isCrewMod;
 
+    const formatDate = (dateStr: string) => {
+      if (!dateStr) return '';
+      try {
+        const d = new Date(dateStr + 'T00:00:00');
+        return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      } catch (e) {
+        return dateStr;
+      }
+    };
+
+    const formatTime = (timeStr: string) => {
+      if (!timeStr) return '';
+      try {
+        const [hours, minutes] = timeStr.split(':');
+        const h = parseInt(hours, 10);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const hor = h % 12 || 12;
+        return `${hor}:${minutes} ${ampm}`;
+      } catch (e) {
+        return timeStr;
+      }
+    };
+
+    const handleAddDatePoll = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!id || !firebaseUser) return;
+      if (!newPollDate) {
+        alert("Please select a date!");
+        return;
+      }
+      if (datePolls.length >= 5) {
+        alert("You can only propose up to 5 date options!");
+        return;
+      }
+
+      try {
+        await addDoc(collection(db, 'rooms', id, 'date_polls'), {
+          date: newPollDate,
+          time: newPollTime || '',
+          votes: {},
+          created_by: firebaseUser.uid,
+          created_at: serverTimestamp()
+        });
+        setNewPollDate('');
+        setNewPollTime('');
+        setShowAddDatePoll(false);
+      } catch (err) {
+        console.error("Error proposing date option:", err);
+      }
+    };
+
+    const handleDeleteDatePoll = async (pollId: string) => {
+      if (!id) return;
+      if (!window.confirm("Are you sure you want to delete this option?")) return;
+      try {
+        await deleteDoc(doc(db, 'rooms', id, 'date_polls', pollId));
+      } catch (err) {
+        console.error("Error deleting date option:", err);
+      }
+    };
+
+    const handleSelectDate = async (pollDate: string, pollTime: string) => {
+      if (!id) return;
+      try {
+        await updateDoc(doc(db, 'rooms', id), {
+          party_date: pollDate,
+          party_time: pollTime || ''
+        });
+      } catch (err) {
+        console.error("Error selecting date:", err);
+      }
+    };
+
     const rsvps = group.rsvps || {};
     const rsvpCounts = { going: 0, maybe: 0, not_going: 0 };
     const memberList = group.members || [];
@@ -1370,7 +1459,7 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
       else rsvpCounts.maybe++;
     });
 
-    const totalPartyContributed = group.contributions?.reduce((sum: number, c: any) => sum + c.amount, 0) || 0;
+    const totalPartyContributed = contributions?.reduce((sum: number, c: any) => sum + c.amount, 0) || 0;
     const partyTargetAmount = group.target_amount || 0;
     const partyProgress = partyTargetAmount > 0 ? Math.min((totalPartyContributed / partyTargetAmount) * 105, 100) : 0;
     const splitAmount = group.guest_count > 0 ? (partyTargetAmount / group.guest_count) : 0;
@@ -1393,28 +1482,33 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
             <div className="w-10" />
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none px-1">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none px-1 -mx-6 md:mx-0 px-6 md:px-0">
             {([
-              { id: 'plan', label: 'Plan 📝' },
-              { id: 'polls', label: 'Polls 🗳️' },
-              { id: 'guests', label: 'Guests 👥' },
-              { id: 'vibes', label: 'Vibes 🎵' },
-              { id: 'photos', label: 'Photos 📸' },
-              { id: 'chat', label: 'Chat 💬' }
-            ] as const).map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setPartyActiveTab(tab.id)}
-                className={cn(
-                  "py-2 px-4 text-xs font-bold whitespace-nowrap rounded-full transition-all duration-200 flex-shrink-0 border",
-                  partyActiveTab === tab.id 
-                    ? "bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/10" 
-                    : "bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-650 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
+              { id: 'plan', label: 'Plan', icon: Sparkles },
+              { id: 'polls', label: 'Polls', icon: BarChart2 },
+              { id: 'guests', label: 'Guests', icon: Users },
+              { id: 'vibes', label: 'Vibes', icon: Music },
+              { id: 'photos', label: 'Photos', icon: Camera },
+              { id: 'chat', label: 'Chat', icon: MessageSquare }
+            ] as const).map((tab) => {
+              const Icon = tab.icon;
+              const isSelected = partyActiveTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setPartyActiveTab(tab.id)}
+                  className={cn(
+                    "py-2 px-3.5 text-xs font-bold whitespace-nowrap rounded-full transition-all duration-205 flex-shrink-0 flex items-center gap-1.5 cursor-pointer border border-transparent",
+                    isSelected 
+                      ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm" 
+                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-750"
+                  )}
+                >
+                  <Icon size={13} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         </header>
 
@@ -1605,9 +1699,9 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
                 {/* Log list */}
                 <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                   <p className="text-[10px] text-zinc-400 uppercase font-black tracking-wide">Chip-in Logs</p>
-                  {group.contributions && group.contributions.length > 0 ? (
+                  {contributions && contributions.length > 0 ? (
                     <div className="flex flex-wrap gap-2 pt-1">
-                      {group.contributions.map((c: any, idx: number) => (
+                      {contributions.map((c: any, idx: number) => (
                         <span key={idx} className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black px-2.5 py-1.5 rounded-full flex items-center gap-1">
                           💸 {c.user_name}: ${c.amount}
                         </span>
@@ -1872,6 +1966,184 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
           {partyActiveTab === 'guests' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
               
+              {/* Date Polling Section */}
+              <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[32px] p-6 space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="font-black text-sm tracking-tight text-zinc-900 dark:text-zinc-100">Date Polling 📅</h3>
+                    <p className="text-xs text-zinc-400">Propose and vote on the optimized coordinates for our bash.</p>
+                  </div>
+                  {isCrewAdminOrMod && datePolls.length < 5 && !showAddDatePoll && (
+                    <button 
+                      onClick={() => setShowAddDatePoll(true)}
+                      className="py-1.5 px-3 bg-zinc-900 hover:bg-zinc-805 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 text-[10px] font-black uppercase rounded-full tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus size={12} /> Propose Date
+                    </button>
+                  )}
+                </div>
+
+                {/* Form to Propose a Date option */}
+                {showAddDatePoll && (
+                  <form onSubmit={handleAddDatePoll} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-100 dark:border-zinc-850 space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-450">New Proposed Option</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[9px] font-bold text-zinc-405 uppercase tracking-widest block mb-1 ml-1 font-sans">Date *</label>
+                        <input 
+                          type="date"
+                          value={newPollDate}
+                          onChange={(e) => setNewPollDate(e.target.value)}
+                          required
+                          className="w-full p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-zinc-405 uppercase tracking-widest block mb-1 ml-1 font-sans">Time (Optional)</label>
+                        <input 
+                          type="time"
+                          value={newPollTime}
+                          onChange={(e) => setNewPollTime(e.target.value)}
+                          className="w-full p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-end pt-1">
+                      <button 
+                        type="button" 
+                        onClick={() => setShowAddDatePoll(false)}
+                        className="py-1.5 px-3 bg-zinc-200 dark:bg-zinc-800 rounded-lg text-[10px] font-bold text-zinc-600 dark:text-zinc-350 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="submit"
+                        className="py-1.5 px-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                      >
+                        Submit Option
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* List of Proposed Date options */}
+                <div className="space-y-3">
+                  {datePolls.length > 0 ? (
+                    datePolls.map((poll) => {
+                      const voteCount = Object.values(poll.votes || {}).filter(v => v === true).length;
+                      const hasVoted = poll.votes?.[firebaseUser?.uid || ''] === true;
+                      const isOptionSelected = group.party_date === poll.date && (poll.time ? group.party_time === poll.time : !group.party_time);
+
+                      return (
+                        <div 
+                          key={poll.id} 
+                          className={cn(
+                            "p-4 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all",
+                            isOptionSelected 
+                              ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500/40" 
+                              : "bg-zinc-50 dark:bg-zinc-950 border-zinc-100 dark:border-zinc-850"
+                          )}
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {isOptionSelected && (
+                                <span className="bg-emerald-500 text-white text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  🎯 Finalized Date
+                                </span>
+                              )}
+                              <p className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50 font-sans">
+                                {formatDate(poll.date)}
+                              </p>
+                              {poll.time && (
+                                <span className="text-[10px] text-zinc-500 font-mono bg-zinc-200 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                                  {formatTime(poll.time)}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-zinc-400 font-medium">
+                              Vote count: <span className="font-extrabold text-zinc-700 dark:text-zinc-200">{voteCount}</span>
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap md:flex-nowrap">
+                            {/* Vote Buttons */}
+                            <button
+                              onClick={async () => {
+                                if (!id || !firebaseUser) return;
+                                try {
+                                  await updateDoc(doc(db, 'rooms', id, 'date_polls', poll.id), {
+                                    [`votes.${firebaseUser.uid}`]: true
+                                  });
+                                } catch (err) {
+                                  console.error("Error voting:", err);
+                                }
+                              }}
+                              className={cn(
+                                "py-1.5 px-3 rounded-xl text-[10px] font-extrabold flex items-center gap-1 border transition-all cursor-pointer",
+                                hasVoted
+                                  ? "bg-emerald-500 text-white border-emerald-500 shadow-sm"
+                                  : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                              )}
+                            >
+                              I can make it ✅
+                            </button>
+
+                            <button
+                              onClick={async () => {
+                                if (!id || !firebaseUser) return;
+                                try {
+                                  await updateDoc(doc(db, 'rooms', id, 'date_polls', poll.id), {
+                                    [`votes.${firebaseUser.uid}`]: deleteField()
+                                  });
+                                } catch (err) {
+                                  console.error("Error removing vote:", err);
+                                }
+                              }}
+                              className={cn(
+                                "py-1.5 px-3 rounded-xl text-[10px] font-extrabold flex items-center gap-1 border transition-all cursor-pointer",
+                                !hasVoted
+                                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 border-zinc-900 dark:border-zinc-100"
+                                  : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-805"
+                              )}
+                            >
+                              Can't make it ❌
+                            </button>
+
+                            {/* Guard: Admins can mark as Selected */}
+                            {isCrewAdmin && !isOptionSelected && (
+                              <button
+                                onClick={() => handleSelectDate(poll.date, poll.time)}
+                                className="py-1.5 px-3 rounded-xl text-[10px] font-bold bg-zinc-900 hover:bg-zinc-850 text-white dark:bg-white dark:hover:bg-zinc-100 dark:text-zinc-900 transition-all flex items-center gap-1 cursor-pointer"
+                              >
+                                Select this Date 🎯
+                              </button>
+                            )}
+
+                            {/* Proposer delete button */}
+                            {isCrewAdminOrMod && (
+                              <button
+                                onClick={() => handleDeleteDatePoll(poll.id)}
+                                className="p-1.5 rounded-xl border border-transparent hover:border-red-500/20 text-zinc-400 hover:text-red-500 transition-colors cursor-pointer"
+                                title="Delete Option"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="p-6 text-center bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-850 rounded-2xl">
+                      <p className="text-xs text-zinc-400 italic font-medium">No date proposals actively polled yet.</p>
+                      {isCrewAdminOrMod && (
+                        <p className="text-[10px] text-zinc-500 mt-1">Click "Propose Date" above to launch the first option.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* RSVP update */}
               <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[32px] p-6 space-y-4">
                 <div>
@@ -2269,7 +2541,7 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
     return renderPartyRoom();
   }
 
-  const totalContributed = group.contributions?.reduce((sum: number, c: any) => sum + c.amount, 0) || 0;
+  const totalContributed = contributions?.reduce((sum: number, c: any) => sum + c.amount, 0) || 0;
   const targetAmount = group.target_amount || 500;
   const progress = Math.min((totalContributed / targetAmount) * 100, 100);
 
