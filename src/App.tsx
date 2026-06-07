@@ -13,6 +13,7 @@ import BirthdayCalendar from './pages/BirthdayCalendar';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 import AICoach from './pages/AICoach';
+import SurpriseReveal from './pages/SurpriseReveal';
 
 import LoadingScreen from './components/LoadingScreen';
 import NotificationManager from './components/NotificationManager';
@@ -54,6 +55,7 @@ export default function App() {
           <Router>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/surprise/:roomId" element={<SurpriseReveal />} />
               <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
               <Route path="/add" element={<PrivateRoute><AddPerson /></PrivateRoute>} />
               <Route path="/vaults" element={<PrivateRoute><Vaults /></PrivateRoute>} />
