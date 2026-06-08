@@ -212,7 +212,11 @@ export default function Notifications() {
     try {
       // 1. Update friend request status to accepted
       const frDoc = doc(db, 'friend_requests', reqId);
-      await updateDoc(frDoc, { status: 'accepted' });
+      await updateDoc(frDoc, { 
+        status: 'accepted',
+        streak_count: 0,
+        last_interaction_date: null
+      });
       
       // 2. Add sender to recipient's private 'people' roster so databases sync
       const peopleRef = collection(db, 'people');
