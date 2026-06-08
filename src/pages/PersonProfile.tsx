@@ -30,12 +30,22 @@ import { generateBirthdayMessage, generateRecoveryPlan } from '../services/gemin
 import { db } from '../lib/firebase';
 import confetti from 'canvas-confetti';
 import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, setDoc, deleteDoc, increment } from 'firebase/firestore';
+import { useDynamicFriend } from '../hooks/useDynamicFriend';
 
 export default function PersonProfile() {
   const { id } = useParams();
   const { firebaseUser, user, refreshUser } = useAuth();
   const navigate = useNavigate();
-  const [person, setPerson] = React.useState<any>(null);
+  const [originalPerson, setOriginalPerson] = React.useState<any>(null);
+  const setPerson = setOriginalPerson;
+
+  const { 
+    person, 
+    friendshipStatus, 
+    friendRequestDocId, 
+    streakCount, 
+    lastInteractionDate 
+  } = useDynamicFriend(originalPerson, firebaseUser?.uid);
   const [loading, setLoading] = React.useState(true);
   const [expandedYear, setExpandedYear] = React.useState<number | null>(new Date().getFullYear());
   const [aiMessage, setAiMessage] = React.useState<any>(null);
@@ -53,6 +63,38 @@ export default function PersonProfile() {
   const [reflectionText, setReflectionText] = React.useState('');
   const [hasReflectedThisYear, setHasReflectedThisYear] = React.useState(false);
   const [existingReflection, setExistingReflection] = React.useState<string>('');
+
+  React.useEffect(() => {
+    if (friendshipStatus === 'accepted' && friendRequestDocId) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (!lastInteractionDate || lastInteractionDate !== todayStr) {
+        // Increment streak_count on viewing the profile!
+        const reqRef = doc(db, 'friend_requests', friendRequestDocId);
+        updateDoc(reqRef, {
+          streak_count: increment(1),
+          last_interaction_date: todayStr
+        }).catch(err => console.error("Error incrementing streak:", err));
+      }
+    }
+  }, [friendshipStatus, friendRequestDocId, lastInteractionDate]);
+
+  const handleCreateSharedHypeRoom = async () => {
+    if (!firebaseUser || !person || !person.host_uid) return;
+    try {
+      const roomsRef = collection(db, 'rooms');
+      const docRef = await addDoc(roomsRef, {
+        room_type: 'hype',
+        name: `Hype Lounge 🔥 with ${person.name}`,
+        person_name: person.name,
+        created_by: firebaseUser.uid,
+        members: [firebaseUser.uid, person.host_uid],
+        created_at: serverTimestamp()
+      });
+      navigate(`/groups/${docRef.id}`);
+    } catch (err) {
+      console.error("Error creating Shared Hype Room:", err);
+    }
+  };
 
   const addGift = async () => {
     if (!id) return;
@@ -447,18 +489,56 @@ export default function PersonProfile() {
           </motion.div>
           <div className="space-y-1">
             <div className="flex items-center justify-center gap-2">
-              <h1 className="text-3xl font-black tracking-tight">{person.name}</h1>
-              {user?.streak && user.streak > 0 && (
-                <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-full text-[10px] font-black uppercase tracking-wider border border-amber-200 dark:border-amber-800/50">
-                  <Zap size={10} fill="currentColor" />
-                  {user.streak}
+              <h1 className="text-3xl font-black tracking-tight">{person?.name}</h1>
+              {streakCount > 0 && (
+                <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-orange-100 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 rounded-full text-[11px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-850/50">
+                  🔥 {streakCount}
                 </div>
               )}
             </div>
             <p className="text-zinc-500 font-medium serif-italic text-lg">
-              {person.nickname || person.category} • {person.birthYearUnknown ? "🎂" : `Turning ${getTurningAge(person.birthday)}`}
+              {person?.nickname || person?.category} • {person?.birthYearUnknown ? "🎂" : `Turning ${getTurningAge(person?.birthday || '2000-01-01')}`}
             </p>
           </div>
+
+          {/* If fully connected/accepted, display their real-time public vibe details */}
+          {friendshipStatus === 'accepted' && (
+            <div className="w-full max-w-sm mt-4 p-5 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-[28px] border border-emerald-500/15 text-left space-y-4 shadow-xl shadow-emerald-500/5">
+              <div className="flex items-center gap-2">
+                <span className="text-emerald-500 font-bold">⚡</span>
+                <span className="text-[10px] uppercase font-black tracking-wider text-emerald-600 dark:text-emerald-400">Synced Vibe Card</span>
+              </div>
+              
+              {person?.fav_sports_teams && (
+                <div className="space-y-0.5">
+                  <p className="text-[10px] text-zinc-400 uppercase font-bold">Favorite Sports Teams</p>
+                  <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{person.fav_sports_teams}</p>
+                </div>
+              )}
+
+              {person?.fav_artists && (
+                <div className="space-y-0.5">
+                  <p className="text-[10px] text-zinc-400 uppercase font-bold">Favorite Artists</p>
+                  <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{person.fav_artists}</p>
+                </div>
+              )}
+
+              {person?.anything_extra && (
+                <div className="space-y-0.5">
+                  <p className="text-[10px] text-zinc-400 uppercase font-bold">Anything Extra</p>
+                  <p className="text-xs text-zinc-650 dark:text-zinc-300 leading-relaxed font-semibold">{person.anything_extra}</p>
+                </div>
+              )}
+
+              {/* Action dashboard panel button */}
+              <button 
+                onClick={handleCreateSharedHypeRoom}
+                className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-500/15 cursor-pointer mt-1"
+              >
+                Create Shared Hype Room ⚡
+              </button>
+            </div>
+          )}
           
           <div className="flex gap-4 w-full max-w-sm">
             <div className="flex-1 p-4 card-premium bg-zinc-50/50 dark:bg-zinc-800/30 space-y-1">
