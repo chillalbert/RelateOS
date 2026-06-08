@@ -53,6 +53,7 @@ export default function OnboardingFlow() {
   const [sportsTeams, setSportsTeams] = React.useState<string[]>([]);
   const [favArtists, setFavArtists] = React.useState('');
   const [weekendActivities, setWeekendActivities] = React.useState('');
+  const [anythingExtra, setAnythingExtra] = React.useState(user?.anything_extra || '');
 
   // Step 3: Privacy
   const [isPrivate, setIsPrivate] = React.useState(false);
@@ -204,6 +205,7 @@ export default function OnboardingFlow() {
         fav_sports_teams: sportsTeams.join(','),
         fav_artists: favArtists.trim(),
         weekend_activities: weekendActivities.trim(),
+        anything_extra: anythingExtra.trim(),
         is_private: isPrivate,
         onboarding_completed: true,
         has_completed_onboarding: true
@@ -484,6 +486,18 @@ export default function OnboardingFlow() {
                     placeholder="e.g. coding late-night tracks, record vintage vinyl, hike with friends"
                     value={weekendActivities}
                     onChange={(e) => setWeekendActivities(e.target.value)}
+                  />
+                </div>
+
+                {/* Anything Extra Prompts */}
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-zinc-400 ml-0.5">Anything Extra</label>
+                  <textarea
+                    rows={2}
+                    className="w-full p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none text-xs text-zinc-950 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none resize-none"
+                    placeholder="Random fun facts, clothing/shoe sizes, allergies, or coffee preferences..."
+                    value={anythingExtra}
+                    onChange={(e) => setAnythingExtra(e.target.value)}
                   />
                 </div>
               </div>
