@@ -28,7 +28,7 @@ import { getDaysUntil, formatDate, cn, getConnectionScore, getPreciseCountdown, 
 import { Gift, MessageSquare, Sparkles as SparklesIcon, Trash2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit, setDoc, addDoc, serverTimestamp, increment, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit, setDoc, addDoc, serverTimestamp, increment, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { generateGiftSuggestions, generateBirthdayMessage } from '../services/geminiService';
 import { subscribeUserToPush } from '../lib/pushManager';
 
@@ -72,6 +72,73 @@ export default function Dashboard() {
   const [dashboardAiMessage, setDashboardAiMessage] = React.useState<any>(null);
   const [countdown, setCountdown] = React.useState<any>(null);
   const [showPushBanner, setShowPushBanner] = React.useState(false);
+  const [friendStreaks, setFriendStreaks] = React.useState<Record<string, number>>({});
+  const [syncedProfiles, setSyncedProfiles] = React.useState<Record<string, any>>({});
+
+  React.useEffect(() => {
+    if (!firebaseUser) return;
+    const frRef = collection(db, 'friend_requests');
+    const q1 = query(frRef, where('sender_uid', '==', firebaseUser.uid), where('status', '==', 'accepted'));
+    const q2 = query(frRef, where('receiver_uid', '==', firebaseUser.uid), where('status', '==', 'accepted'));
+
+    const handleSnaps = (snap1: any, snap2: any) => {
+      const streaks: Record<string, number> = {};
+      const addFromDoc = (d: any) => {
+        const data = d.data();
+        const otherAnd = data.sender_uid === firebaseUser.uid ? data.receiver_uid : data.sender_uid;
+        if (data.streak_count !== undefined) {
+          streaks[otherAnd] = data.streak_count;
+        }
+      };
+      
+      snap1.docs.forEach(addFromDoc);
+      snap2.docs.forEach(addFromDoc);
+      setFriendStreaks(streaks);
+    };
+
+    const unsub1 = onSnapshot(q1, (snap1) => {
+      getDocs(q2).then((snap2) => handleSnaps(snap1, snap2)).catch(() => {});
+    });
+
+    const unsub2 = onSnapshot(q2, (snap2) => {
+      getDocs(q1).then((snap1) => handleSnaps(snap1, snap2)).catch(() => {});
+    });
+
+    return () => {
+      unsub1();
+      unsub2();
+    };
+  }, [firebaseUser]);
+
+  React.useEffect(() => {
+    const activeListeners: (() => void)[] = [];
+    
+    people.forEach((p) => {
+      if (p.host_uid) {
+        const userRef = doc(db, 'users', p.host_uid);
+        const unsub = onSnapshot(userRef, (snap) => {
+          if (snap.exists()) {
+            const uData = snap.data();
+            setSyncedProfiles((prev) => ({
+              ...prev,
+              [p.host_uid]: {
+                name: uData.name || p.name,
+                photo_url: uData.profile_picture_url || p.photo_url,
+                fav_sports_teams: uData.fav_sports_teams,
+                fav_artists: uData.fav_artists,
+                anything_extra: uData.anything_extra
+              }
+            }));
+          }
+        });
+        activeListeners.push(unsub);
+      }
+    });
+
+    return () => {
+      activeListeners.forEach((unsub) => unsub());
+    };
+  }, [people]);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -498,14 +565,23 @@ export default function Dashboard() {
                 )}>
                   <Link to={`/person/${person.id}`} className="space-y-2">
                     <div className="w-14 h-14 rounded-2xl bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xl font-black overflow-hidden mx-auto border-2 border-white dark:border-zinc-900 shadow-sm">
-                      {person.photo_url ? (
-                        <img src={person.photo_url} alt={person.name} className="w-full h-full object-cover" />
+                      {((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url) ? (
+                        <img 
+                          src={(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url} 
+                          alt={person.name} 
+                          className="w-full h-full object-cover" 
+                        />
                       ) : (
-                        person.name[0]
+                        ((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name)[0]
                       )}
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold truncate w-32">{person.name.split(' ')[0]}</h3>
+                      <h3 className="text-sm font-bold truncate w-32 flex items-center justify-center gap-1 text-zinc-900 dark:text-white">
+                        {((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name).split(' ')[0]}
+                        {person.host_uid && friendStreaks[person.host_uid] > 0 && (
+                          <span className="text-xs">🔥 {friendStreaks[person.host_uid]}</span>
+                        )}
+                      </h3>
                       <p className="text-[10px] font-bold text-zinc-400 uppercase">
                         {person.birthday.split('-')[2]} {new Intl.DateTimeFormat('en-US', { month: 'short' }).format(new Date(2000, Number(person.birthday.split('-')[1]) - 1, 1))}
                       </p>
@@ -576,11 +652,24 @@ export default function Dashboard() {
               >
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-lg font-bold">
-                      {person.name[0]}
+                    <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-lg font-bold overflow-hidden">
+                      {((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url) ? (
+                        <img 
+                          src={(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url} 
+                          alt={person.name} 
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        ((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name)[0]
+                      )}
                     </div>
                     <div>
-                      <h3 className="font-bold">{person.name}</h3>
+                      <h3 className="font-bold flex items-center gap-1.5">
+                        {(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name}
+                        {person.host_uid && friendStreaks[person.host_uid] > 0 && (
+                          <span className="text-xs">🔥 {friendStreaks[person.host_uid]}</span>
+                        )}
+                      </h3>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-zinc-400 uppercase font-bold"><AnimatedNumber value={daysLeft} /> days remaining</span>
                         <div className="w-1 h-1 bg-zinc-300 rounded-full" />
@@ -711,10 +800,23 @@ export default function Dashboard() {
               <div key={person.id} className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold">
-                      {person.name[0]}
+                    <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold overflow-hidden">
+                      {((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url) ? (
+                        <img 
+                          src={(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url} 
+                          alt={person.name} 
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        ((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name)[0]
+                      )}
                     </div>
-                    <span className="text-sm font-bold">{person.name}</span>
+                    <span className="text-sm font-bold flex items-center gap-1.5">
+                      {(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name}
+                      {person.host_uid && friendStreaks[person.host_uid] > 0 && (
+                        <span className="text-xs">🔥 {friendStreaks[person.host_uid]}</span>
+                      )}
+                    </span>
                   </div>
                   <span className="text-[10px] font-black text-emerald-500 uppercase tracking-wider">{score}% Vibe</span>
                 </div>
