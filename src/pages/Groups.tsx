@@ -54,7 +54,7 @@ export default function Groups() {
     <div className="pb-32 pt-[calc(1.5rem+var(--sat))] px-4 max-w-2xl mx-auto space-y-8">
       <header className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Birthday Rooms</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Surprise Rooms</h1>
           <p className="text-zinc-500 text-sm">Collaborate on secret surprises</p>
         </div>
         <Link to="/groups/create" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-emerald-500">
