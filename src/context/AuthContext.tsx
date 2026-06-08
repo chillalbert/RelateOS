@@ -25,6 +25,7 @@ interface UserProfile {
   fav_sports_teams?: string;
   fav_artists?: string;
   weekend_activities?: string;
+  anything_extra?: string;
   notification_settings?: {
     birthdays: boolean;
     tasks: boolean;
