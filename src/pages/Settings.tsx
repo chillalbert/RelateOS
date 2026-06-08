@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import Navigation from '../components/Navigation';
 import CalendarImportStep from '../components/CalendarImportStep';
 import { db, auth } from '../lib/firebase';
-import { doc, updateDoc, setDoc, collection, getDocs, deleteDoc, query, where } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, collection, getDocs, deleteDoc, query, where, arrayRemove } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 
 enum OperationType {
@@ -77,6 +77,10 @@ export default function Settings() {
   const [editedBirthMonth, setEditedBirthMonth] = React.useState<number>(user?.birthday_month || 1);
   const [editedBirthDay, setEditedBirthDay] = React.useState<number>(user?.birthday_day || 1);
   
+  const [anythingExtra, setAnythingExtra] = React.useState(user?.anything_extra || '');
+  const [blockedUsers, setBlockedUsers] = React.useState<any[]>([]);
+  const [loadingBlocked, setLoadingBlocked] = React.useState(false);
+  
   const [saveLoading, setSaveLoading] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [handleError, setHandleError] = React.useState('');
@@ -91,8 +95,51 @@ export default function Settings() {
       if (user.weekend_activities && !weekendVibes) setWeekendVibes(user.weekend_activities);
       if (user.birthday_month !== undefined) setEditedBirthMonth(user.birthday_month);
       if (user.birthday_day !== undefined) setEditedBirthDay(user.birthday_day);
+      if (user.anything_extra && !anythingExtra) setAnythingExtra(user.anything_extra);
     }
   }, [user]);
+
+  React.useEffect(() => {
+    const fetchBlockedDetails = async () => {
+      const uids = user?.blocked_uids || [];
+      if (uids.length === 0) {
+        setBlockedUsers([]);
+        return;
+      }
+      setLoadingBlocked(true);
+      try {
+        const usersRef = collection(db, 'users');
+        const list: any[] = [];
+        const qList = uids.slice(0, 30);
+        const q = query(usersRef, where('__name__', 'in', qList));
+        const snap = await getDocs(q);
+        snap.forEach(d => {
+          list.push({ id: d.id, ...d.data() });
+        });
+        setBlockedUsers(list);
+      } catch (err) {
+        console.error('Error fetching blocked users:', err);
+      } finally {
+        setLoadingBlocked(false);
+      }
+    };
+
+    fetchBlockedDetails();
+  }, [user?.blocked_uids]);
+
+  const handleUnblock = async (targetUid: string) => {
+    if (!firebaseUser) return;
+    try {
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      await updateDoc(userRef, {
+        blocked_uids: arrayRemove(targetUid)
+      });
+      await refreshUser();
+    } catch (err) {
+      console.error('Error unblocking user:', err);
+      alert('Failed to unblock user.');
+    }
+  };
 
   const checkHandleUniquenessOnBlur = async (val: string) => {
     const cleanHandle = val.trim().toLowerCase().replace(/[^a-z0-9_\-]/g, '');
@@ -142,7 +189,8 @@ export default function Settings() {
         fav_artists: favArtists,
         weekend_activities: weekendVibes,
         birthday_month: parseInt(String(editedBirthMonth), 10),
-        birthday_day: parseInt(String(editedBirthDay), 10)
+        birthday_day: parseInt(String(editedBirthDay), 10),
+        anything_extra: anythingExtra.trim()
       });
       await refreshUser();
       setSaveSuccess(true);
@@ -586,6 +634,17 @@ export default function Settings() {
                   onChange={(e) => setWeekendVibes(e.target.value)}
                 />
               </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Anything Extra</label>
+                <textarea
+                  rows={2}
+                  className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none resize-none"
+                  placeholder="Random fun facts, clothing/shoe sizes, allergies, or coffee preferences..."
+                  value={anythingExtra}
+                  onChange={(e) => setAnythingExtra(e.target.value)}
+                />
+              </div>
             </div>
 
             {saveSuccess && (
@@ -602,6 +661,59 @@ export default function Settings() {
             >
               {saveLoading ? 'Saving...' : saveSuccess ? 'Profile Card Saved ✓' : 'Save Profile Card & Privacy'}
             </button>
+          </div>
+        </div>
+
+        {/* Blocked Users section */}
+        <div className="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+          <div className="flex items-center gap-2 px-2">
+            <X size={18} className="text-red-500" />
+            <h3 className="font-extrabold text-sm uppercase tracking-wide text-zinc-900 dark:text-white">Blocked Users</h3>
+          </div>
+          
+          <div className="p-6 card-premium space-y-4">
+            <p className="text-xs text-zinc-400 font-semibold leading-relaxed">
+              Users in your blocklist cannot view your public profile card, sync your birthday, or send you friend requests.
+            </p>
+            
+            {loadingBlocked ? (
+              <p className="text-xs text-zinc-400 font-bold animate-pulse uppercase tracking-wider">Loading blocklist...</p>
+            ) : blockedUsers.length > 0 ? (
+              <div className="space-y-3">
+                {blockedUsers.map((bu) => (
+                  <div key={bu.id} className="flex items-center justify-between p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-750 gap-3">
+                    <div className="flex items-center gap-3">
+                      {bu.profile_picture_url ? (
+                        <img 
+                          src={bu.profile_picture_url} 
+                          alt={bu.name} 
+                          className="w-9 h-9 rounded-full object-cover border border-zinc-200 dark:border-zinc-700" 
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 flex items-center justify-center font-bold text-xs uppercase">
+                          {bu.name?.charAt(0) || '?'}
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-xs font-black text-zinc-900 dark:text-white">{bu.name}</p>
+                        <p className="text-[10px] text-zinc-400 font-mono">@{bu.custom_handle || bu.handle || 'user'}</p>
+                      </div>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => handleUnblock(bu.id)}
+                      className="px-3 py-1.5 bg-zinc-200 hover:bg-red-500 hover:text-white text-[10px] font-black text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-red-650 dark:hover:text-white rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                    >
+                      Unblock 🔓
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider py-2">Your blocklist is empty 🕊️</p>
+            )}
           </div>
         </div>
 
