@@ -8,13 +8,32 @@ import {
   BarChart3, 
   Shield,
   MessageSquare,
-  Brain
+  Brain,
+  Bell
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function Navigation() {
   const location = useLocation();
   const path = location.pathname;
+
+  const [pendingCount, setPendingCount] = React.useState(typeof window !== 'undefined' ? (window as any).__pendingCount || 0 : 0);
+
+  React.useEffect(() => {
+    const handleUpdate = (e: any) => {
+      setPendingCount(e.detail || 0);
+    };
+    window.addEventListener('pending_requests_count', handleUpdate);
+    
+    // Quick validation in case of state updates
+    if (typeof window !== 'undefined' && (window as any).__pendingCount !== undefined) {
+      setPendingCount((window as any).__pendingCount);
+    }
+
+    return () => {
+      window.removeEventListener('pending_requests_count', handleUpdate);
+    };
+  }, []);
 
   const isActive = (p: string) => {
     if (p === '/' && path === '/') return true;
