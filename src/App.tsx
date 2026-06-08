@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
@@ -21,6 +22,95 @@ import NotificationManager from './components/NotificationManager';
 import ErrorBoundary from './components/ErrorBoundary';
 import OnboardingFlow from './components/OnboardingFlow';
 import { initializeGeminiKey } from './services/geminiService';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from './lib/firebase';
+
+const RealtimeNotificationTracker = () => {
+  const { firebaseUser } = useAuth();
+  const [toast, setToast] = React.useState<{ id: string; senderName: string } | null>(null);
+  const prevCountRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    if (!firebaseUser) {
+      (window as any).__pendingCount = 0;
+      window.dispatchEvent(new CustomEvent('pending_requests_count', { detail: 0 }));
+      return;
+    }
+
+    const q = query(
+      collection(db, 'friend_requests'),
+      where('receiver_uid', '==', firebaseUser.uid),
+      where('status', '==', 'pending')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const count = snapshot.size;
+      const prevCount = prevCountRef.current;
+      prevCountRef.current = count;
+
+      // Update global count
+      (window as any).__pendingCount = count;
+      window.dispatchEvent(new CustomEvent('pending_requests_count', { detail: count }));
+
+      // Trigger standard in-app slide-down banner if pending request list grew
+      if (prevCount !== null && count > prevCount) {
+        const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
+        if (docs.length > 0) {
+          // Identify the most recent or any pending request
+          const newest = docs[docs.length - 1];
+          if (newest && newest.sender_name) {
+            setToast({ id: newest.id, senderName: newest.sender_name });
+          }
+        }
+      }
+    }, (error) => {
+      console.error('Error listening to friend requests:', error);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [firebaseUser]);
+
+  React.useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  return (
+    <AnimatePresence>
+      {toast && (
+        <motion.div
+          initial={{ opacity: 0, y: -80, x: '-50%' }}
+          animate={{ opacity: 1, y: 0, x: '-50%' }}
+          exit={{ opacity: 0, y: -80, x: '-50%' }}
+          transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+          className="fixed top-6 left-1/2 z-[9999] w-full max-w-sm px-4"
+        >
+          <div className="bg-emerald-500 text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-3 border border-emerald-400">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">🤝</span>
+              <div className="text-left">
+                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-100">New Friend Request!</p>
+                <p className="text-sm font-extrabold">{toast.senderName} wants to connect.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setToast(null)}
+              className="text-white/80 hover:text-white font-bold text-xs p-1 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { firebaseUser, user, isLoading } = useAuth();
@@ -59,6 +149,7 @@ export default function App() {
       <AuthProvider>
         <ThemeHandler>
           <NotificationManager />
+          <RealtimeNotificationTracker />
           <Router>
             <Routes>
               <Route path="/login" element={<Login />} />
