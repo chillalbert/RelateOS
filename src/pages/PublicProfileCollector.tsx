@@ -62,6 +62,7 @@ export default function PublicProfileCollector() {
             fav_sports_teams: uData.fav_sports_teams || '',
             fav_artists: uData.fav_artists || '',
             weekend_activities: uData.weekend_activities || '',
+            anything_extra: uData.anything_extra || '',
             blocked_uids: uData.blocked_uids || []
           });
         }
@@ -386,6 +387,15 @@ export default function PublicProfileCollector() {
                 <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">⚡ Favorite Weekend Activity</span>
                 <p className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-xs text-zinc-650 dark:text-zinc-350 italic font-medium leading-relaxed">
                   "{hostUser.weekend_activities}"
+                </p>
+              </div>
+            )}
+
+            {hostUser.anything_extra && (
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">✨ Anything Extra</span>
+                <p className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-xs text-zinc-650 dark:text-zinc-350 font-semibold leading-relaxed">
+                  {hostUser.anything_extra}
                 </p>
               </div>
             )}
