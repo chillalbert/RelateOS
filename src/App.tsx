@@ -16,6 +16,10 @@ import Notifications from './pages/Notifications';
 import AICoach from './pages/AICoach';
 import SurpriseReveal from './pages/SurpriseReveal';
 import PublicProfileCollector from './pages/PublicProfileCollector';
+import GroupsDirectory from './pages/GroupsDirectory';
+import GroupView from './pages/GroupView';
+import SparkHome from './pages/SparkHome';
+import SparkGameRoom from './pages/SparkGameRoom';
 
 import LoadingScreen from './components/LoadingScreen';
 import NotificationManager from './components/NotificationManager';
@@ -163,9 +167,13 @@ export default function App() {
               <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
               <Route path="/coach" element={<PrivateRoute><AICoach /></PrivateRoute>} />
               <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
-              <Route path="/groups" element={<PrivateRoute><Groups /></PrivateRoute>} />
-              <Route path="/groups/create" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
-              <Route path="/groups/:id" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
+              <Route path="/groups" element={<PrivateRoute><GroupsDirectory /></PrivateRoute>} />
+              <Route path="/groups/:groupId" element={<PrivateRoute><GroupView /></PrivateRoute>} />
+              <Route path="/spark" element={<PrivateRoute><SparkHome /></PrivateRoute>} />
+              <Route path="/spark/:groupId" element={<PrivateRoute><SparkGameRoom /></PrivateRoute>} />
+              <Route path="/rooms" element={<PrivateRoute><Groups /></PrivateRoute>} />
+              <Route path="/rooms/create" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
+              <Route path="/rooms/:id" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
               <Route path="/u/:username" element={<PublicProfileCollector />} />
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" />} />
