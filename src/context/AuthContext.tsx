@@ -7,6 +7,7 @@ interface UserProfile {
   id: string;
   email: string;
   name: string;
+  role?: string;
   birthday?: string;
   birthday_month?: number;
   birthday_day?: number;
