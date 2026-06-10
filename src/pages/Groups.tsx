@@ -57,7 +57,7 @@ export default function Groups() {
           <h1 className="text-2xl font-bold tracking-tight">Surprise Rooms</h1>
           <p className="text-zinc-500 text-sm">Collaborate on secret surprises</p>
         </div>
-        <Link to="/groups/create" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-emerald-500">
+        <Link to="/rooms/create" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-emerald-500">
           <Plus size={24} />
         </Link>
       </header>
@@ -77,7 +77,7 @@ export default function Groups() {
                 transition={{ delay: i * 0.05 }}
               >
                 <Link 
-                  to={`/groups/${group.id}`}
+                  to={`/rooms/${group.id}`}
                   className="block p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all group"
                 >
                   <div className="flex justify-between items-start mb-4">
@@ -125,10 +125,10 @@ export default function Groups() {
               <p className="text-sm text-zinc-500">Start a secret planning group for a friend's birthday or join an existing one.</p>
             </div>
             <div className="flex flex-col gap-2 pt-2">
-              <Link to="/groups/create" className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-500/20">
-                Create Group
+              <Link to="/rooms/create" className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-500/20">
+                Create Room
               </Link>
-              <Link to="/groups/create?join=true" className="w-full py-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-2xl font-bold">
+              <Link to="/rooms/create?join=true" className="w-full py-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-2xl font-bold">
                 Join with Code
               </Link>
             </div>
