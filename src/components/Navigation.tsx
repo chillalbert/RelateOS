@@ -9,7 +9,9 @@ import {
   Shield,
   MessageSquare,
   Brain,
-  Bell
+  Bell,
+  Zap,
+  Gift
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -42,49 +44,69 @@ export default function Navigation() {
   };
 
   return (
-    <nav className="fixed bottom-6 left-4 right-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 rounded-full p-2 flex justify-around items-center shadow-2xl z-50 max-w-2xl mx-auto mb-[var(--sab)]">
+    <nav className="fixed bottom-6 left-2 right-2 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 rounded-full p-2 flex justify-around items-center shadow-2xl z-50 max-w-2xl mx-auto mb-[var(--sab)] text-xs md:text-sm">
       <Link 
         to="/" 
-        className={cn("p-3 transition-colors", isActive('/') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        className={cn("p-2 transition-colors", isActive('/') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="Home"
       >
-        <Home size={24} />
+        <Home size={22} />
       </Link>
       <Link 
         to="/calendar" 
-        className={cn("p-3 transition-colors", isActive('/calendar') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        className={cn("p-2 transition-colors", isActive('/calendar') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="Calendar"
       >
-        <Calendar size={24} />
+        <Calendar size={22} />
       </Link>
       <Link 
         to="/groups" 
-        className={cn("p-3 transition-colors", isActive('/groups') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        className={cn("p-2 transition-colors", isActive('/groups') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="Circles"
       >
-        <Users size={24} />
+        <Users size={22} />
+      </Link>
+      <Link 
+        to="/rooms" 
+        className={cn("p-2 transition-colors", isActive('/rooms') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="Secret Planning Rooms"
+      >
+        <Gift size={22} />
       </Link>
       <Link 
         to="/add" 
-        className="p-4 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-full -mt-12 shadow-xl hover:scale-105 transition-transform"
+        className="p-3 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-full -mt-8 shadow-xl hover:scale-105 transition-transform"
+        title="Add"
       >
-        <Plus size={28} />
+        <Plus size={24} />
+      </Link>
+      <Link 
+        to="/spark" 
+        className={cn("p-2 transition-colors", isActive('/spark') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="Spark"
+      >
+        <Zap size={22} />
       </Link>
       <Link 
         to="/vaults" 
-        className={cn("p-3 transition-colors", isActive('/vaults') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        className={cn("p-2 transition-colors", isActive('/vaults') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="Vaults"
       >
-        <Shield size={24} />
+        <Shield size={22} />
       </Link>
       <Link 
         to="/analytics" 
-        className={cn("p-3 transition-colors", isActive('/analytics') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        className={cn("p-2 transition-colors", isActive('/analytics') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="Analytics"
       >
-        <BarChart3 size={24} />
+        <BarChart3 size={22} />
       </Link>
       <Link 
         to="/coach" 
-        className={cn("p-3 transition-colors", isActive('/coach') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        className={cn("p-2 transition-colors", isActive('/coach') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
         title="AI Coach"
       >
-        <Brain size={24} />
+        <Brain size={22} />
       </Link>
     </nav>
   );
