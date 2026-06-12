@@ -689,7 +689,7 @@ export default function PersonProfile() {
                 <span className="relative z-10">{isGenerating ? 'Writing...' : 'AI Message'}</span>
               </button>
               <Link 
-                to={`/groups/create?personId=${person.id}`}
+                to={`/rooms/create?personId=${person.id}`}
                 className="flex items-center justify-center gap-2 p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl font-bold shadow-sm hover:scale-[1.02] transition-transform"
               >
                 <Zap size={18} className="text-amber-500" />
@@ -1151,6 +1151,7 @@ export default function PersonProfile() {
                     <label className="text-xs font-bold uppercase text-zinc-400">Birthday</label>
                     <input
                       type="date"
+                      min="2026-01-01"
                       required
                       className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
                       value={editData.birthday || ''}
