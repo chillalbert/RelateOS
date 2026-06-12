@@ -778,13 +778,13 @@ export default function GroupView() {
                           </div>
                         )}
                         <div className="space-y-0.5 min-w-0">
-                          <span className={`text-[10px] font-black text-zinc-455 dark:text-zinc-400 uppercase tracking-widest pl-1 block ${isMe ? 'text-right pr-1' : ''}`}>
+                          <span className={`text-[10px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest pl-1 block ${isMe ? 'text-right pr-1' : ''}`}>
                             {displayName}
                           </span>
                           <div className={`p-3.5 rounded-2xl text-xs leading-relaxed font-medium shadow-sm ${
                             isMe 
-                              ? 'bg-zinc-905 text-white dark:bg-white dark:text-zinc-950 rounded-tr-none' 
-                              : 'bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-tl-none'
+                              ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded-tr-none' 
+                              : 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 border border-zinc-200/60 dark:border-zinc-800 rounded-tl-none'
                           }`}>
                             {msg.text}
                           </div>
