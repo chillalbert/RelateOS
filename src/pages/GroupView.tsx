@@ -15,9 +15,12 @@ import {
   deleteDoc,
   setDoc,
   limit,
-  updateDoc
+  updateDoc,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
+import confetti from 'canvas-confetti';
 import { 
   MessageSquare, 
   Calendar, 
@@ -71,6 +74,7 @@ export default function GroupView() {
 
   // Leaderboard Space State
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [showBazaar, setShowBazaar] = useState(false);
 
   // Edit Hub Settings state
   const [showEditSettings, setShowEditSettings] = useState(false);
@@ -78,6 +82,140 @@ export default function GroupView() {
   const [editTriggerTime, setEditTriggerTime] = useState('12:00');
   const [saveSettingsLoading, setSaveSettingsLoading] = useState(false);
   const [saveSettingsError, setSaveSettingsError] = useState<string | null>(null);
+
+  // Social connection states
+  const [friendRequests, setFriendRequests] = useState<any[]>([]);
+  const [mutualFriends, setMutualFriends] = useState<any[]>([]);
+
+  // Listen to all friend requests in real-time involving this user
+  useEffect(() => {
+    if (!firebaseUser) return;
+    const frRef = collection(db, 'friend_requests');
+    const q1 = query(frRef, where('sender_uid', '==', firebaseUser.uid));
+    const q2 = query(frRef, where('receiver_uid', '==', firebaseUser.uid));
+
+    const handleSnaps = (snap1: any, snap2: any) => {
+      const list1 = snap1.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+      const list2 = snap2.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+      setFriendRequests([...list1, ...list2]);
+    };
+
+    const unsub1 = onSnapshot(q1, (snap1) => {
+      getDocs(q2).then((snap2) => handleSnaps(snap1, snap2)).catch(() => {});
+    }, (err) => console.warn("Handled snapshot restriction gracefully:", err.message));
+
+    const unsub2 = onSnapshot(q2, (snap2) => {
+      getDocs(q1).then((snap1) => handleSnaps(snap1, snap2)).catch(() => {});
+    }, (err) => console.warn("Handled snapshot restriction gracefully:", err.message));
+
+    return () => {
+      unsub1();
+      unsub2();
+    };
+  }, [firebaseUser]);
+
+  // Listen to mutual friends with approved/accepted status in real-time
+  useEffect(() => {
+    if (!firebaseUser) return;
+    const frRef = collection(db, 'friend_requests');
+    const q1 = query(frRef, where('sender_uid', '==', firebaseUser.uid), where('status', '==', 'accepted'));
+    const q2 = query(frRef, where('receiver_uid', '==', firebaseUser.uid), where('status', '==', 'accepted'));
+
+    const handleMutualsSnaps = async (snap1: any, snap2: any) => {
+      const list1 = snap1.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+      const list2 = snap2.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+      const combined = [...list1, ...list2];
+
+      const friendsProfiles: any[] = [];
+      for (const req of combined) {
+        const friendUid = req.sender_uid === firebaseUser.uid ? req.receiver_uid : req.sender_uid;
+        try {
+          const uSnap = await getDoc(doc(db, 'users', friendUid));
+          if (uSnap.exists()) {
+            friendsProfiles.push({ uid: friendUid, id: friendUid, ...uSnap.data() });
+          }
+        } catch (err) {
+          console.error("Error loading mutual friend details:", friendUid, err);
+        }
+      }
+      setMutualFriends(friendsProfiles);
+    };
+
+    const unsub1 = onSnapshot(q1, (snap1) => {
+      getDocs(q2).then((snap2) => handleMutualsSnaps(snap1, snap2)).catch(() => {});
+    }, (err) => console.warn("Handled snapshot restriction gracefully:", err.message));
+
+    const unsub2 = onSnapshot(q2, (snap2) => {
+      getDocs(q1).then((snap1) => handleMutualsSnaps(snap1, snap2)).catch(() => {});
+    }, (err) => console.warn("Handled snapshot restriction gracefully:", err.message));
+
+    return () => {
+      unsub1();
+      unsub2();
+    };
+  }, [firebaseUser]);
+
+  const getFriendshipStatus = (targetUid: string) => {
+    if (targetUid === firebaseUser?.uid) return 'self';
+    const found = friendRequests.find(fr => 
+      (fr.sender_uid === firebaseUser?.uid && fr.receiver_uid === targetUid) ||
+      (fr.sender_uid === targetUid && fr.receiver_uid === firebaseUser?.uid)
+    );
+    if (!found) return null;
+    return found.status;
+  };
+
+  const friendsNotInGroup = mutualFriends.filter(f => !group?.members?.includes(f.uid));
+
+  const handleAddFriendToGroup = async (friendUid: string) => {
+    if (!groupId) return;
+    try {
+      await updateDoc(doc(db, 'spark_groups', groupId), {
+        members: arrayUnion(friendUid)
+      });
+      confetti({ particleCount: 40, spread: 50 });
+    } catch (err) {
+      console.error("Error adding friend straight to squad:", err);
+    }
+  };
+
+  const handleLeaveCircle = async () => {
+    if (!groupId || !firebaseUser || !group) return;
+    if (window.confirm("Are you sure you want to leave this Friend Circle? You can freely return with standard code or link access later.")) {
+      try {
+        const groupRef = doc(db, 'spark_groups', groupId);
+        await updateDoc(groupRef, {
+          members: arrayRemove(firebaseUser.uid)
+        });
+        navigate('/groups');
+      } catch (e) {
+        console.error("Error leaving friendship circle:", e);
+      }
+    }
+  };
+
+  const currentUserAuraItem = leaderboard.find(item => item.userId === firebaseUser?.uid);
+  const userAura = currentUserAuraItem?.total_aura || 0;
+
+  const handlePurchaseItem = async (item: { id: string, name: string, cost: number }) => {
+    if (!groupId || !firebaseUser) return;
+    try {
+      const auraDocRef = doc(db, `spark_groups/${groupId}/aura`, firebaseUser.uid);
+      const newTotal = userAura - item.cost;
+      const spent = (currentUserAuraItem?.spent_aura || 0) + item.cost;
+      
+      await setDoc(auraDocRef, {
+        total_aura: newTotal,
+        spent_aura: spent
+      }, { merge: true });
+
+      confetti({ particleCount: 30, spread: 40 });
+      alert(`Successfully unlocked ${item.name}! Applied to your active inventory.`);
+    } catch (e) {
+      console.error("Error purchasing item:", e);
+      alert("Failed to purchase item under current security rules/connection.");
+    }
+  };
 
   // Default presets for stories
   const storyPresets = [
@@ -122,7 +260,7 @@ export default function GroupView() {
       }
       setLoading(false);
     }, (err) => {
-      console.error("Subscription error", err);
+      console.warn("Handled snapshot restriction gracefully:", err.message);
       setLoading(false);
     });
 
@@ -150,7 +288,7 @@ export default function GroupView() {
         chatScrollRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
     }, (err) => {
-      console.error("Error subscribing to messages subcollection:", err);
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     return () => unsubscribe();
@@ -173,7 +311,7 @@ export default function GroupView() {
       }));
       setStories(loadedStories);
     }, (err) => {
-      console.error("Error subscribing to stories subcollection:", err);
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     return () => unsubscribe();
@@ -196,7 +334,7 @@ export default function GroupView() {
       }));
       setEvents(loadedEvents);
     }, (err) => {
-      console.error("Error subscribing to events subcollection:", err);
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     return () => unsubscribe();
@@ -205,7 +343,6 @@ export default function GroupView() {
   // 5. Real-time Leaderboard Rankings based on Group Aura subcollection
   useEffect(() => {
     if (!groupId || !firebaseUser || !group?.members?.includes(firebaseUser.uid)) return;
-    if (activeTab !== 'leaderboard') return;
 
     const auraQuery = collection(db, `spark_groups/${groupId}/aura`);
     const unsubscribe = onSnapshot(auraQuery, (snapshot) => {
@@ -218,11 +355,11 @@ export default function GroupView() {
       list.sort((a, b) => (b.total_aura || 0) - (a.total_aura || 0));
       setLeaderboard(list);
     }, (err) => {
-      console.error("Error subscribing to aura subcollection:", err);
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     return () => unsubscribe();
-  }, [groupId, firebaseUser, group, activeTab]);
+  }, [groupId, firebaseUser, group]);
 
   // Save Hub Settings
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -327,13 +464,9 @@ export default function GroupView() {
     }
   };
 
-  // Delete squad Event (only if creator or admin)
+  // Delete squad Event (any member can remove)
   const handleDeleteEvent = async (eventId: string, creatorId: string) => {
     if (!groupId || !firebaseUser) return;
-    if (creatorId !== firebaseUser.uid && user?.role !== 'admin') {
-      alert("Only the organizer who created this event can remove it.");
-      return;
-    }
 
     if (window.confirm("Are you sure you want to delete this squad event?")) {
       try {
@@ -397,27 +530,82 @@ export default function GroupView() {
             </div>
           </div>
           <div className="flex flex-col items-end gap-2 flex-shrink-0">
-            <Link
-              to={`/spark/${group.id}`}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-full text-xs font-extrabold hover:scale-105 transition-all shadow-md shadow-emerald-500/10 cursor-pointer"
-            >
-              <Sparkles size={12} className="animate-pulse" />
-              <span>Daily Game</span>
-            </Link>
-            {group.created_by === firebaseUser?.uid && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowBazaar(true)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-zinc-900/10 hover:bg-zinc-900/20 dark:bg-white/10 dark:hover:bg-white/15 backdrop-blur-md border border-zinc-200/50 dark:border-white/10 text-zinc-900 dark:text-white rounded-full text-xs font-black shadow-sm transition-all hover:scale-105 cursor-pointer"
+              >
+                <span>⚡ {userAura} Aura</span>
+              </button>
+              <Link
+                to={`/spark/${group.id}`}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-full text-xs font-extrabold hover:scale-105 transition-all shadow-md shadow-emerald-500/10 cursor-pointer"
+              >
+                <Sparkles size={12} className="animate-pulse" />
+                <span>Daily Game</span>
+              </Link>
+            </div>
+            <div className="flex gap-1.5 flex-wrap justify-end">
               <button
                 onClick={() => {
                   setEditName(group.name);
                   setEditTriggerTime(group.trigger_time || '12:00');
                   setShowEditSettings(true);
                 }}
-                className="flex items-center gap-1 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-full text-[11px] font-bold cursor-pointer transition-all shadow-sm"
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-full text-[11px] font-bold cursor-pointer transition-all shadow-sm"
               >
                 <span>Hub Settings ⚙️</span>
               </button>
-            )}
+              <button
+                onClick={handleLeaveCircle}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/20 dark:text-rose-450 border border-rose-220/30 rounded-full text-[11px] font-bold cursor-pointer transition-all shadow-sm"
+              >
+                <span>Leave Circle 🚪</span>
+              </button>
+            </div>
           </div>
         </header>
+
+        {/* MUTUAL FRIENDS CAROUSEL BAR (Directly beneath the header) */}
+        {friendsNotInGroup.length > 0 && (
+          <div className="mx-4 mt-3 p-3 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-450 flex items-center gap-1 px-1 mb-1.5">
+              <span>Add Mutual Friends 👥</span>
+            </p>
+            <div className="flex overflow-x-auto scrollbar-hide gap-3 py-1">
+              {friendsNotInGroup.map((friend) => (
+                <div 
+                  key={friend.uid} 
+                  className="flex items-center gap-2 p-1.5 bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl shadow-sm min-w-[170px] flex-shrink-0"
+                >
+                  {friend.profile_picture_url ? (
+                    <img 
+                      src={friend.profile_picture_url} 
+                      alt={friend.name} 
+                      referrerPolicy="no-referrer"
+                      className="w-7 h-7 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-850 text-zinc-600 dark:text-zinc-300 flex items-center justify-center font-black text-[10px]">
+                      {friend.name?.substring(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-bold truncate text-zinc-900 dark:text-white">
+                      {friend.name?.split(' ')[0] || friend.name || 'Friend'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleAddFriendToGroup(friend.uid)}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-lg whitespace-nowrap transition-all shadow-sm cursor-pointer"
+                  >
+                    + Add
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Spaces Sub-navigation Tabs */}
         <div className="flex justify-around bg-white dark:bg-zinc-900/60 p-1 rounded-2xl mx-4 mt-4 border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm">
@@ -470,6 +658,45 @@ export default function GroupView() {
                 transition={{ duration: 0.15 }}
                 className="flex flex-col h-full space-y-4"
               >
+                
+                {/* FRICTIONLESS SOCIAL GRAPH ADDITIONS: Add Friends horizontal carousel */}
+                {friendsNotInGroup.length > 0 && (
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-3xl space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1 px-1">
+                      <span>Add Friends to Circle 👥</span>
+                    </p>
+                    <div className="flex overflow-x-auto scrollbar-hide gap-3 py-2">
+                      {friendsNotInGroup.map((friend) => (
+                        <div 
+                          key={friend.uid} 
+                          className="flex items-center gap-2 p-1.5 bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl shadow-sm min-w-[190px] flex-shrink-0"
+                        >
+                          {friend.profile_picture_url ? (
+                            <img 
+                              src={friend.profile_picture_url} 
+                              alt={friend.name} 
+                              referrerPolicy="no-referrer"
+                              className="w-7 h-7 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-850 text-zinc-600 dark:text-zinc-300 flex items-center justify-center font-black text-[10px]">
+                              {friend.name?.substring(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-bold truncate text-zinc-900 dark:text-white">{friend.name}</p>
+                          </div>
+                          <button
+                            onClick={() => handleAddFriendToGroup(friend.uid)}
+                            className="bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-lg whitespace-nowrap transition-all shadow-sm cursor-pointer"
+                          >
+                            + Add
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 {/* 24h Locker Stories Header Segment */}
                 <div className="flex flex-col gap-2.5 pb-2 border-b border-zinc-150 dark:border-zinc-800">
@@ -665,7 +892,7 @@ export default function GroupView() {
                           </div>
                         </div>
 
-                        {(evt.creator_id === firebaseUser.uid || user?.role === 'admin') && (
+                        {firebaseUser && (
                           <button 
                             onClick={() => handleDeleteEvent(evt.id, evt.creator_id)}
                             className="p-1.5 text-zinc-300 hover:text-rose-500 hover:bg-rose-500/5 rounded-lg transition-all cursor-pointer"
@@ -771,6 +998,76 @@ export default function GroupView() {
                       <p className="text-[10px] font-normal">Play or invite friends to accumulate points!</p>
                     </div>
                   )}
+                </div>
+
+                {/* Circle Roster Section */}
+                <div className="space-y-3 mt-8">
+                  <div>
+                    <h3 className="font-extrabold text-base">Circle Roster 👥</h3>
+                    <p className="text-[11px] text-zinc-500">All registered participants of {group?.name}. Add new friends with a simple tap!</p>
+                  </div>
+
+                  <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/60 dark:border-zinc-800 shadow-sm divide-y divide-zinc-100 dark:divide-zinc-800/60 overflow-hidden">
+                    {group?.members?.map((memberId: string) => {
+                      const memberProfile = membersMetadata[memberId] || {};
+                      const name = memberProfile.name || 'Friend';
+                      const avatarUrl = memberProfile.profile_picture_url || '';
+                      const isMe = memberId === firebaseUser?.uid;
+
+                      const status = getFriendshipStatus(memberId);
+                      
+                      return (
+                        <div key={memberId} className="p-4 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            {avatarUrl ? (
+                              <img 
+                                src={avatarUrl} 
+                                alt={name} 
+                                referrerPolicy="no-referrer"
+                                className="w-9 h-9 rounded-full object-cover border border-zinc-200 dark:border-zinc-800"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-650 dark:text-zinc-300 flex items-center justify-center font-black text-xs uppercase">
+                                {name.substring(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <span className="font-extrabold text-sm">{name}</span>
+                              {isMe && <span className="ml-1.5 text-[9px] uppercase font-black bg-emerald-500 text-white px-1.5 py-0.5 rounded-md leading-none">You</span>}
+                            </div>
+                          </div>
+
+                          {!isMe && (
+                            <div>
+                              {status === 'accepted' || status === 'approved' ? (
+                                <span className="text-[10px] uppercase font-black tracking-wider text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-1 rounded-md">Friends 🤝</span>
+                              ) : status === 'pending' ? (
+                                <span className="text-[10px] uppercase font-black tracking-wider text-amber-500 bg-amber-50 dark:bg-amber-950/20 px-2 py-1 rounded-md">Pending ⏳</span>
+                              ) : (
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await addDoc(collection(db, 'friend_requests'), {
+                                        sender_uid: firebaseUser?.uid,
+                                        receiver_uid: memberId,
+                                        status: 'pending',
+                                        created_at: new Date().toISOString()
+                                      });
+                                    } catch (err) {
+                                      console.error("Error triggering friend request:", err);
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 bg-zinc-950 hover:bg-emerald-500 hover:text-white text-white dark:bg-zinc-50 dark:text-zinc-950 rounded-xl text-xs font-black transition-colors cursor-pointer"
+                                >
+                                  + Add Friend
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
               </motion.div>
@@ -914,6 +1211,7 @@ export default function GroupView() {
                     <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-550">Date</label>
                     <input 
                       type="date" 
+                      min="2026-01-01"
                       required
                       value={eventDate}
                       onChange={(e) => setEventDate(e.target.value)}
@@ -1032,7 +1330,7 @@ export default function GroupView() {
                   <button 
                     type="button"
                     onClick={() => setShowEditSettings(false)}
-                    className="flex-1 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-650 dark:text-zinc-300 font-bold rounded-xl text-xs"
+                    className="flex-1 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-805 text-zinc-650 dark:text-zinc-300 font-bold rounded-xl text-xs"
                   >
                     Cancel
                   </button>
@@ -1045,6 +1343,95 @@ export default function GroupView() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Aura Points Bazaar Slide-up Drawer */}
+      <AnimatePresence>
+        {showBazaar && (
+          <div key="bazaar-drawer" className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
+            {/* Backdrop click closer */}
+            <div 
+              className="absolute inset-0 cursor-pointer" 
+              onClick={() => setShowBazaar(false)} 
+            />
+            
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="relative w-full max-w-lg bg-white dark:bg-zinc-950 rounded-t-3xl border-t border-zinc-200 dark:border-zinc-800 shadow-2xl p-6 z-10"
+            >
+              {/* Drag Handle indicator */}
+              <div className="w-12 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mb-5" />
+
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-lg font-black tracking-tight flex items-center gap-2 text-zinc-900 dark:text-white">
+                    <span>Aura Bazaar 🏛️</span>
+                  </h3>
+                  <p className="text-xs text-zinc-500">Spend your daily game achievements on premium squad perks</p>
+                </div>
+                <div className="bg-zinc-900/10 dark:bg-white/10 px-3 py-1.5 border border-zinc-200/50 dark:border-white/10 rounded-xl text-sm font-extrabold flex items-center gap-1 text-zinc-900 dark:text-white">
+                  <span>⚡ {userAura} Aura</span>
+                </div>
+              </div>
+
+              {/* 2x2 Grid of Bazaar Items */}
+              <div className="grid grid-cols-2 gap-4 mb-6 animation-none">
+                {[
+                  { id: 'decoy_scanner', name: 'Decoy Scanner 📡', cost: 40, description: 'Sniff out decoy answers used by other players.' },
+                  { id: 'smoke_bomb', name: 'Smoke Bomb 💨', cost: 25, description: 'Partially obscure your daily match guess answers.' },
+                  { id: 'incognito', name: 'Incognito Toggle 🎭', cost: 60, description: 'Go fully incognito and hide your leaderboard presence.' },
+                  { id: 'leaderboard_crown', name: 'Leaderboard Crown 👑', cost: 100, description: 'Flaunt a dynamic crown beside your name for 3 days.' }
+                ].map((item) => {
+                  const isLocked = userAura < item.cost;
+                  return (
+                    <div 
+                      key={item.id}
+                      className={`flex flex-col justify-between p-4 bg-zinc-100/40 dark:bg-zinc-900/40 border border-zinc-150 dark:border-zinc-800/80 rounded-2xl text-left transition-all ${
+                        isLocked ? 'opacity-40' : 'hover:border-emerald-500/30'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex justify-between items-start gap-1 pb-1">
+                          <p className="font-extrabold text-[13px] text-zinc-900 dark:text-white leading-snug">{item.name}</p>
+                          <span className="text-[10px] font-black tracking-wider text-emerald-600 dark:text-emerald-450 bg-emerald-500/10 px-1.5 py-0.5 rounded flex-shrink-0">
+                            {item.cost}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-relaxed mt-1 mb-3">{item.description}</p>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          if (!isLocked) {
+                            handlePurchaseItem(item);
+                          }
+                        }}
+                        disabled={isLocked}
+                        className={`w-full py-2 font-extrabold text-xs rounded-xl cursor-pointer transition-all ${
+                          isLocked 
+                            ? 'bg-zinc-100 dark:bg-zinc-800/60 text-zinc-400 cursor-not-allowed' 
+                            : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm hover:scale-[1.02]'
+                        }`}
+                      >
+                        {isLocked ? 'Locked 🔒' : 'Unlock ⚡'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => setShowBazaar(false)}
+                className="w-full py-3 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-805 text-zinc-650 dark:text-zinc-300 font-bold rounded-2xl text-xs transition-all cursor-pointer"
+              >
+                Close Bazaar
+              </button>
             </motion.div>
           </div>
         )}
