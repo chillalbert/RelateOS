@@ -125,6 +125,7 @@ async function callGemini(prompt: string, config?: any) {
       contents: [{ parts: [{ text: prompt }] }],
       config: {
         ...config,
+        systemInstruction: "The current year is 2026. " + (config?.systemInstruction || ""),
       },
     });
 
@@ -325,7 +326,10 @@ export async function callCoachModel(contents: any[], config?: any) {
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
       contents: contents,
-      config: config,
+      config: {
+        ...config,
+        systemInstruction: "The current year is 2026. " + (config?.systemInstruction || ""),
+      },
     });
 
     if (!response || !response.text) {
