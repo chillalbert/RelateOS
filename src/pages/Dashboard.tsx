@@ -74,6 +74,22 @@ export default function Dashboard() {
   const [showPushBanner, setShowPushBanner] = React.useState(false);
   const [friendStreaks, setFriendStreaks] = React.useState<Record<string, number>>({});
   const [syncedProfiles, setSyncedProfiles] = React.useState<Record<string, any>>({});
+  const [hasPendingFriendRequest, setHasPendingFriendRequest] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!firebaseUser) {
+      setHasPendingFriendRequest(false);
+      return;
+    }
+    const frRef = collection(db, 'friend_requests');
+    const qFRUnresolved = query(frRef, where('receiver_uid', '==', firebaseUser.uid), where('status', '==', 'pending'));
+    const unsubFR = onSnapshot(qFRUnresolved, (snap) => {
+      setHasPendingFriendRequest(!snap.empty);
+    });
+    return () => {
+      unsubFR();
+    };
+  }, [firebaseUser]);
 
   React.useEffect(() => {
     if (!firebaseUser) return;
@@ -423,8 +439,8 @@ export default function Dashboard() {
           </Link>
           <Link to="/notifications" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 relative">
             <Bell size={20} />
-            {unreadCount > 0 && (
-              <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white dark:border-zinc-900 rounded-full" />
+            {(unreadCount > 0 || hasPendingFriendRequest) && (
+              <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white dark:border-zinc-900 rounded-full animate-pulse" />
             )}
           </Link>
           <button className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800">
