@@ -234,19 +234,27 @@ export default function GroupsDirectory() {
       <div className="max-w-2xl mx-auto space-y-8">
         
         {/* Header */}
-        <header className="flex justify-between items-center">
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">Circles & Hubs</h1>
             <p className="text-zinc-500 dark:text-zinc-400 text-sm">Real-time games, chat logs & collaborative leaderboards</p>
           </div>
-          <button 
-            id="open-create-group-modal"
-            onClick={() => setShowCreateModal(true)} 
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full font-bold shadow-lg shadow-emerald-500/10 cursor-pointer transition-all hover:scale-105"
-          >
-            <Plus size={18} />
-            <span>Create hub</span>
-          </button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Link 
+              to="/rooms/create"
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 rounded-full text-sm font-bold cursor-pointer transition-all hover:scale-105 border border-zinc-200 dark:border-zinc-800 flex-1 sm:flex-initial"
+            >
+              <span>+ Standard Room</span>
+            </Link>
+            <button 
+              id="open-create-group-modal"
+              onClick={() => setShowCreateModal(true)} 
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-sm font-bold shadow-lg shadow-emerald-500/10 cursor-pointer transition-all hover:scale-105 flex-1 sm:flex-initial"
+            >
+              <Plus size={18} />
+              <span>Create hub</span>
+            </button>
+          </div>
         </header>
 
         {/* Aura Dashboard Banner */}
