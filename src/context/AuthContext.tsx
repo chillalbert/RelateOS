@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db, googleProvider } from '../lib/firebase';
 import { onAuthStateChanged, signOut, User as FirebaseUser, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 interface UserProfile {
   id: string;
@@ -71,40 +71,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    let unsubUserDoc: (() => void) | null = null;
     const unsubscribe = onAuthStateChanged(auth, async (fUser) => {
       setFirebaseUser(fUser);
+      if (unsubUserDoc) {
+        unsubUserDoc();
+        unsubUserDoc = null;
+      }
       if (fUser) {
         const docRef = doc(db, 'users', fUser.uid);
-        const docSnap = await getDoc(docRef);
-        if (!docSnap.exists()) {
-          const newProfile: UserProfile = {
-            id: fUser.uid,
-            email: fUser.email || '',
-            name: fUser.displayName || 'User',
-            appearance: 'light',
-            streak: 0,
-            notification_time: '09:00',
-            blocked_uids: [],
-            onboarding_completed: false,
-            has_completed_onboarding: false,
-            notification_settings: {
-              birthdays: true,
-              tasks: true,
-              groups: true
-            }
-          };
-          await setDoc(docRef, newProfile);
-          setUser(newProfile);
-        } else {
-          setUser(docSnap.data() as UserProfile);
+        try {
+          const docSnap = await getDoc(docRef);
+          if (!docSnap.exists()) {
+            const newProfile: UserProfile = {
+              id: fUser.uid,
+              email: fUser.email || '',
+              name: fUser.displayName || 'User',
+              appearance: 'light',
+              streak: 0,
+              notification_time: '09:00',
+              blocked_uids: [],
+              onboarding_completed: false,
+              has_completed_onboarding: false,
+              notification_settings: {
+                birthdays: true,
+                tasks: true,
+                groups: true
+              }
+            };
+            await setDoc(docRef, newProfile);
+            setUser(newProfile);
+          } else {
+            setUser(docSnap.data() as UserProfile);
+          }
+        } catch (e) {
+          console.error("Error setting up user doc:", e);
         }
+
+        unsubUserDoc = onSnapshot(docRef, (snap) => {
+          if (snap.exists()) {
+            setUser(snap.data() as UserProfile);
+          }
+        }, (err) => {
+          console.error("Error in real-time user profile listener:", err);
+        });
       } else {
         setUser(null);
       }
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (unsubUserDoc) unsubUserDoc();
+    };
   }, []);
 
   const logout = async () => {
