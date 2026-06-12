@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, updateDoc, arrayRemove } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -209,6 +209,49 @@ export default function PublicProfileCollector() {
             className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/15 cursor-pointer flex items-center justify-center gap-1.5 transition-all"
           >
             Claim My Free Account <ArrowRight size={13} />
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Local state derivation for soft-hide blocking mechanic
+  const currentUserData = user;
+  const targetUserId = hostUser?.id;
+  const isBlocked = !!(targetUserId && currentUserData?.blocked_uids?.includes(targetUserId));
+
+  if (isBlocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 select-none">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 p-8 rounded-[32px] text-center space-y-6 shadow-xl"
+        >
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
+            🔒
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Profile Hidden</h1>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
+              You have soft-hidden/blocked this user. To restore their profile's visibility, click unblock.
+            </p>
+          </div>
+          <button 
+            onClick={async () => {
+              if (!firebaseUser || !targetUserId) return;
+              try {
+                const userRef = doc(db, 'users', firebaseUser.uid);
+                await updateDoc(userRef, {
+                  blocked_uids: arrayRemove(targetUserId)
+                });
+              } catch (unblockErr) {
+                console.error("Failed to unblock target user:", unblockErr);
+              }
+            }}
+            className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-wider cursor-pointer"
+          >
+            Unblock {hostUser?.name || 'User'}
           </button>
         </motion.div>
       </div>
