@@ -14,7 +14,8 @@ export default function Vaults() {
   const [loading, setLoading] = React.useState(true);
 
   const fetchVaults = async () => {
-    if (!firebaseUser || !user?.email) {
+    const emailToQuery = firebaseUser?.email || user?.email;
+    if (!emailToQuery) {
       setLoading(false);
       return;
     }
@@ -23,7 +24,7 @@ export default function Vaults() {
       const groupsRef = collection(db, 'rooms');
       const qVaults = query(
         groupsRef,
-        where('recipient_email', '==', user.email.toLowerCase())
+        where('recipient_email', '==', emailToQuery.toLowerCase())
       );
       
       const snapshot = await getDocs(qVaults);
@@ -109,7 +110,7 @@ export default function Vaults() {
                 >
                   {unlocked ? (
                     <Link 
-                      to={`/groups/${vault.id}`}
+                      to={`/rooms/${vault.id}`}
                       className="block p-8 bg-zinc-900 text-white rounded-[40px] border border-zinc-800 shadow-2xl relative overflow-hidden group"
                     >
                       <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
