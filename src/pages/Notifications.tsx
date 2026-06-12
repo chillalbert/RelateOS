@@ -263,6 +263,31 @@ export default function Notifications() {
       }
       
       setActionStatus(prev => ({ ...prev, [reqId]: 'Accepted 🤝' }));
+
+      // 3. Clear all redundant notifications of type 'sync birthdays' from this sender
+      try {
+        const notifRefCol = collection(db, 'notifications');
+        const notifQuery = query(notifRefCol, where('user_id', '==', firebaseUser.uid));
+        const notifSnap = await getDocs(notifQuery);
+        
+        const deletePromises = notifSnap.docs.filter(d => {
+          const dData = d.data();
+          const msg = (dData.message || dData.body || '').toLowerCase();
+          const isSyncBirthdays = msg.includes('sync birthdays') || (msg.includes('sync') && msg.includes('birthday'));
+          
+          const hasSenderRef = msg.includes(senderUid) || 
+                               (senderName && msg.includes(senderName.toLowerCase())) ||
+                               dData.sender_uid === senderUid ||
+                               dData.sender_id === senderUid;
+                               
+          return isSyncBirthdays && hasSenderRef;
+        }).map(d => deleteDoc(doc(db, 'notifications', d.id)));
+        
+        await Promise.all(deletePromises);
+        fetchNotifications();
+      } catch (purgeErr) {
+        console.warn('Error purging sync birthday notifications:', purgeErr);
+      }
     } catch (err) {
       console.error('Error accepting friend request:', err);
       setActionStatus(prev => ({ ...prev, [reqId]: 'Error' }));
@@ -338,7 +363,7 @@ export default function Notifications() {
                 : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
             }`}
           >
-            Sync Stream ({activities.length})
+            Friend Requests ({activities.length})
           </button>
         </div>
 
@@ -409,9 +434,18 @@ export default function Notifications() {
                             )}
                             <button 
                               onClick={() => deleteNotification(notif.id)}
-                              className="text-[10px] font-black text-red-400 uppercase tracking-wider hover:text-red-600 ml-auto"
+                              className="text-[10px] font-black text-red-500 uppercase tracking-widest hover:text-red-600 flex items-center gap-1 ml-auto"
+                              title="Delete notification"
                             >
                               <Trash2 size={12} />
+                              <span>Delete</span>
+                            </button>
+                            <button 
+                              onClick={() => deleteNotification(notif.id)}
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-zinc-400 hover:bg-zinc-100 hover:text-red-500 transition-all text-xs font-bold leading-none cursor-pointer"
+                              title="Dismiss"
+                            >
+                              ✕
                             </button>
                           </div>
                         </div>
@@ -499,7 +533,7 @@ export default function Notifications() {
               )}
 
               {activitiesLoading ? (
-                <div className="text-center py-12 text-zinc-400 font-bold text-xs tracking-tight uppercase">Loading Stream...</div>
+                <div className="text-center py-12 text-zinc-400 font-bold text-xs tracking-tight uppercase">Loading Requests...</div>
               ) : activities.length > 0 ? (
                 <div className="space-y-3">
                   <AnimatePresence mode="popLayout">
