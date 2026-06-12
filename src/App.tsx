@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Dashboard from './pages/Dashboard';
@@ -33,6 +33,7 @@ const RealtimeNotificationTracker = () => {
   const { firebaseUser } = useAuth();
   const [toast, setToast] = React.useState<{ id: string; senderName: string } | null>(null);
   const prevCountRef = React.useRef<number | null>(null);
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     if (!firebaseUser) {
@@ -93,18 +94,26 @@ const RealtimeNotificationTracker = () => {
           animate={{ opacity: 1, y: 0, x: '-50%' }}
           exit={{ opacity: 0, y: -80, x: '-50%' }}
           transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-          className="fixed top-6 left-1/2 z-[9999] w-full max-w-sm px-4"
+          className="fixed top-6 left-1/2 z-[9999] w-full max-w-sm px-4 cursor-pointer"
+          onClick={() => {
+            navigate('/notifications');
+            setToast(null);
+          }}
         >
-          <div className="bg-emerald-500 text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-3 border border-emerald-400">
+          <div className="bg-emerald-500 text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-3 border border-emerald-400 hover:bg-emerald-600 transition-all">
             <div className="flex items-center gap-2.5">
               <span className="text-xl">🤝</span>
               <div className="text-left">
                 <p className="text-[10px] font-black uppercase tracking-wider text-emerald-100">New Friend Request!</p>
                 <p className="text-sm font-extrabold">{toast.senderName} wants to connect.</p>
+                <p className="text-[10px] text-white/75 underline font-bold mt-1">Tap to review requests</p>
               </div>
             </div>
             <button
-              onClick={() => setToast(null)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setToast(null);
+              }}
               className="text-white/80 hover:text-white font-bold text-xs p-1 cursor-pointer"
             >
               ✕
@@ -153,8 +162,8 @@ export default function App() {
       <AuthProvider>
         <ThemeHandler>
           <NotificationManager />
-          <RealtimeNotificationTracker />
           <Router>
+            <RealtimeNotificationTracker />
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/surprise/:roomId" element={<SurpriseReveal />} />
