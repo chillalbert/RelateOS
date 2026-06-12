@@ -452,7 +452,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
         });
         
         if (!response.ok) {
-          throw new Error('Failed to upload image to Cloudinary');
+          throw new Error('Failed to upload image');
         }
         
         const data = await response.json();
@@ -472,7 +472,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
         setImagePreviewUrl(null);
         setShowSurpriseForm(false);
       } catch (err) {
-        console.error("Cloudinary upload failed:", err);
+        console.error("Image upload failed:", err);
         alert("Image upload failed. Please try again.");
       } finally {
         setIsUploadingImage(false);
@@ -3207,7 +3207,7 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
                       {isUploadingImage && (
                         <div className="flex items-center gap-2 text-xs font-bold text-emerald-500 uppercase">
                           <span className="animate-spin">🔄</span>
-                          <span>Uploading to Cloudinary...</span>
+                          <span>Uploading ...</span>
                         </div>
                       )}
                     </div>
