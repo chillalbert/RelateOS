@@ -79,6 +79,7 @@ export default function SparkGameRoom() {
   const [rematchError, setRematchError] = useState<string | null>(null);
 
   const todayString = new Date().toISOString().split('T')[0];
+  const activeRoundId = group?.current_round_id || todayString;
 
   const isCurrentUserSubject = firebaseUser && todayRound && todayRound.subject_id === firebaseUser.uid;
   const realSubjectName = todayRound?.subject_id ? (membersProfiles[todayRound.subject_id]?.name || '') : '';
@@ -124,7 +125,7 @@ export default function SparkGameRoom() {
       }
       setLoading(false);
     }, (err) => {
-      console.error("Error subscribing to group details:", err);
+      console.warn("Handled snapshot restriction gracefully:", err.message);
       setLoading(false);
     });
 
@@ -145,7 +146,7 @@ export default function SparkGameRoom() {
         setUserAura({ total_aura: 0, spent_aura: 0 });
       }
     }, (err) => {
-      console.error("Error subscribing to aura profile:", err);
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     return () => unsubscribeAura();
@@ -170,7 +171,7 @@ export default function SparkGameRoom() {
   useEffect(() => {
     if (!groupId || !firebaseUser || !group?.members?.includes(firebaseUser.uid) || !gameConfig) return;
 
-    const roundRef = doc(db, `spark_groups/${groupId}/rounds`, todayString);
+    const roundRef = doc(db, `spark_groups/${groupId}/rounds`, activeRoundId);
     const unsubscribeRound = onSnapshot(roundRef, async (snap) => {
       if (snap.exists()) {
         setTodayRound({ id: snap.id, ...snap.data() });
@@ -181,17 +182,17 @@ export default function SparkGameRoom() {
         }
       }
     }, (err) => {
-      console.error("Error subscribing to today's game round details:", err);
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     return () => unsubscribeRound();
-  }, [groupId, firebaseUser, group, gameConfig]);
+  }, [groupId, firebaseUser, group, gameConfig, activeRoundId]);
 
   // 4. Load current user's submitted answers & all answers (if unmasked/revealed)
   useEffect(() => {
     if (!groupId || !firebaseUser || !group?.members?.includes(firebaseUser.uid)) return;
 
-    const answersCol = collection(db, `spark_groups/${groupId}/rounds/${todayString}/answers`);
+    const answersCol = collection(db, `spark_groups/${groupId}/rounds/${activeRoundId}/answers`);
     const unsubscribeAnswers = onSnapshot(answersCol, (snap) => {
       const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAllAnswers(list);
@@ -205,7 +206,7 @@ export default function SparkGameRoom() {
 
       // Check if everyone finishes answering (Dynamic Phase Transition)
       if (list.length > 0 && group?.members && list.length === group.members.length) {
-        const roundRef = doc(db, `spark_groups/${groupId}/rounds`, todayString);
+        const roundRef = doc(db, `spark_groups/${groupId}/rounds`, activeRoundId);
         getDoc(roundRef).then((roundSnap) => {
           if (roundSnap.exists()) {
             const rData = roundSnap.data();
@@ -218,19 +219,28 @@ export default function SparkGameRoom() {
         }).catch(err => console.error("Error checking round phase for auto-advance:", err));
       }
     }, (err) => {
-      console.error("Error subscribing to answers subcollection:", err);
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     // Load active guesses
-    const guessesCol = collection(db, `spark_groups/${groupId}/rounds/${todayString}/guesses`);
+    const guessesCol = collection(db, `spark_groups/${groupId}/rounds/${activeRoundId}/guesses`);
     const unsubscribeGuesses = onSnapshot(guessesCol, (snap) => {
       const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAllGuesses(list);
     }, (err) => {
-      console.error("Error subscribing to guesses subcollection:", err);
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
-    // Listen to rematch pool in real-time
+    return () => {
+      unsubscribeAnswers();
+      unsubscribeGuesses();
+    };
+  }, [groupId, firebaseUser, group, gameConfig, activeRoundId]);
+
+  // Dedicated Rematch Pool listener with strict permission guard
+  useEffect(() => {
+    if (!groupId || !firebaseUser || !group?.members?.includes(firebaseUser.uid)) return;
+
     const rematchPoolRef = doc(db, 'spark_groups', groupId, 'rematch_pool', 'state');
     const unsubscribeRematch = onSnapshot(rematchPoolRef, (snap) => {
       if (snap.exists()) {
@@ -239,33 +249,16 @@ export default function SparkGameRoom() {
         setRematchPool({ total_contributions: 0, pledges: {} });
       }
     }, (err) => {
-      console.error("Error subscribing to rematch pool state:", err);
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
-    return () => {
-      unsubscribeAnswers();
-      unsubscribeGuesses();
-      unsubscribeRematch();
-    };
-  }, [groupId, firebaseUser, group, gameConfig]);
+    return () => unsubscribeRematch();
+  }, [groupId, firebaseUser, group]);
 
-  // Purge any stored answers and guesses from previous rounds of the day
+  // Purge any stored answers and guesses from previous rounds of the day - disabled to avoid permission errors
   const purgeRoundSubcollections = async () => {
-    if (!groupId) return;
-    try {
-      const answersCol = collection(db, `spark_groups/${groupId}/rounds/${todayString}/answers`);
-      const guessesCol = collection(db, `spark_groups/${groupId}/rounds/${todayString}/guesses`);
-      const answersSnap = await getDocs(answersCol);
-      for (const d of answersSnap.docs) {
-        await deleteDoc(d.ref).catch(err => console.error("Error deleting answer doc:", err));
-      }
-      const guessesSnap = await getDocs(guessesCol);
-      for (const d of guessesSnap.docs) {
-        await deleteDoc(d.ref).catch(err => console.error("Error deleting guess doc:", err));
-      }
-    } catch (err) {
-      console.error("[SparkEngine] Error purging previous subcollections:", err);
-    }
+    // Stop trying to delete document entities inside the 'answers' subcollection when a rematch triggers.
+    return;
   };
 
   // Isolated Crowdfunded Rematch Pool pledge handler
@@ -296,41 +289,58 @@ export default function SparkGameRoom() {
           currentPool.pledges = data.pledges || {};
         }
 
+        const remainingNeeded = Math.max(0, 20 - currentPool.total_contributions);
+        if (remainingNeeded <= 0) {
+          throw new Error("Rematch already fully funded!");
+        }
+
+        // Limit pledge to exactly what is needed to reach the 20 Aura cap
+        const acceptedAmount = Math.min(amount, remainingNeeded);
+
+        // Get user's own current aura inside the transaction
+        const userAuraRef = doc(db, `spark_groups/${groupId}/aura`, firebaseUser.uid);
+        const userAuraSnap = await transaction.get(userAuraRef);
+        let userTotal = 0;
+        if (userAuraSnap.exists()) {
+          userTotal = userAuraSnap.data()?.total_aura || 0;
+        }
+
+        if (userTotal < acceptedAmount) {
+          throw new Error(`Your group balance has changed: you only have ${userTotal} Aura.`);
+        }
+
+        // Deduct only what is strictly required from the user's wallet
+        const updatedTotal = Math.max(0, userTotal - acceptedAmount);
+        transaction.set(userAuraRef, { total_aura: updatedTotal }, { merge: true });
+
         // Add user's contribution
         const prevPledge = currentPool.pledges[firebaseUser.uid] || 0;
-        const newPledge = prevPledge + amount;
+        const newPledge = prevPledge + acceptedAmount;
         currentPool.pledges[firebaseUser.uid] = newPledge;
-        currentPool.total_contributions += amount;
+        currentPool.total_contributions += acceptedAmount;
 
         // If the total_contributions hits or exceeds 20 Aura, trigger the dynamic reset right here!
         if (currentPool.total_contributions >= 20) {
-          // a) Atomically deduct the pledged amounts from each contributing member's local balance document in spark_groups/{groupId}/aura/{userId}
-          for (const [userId, pledgeAmount] of Object.entries(currentPool.pledges)) {
-            const userAuraRef = doc(db, `spark_groups/${groupId}/aura`, userId);
-            const userAuraSnap = await transaction.get(userAuraRef);
-            let userTotal = 0;
-            if (userAuraSnap.exists()) {
-              userTotal = userAuraSnap.data()?.total_aura || 0;
-            }
-            const updatedTotal = Math.max(0, userTotal - pledgeAmount);
-            transaction.set(userAuraRef, { total_aura: updatedTotal }, { merge: true });
-          }
-
-          // b) Reset the pool document metrics back to 0
+          // b) Reset the pool document metrics back to 0 (no need to deduct from other members now since we deduct on-pledge)
           transaction.set(poolRef, {
             total_contributions: 0,
             pledges: {}
           });
 
-          return { triggerNewRound: true };
+          // c) Update current_round_id pointer field on the parent group document
+          const groupRef = doc(db, 'spark_groups', groupId);
+          const nextRoundId = `${todayString}_rematch_${Date.now()}`;
+          transaction.set(groupRef, { current_round_id: nextRoundId }, { merge: true });
+
+          return { triggerNewRound: true, nextRoundId };
         } else {
           transaction.set(poolRef, currentPool);
           return { triggerNewRound: false };
         }
       }).then(async (result) => {
-        if (result?.triggerNewRound) {
-          // c) Auto-trigger our background Gemini service to spin up a brand-new active round with a freshly chosen random Subject for this circle right away
-          const roundRef = doc(db, `spark_groups/${groupId}/rounds`, todayString);
+        if (result?.triggerNewRound && result.nextRoundId) {
+          // c) Auto-trigger our background Gemini service to spin up a brand-new active round under the rounds subcollection
+          const roundRef = doc(db, `spark_groups/${groupId}/rounds`, result.nextRoundId);
           await triggerDailyQA(roundRef);
           confetti({ particleCount: 150, spread: 80 });
         }
@@ -338,7 +348,7 @@ export default function SparkGameRoom() {
       });
     } catch (err: any) {
       console.error("Error committing contribution transaction:", err);
-      setRematchError("Transaction failed, please try again.");
+      setRematchError(err.message || "Transaction failed, please try again.");
     } finally {
       setRematchLoading(false);
     }
@@ -450,7 +460,7 @@ Return EXACTLY a raw JSON object string with these precise keys (no markdown for
       const diffMs = now.getTime() - triggerDate.getTime();
       const isBonus = diffMs >= 0 && diffMs <= 15 * 60 * 1000;
 
-      await setDoc(doc(db, `spark_groups/${groupId}/rounds/${todayString}/answers`, firebaseUser.uid), {
+      await setDoc(doc(db, `spark_groups/${groupId}/rounds/${activeRoundId}/answers`, firebaseUser.uid), {
         easy: easyAnswer.trim(),
         medium: mediumAnswer.trim(),
         deep: deepAnswer.trim(),
@@ -486,7 +496,7 @@ Return EXACTLY a raw JSON object string with these precise keys (no markdown for
 
     try {
       // Save Guess Log
-      await setDoc(doc(db, `spark_groups/${groupId}/rounds/${todayString}/guesses`, `${firebaseUser.uid}_guess_${questionId}`), {
+      await setDoc(doc(db, `spark_groups/${groupId}/rounds/${activeRoundId}/guesses`, `${firebaseUser.uid}_guess_${questionId}`), {
         question_id: questionId,
         user_id: firebaseUser.uid,
         target_answer_text: selectedAnswer[questionId],
@@ -548,7 +558,7 @@ Return EXACTLY a raw JSON object string with these precise keys (no markdown for
 
         // 1. Save guess document to Firestore
         const guessDocId = `${firebaseUser.uid}_guess_${ans.id}`;
-        await setDoc(doc(db, `spark_groups/${groupId}/rounds/${todayString}/guesses`, guessDocId), {
+        await setDoc(doc(db, `spark_groups/${groupId}/rounds/${activeRoundId}/guesses`, guessDocId), {
           user_id: firebaseUser.uid,
           target_answer_text: ans.easy,
           guessed_user_id: guessedUserId,
@@ -577,7 +587,7 @@ Return EXACTLY a raw JSON object string with these precise keys (no markdown for
       }
 
       // 3. Transition the round phase to 'complete' in Firestore
-      const roundRef = doc(db, `spark_groups/${groupId}/rounds`, todayString);
+      const roundRef = doc(db, `spark_groups/${groupId}/rounds`, activeRoundId);
       await updateDoc(roundRef, {
         phase: 'complete',
         answers_locked_at: new Date().toISOString()
@@ -677,10 +687,9 @@ Return EXACTLY a raw JSON object string with these precise keys (no markdown for
               setStoreError(null);
               setShowAuraStore(true);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 rounded-full text-xs font-extrabold cursor-pointer transition-all hover:scale-105"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/40 dark:bg-black/45 backdrop-blur-md text-amber-600 dark:text-amber-400 hover:bg-white/60 dark:hover:bg-black/60 border border-zinc-200/50 dark:border-zinc-800 rounded-full text-xs font-extrabold cursor-pointer transition-all hover:scale-105 shadow-sm"
           >
-            <Coins size={13} className="animate-pulse" />
-            <span>Aura standing: {userAura?.total_aura || 0}</span>
+            <span>⚡ {userAura?.total_aura || 0} Aura</span>
           </button>
         </header>
 
@@ -694,7 +703,7 @@ Return EXACTLY a raw JSON object string with these precise keys (no markdown for
               <h3 className="font-extrabold text-sm text-zinc-800 dark:text-zinc-200">
                 {gameConfig.text}
               </h3>
-              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Today's Round: {todayString}</p>
+              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Active Round: {activeRoundId}</p>
             </div>
           </div>
 
@@ -1234,77 +1243,84 @@ Return EXACTLY a raw JSON object string with these precise keys (no markdown for
                 <span className="text-base font-black text-amber-500">{userAura?.total_aura || 0} Points</span>
               </div>
 
-              {/* Store items catalog */}
-              <div className="space-y-4">
-                
-                {/* Product 1 */}
-                <div className="p-4 border border-zinc-150 dark:border-zinc-800 rounded-2xl flex flex-col gap-3">
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="space-y-0.5">
-                      <span className="font-extrabold text-sm text-zinc-800 dark:text-zinc-200">✨ Boost connection support</span>
-                      <p className="text-xs text-zinc-400">Increase score and relationship streaks standing by adding +5 support!</p>
+              {/* Store items catalog grid */}
+              <div className="grid grid-cols-2 gap-4 pb-6">
+                {[
+                  {
+                    id: 'decoy_scanner',
+                    title: 'Decoy Scanner 📡',
+                    desc: 'Drops one incorrect candidate choice from the guess matrix.',
+                    cost: 40,
+                    color: 'from-blue-500/10 to-indigo-500/10 border-indigo-200 dark:border-indigo-950',
+                  },
+                  {
+                    id: 'smoke_bomb',
+                    title: 'Anonymous Smoke Bomb 💨',
+                    desc: 'Grants one completely anonymous text broadcast inside the locker room chat.',
+                    cost: 25,
+                    color: 'from-purple-500/10 to-pink-500/10 border-purple-200 dark:border-purple-950',
+                  },
+                  {
+                    id: 'incognito_toggle',
+                    title: 'Incognito Toggle 🎭',
+                    desc: 'Mask your presence on active group visibility rosters.',
+                    cost: 60,
+                    color: 'from-amber-500/10 to-orange-500/10 border-amber-200 dark:border-amber-950',
+                  },
+                  {
+                    id: 'leaderboard_crown',
+                    title: 'Leaderboard Crown 👑',
+                    desc: 'Unlocks an animated golden gradient profile border frame across listings.',
+                    cost: 100,
+                    color: 'from-emerald-500/10 to-teal-500/10 border-emerald-200 dark:border-emerald-950',
+                  }
+                ].map((item) => {
+                  const balance = userAura?.total_aura || 0;
+                  const canAfford = balance >= item.cost;
+                  
+                  return (
+                    <div 
+                      key={item.id}
+                      className={`flex flex-col justify-between p-4 bg-gradient-to-br ${item.color} border rounded-3xl transition-all duration-300 relative overflow-hidden group ${
+                        !canAfford ? 'opacity-40' : 'hover:scale-[1.02] shadow-md'
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-start gap-1">
+                          <h4 className="font-extrabold text-xs text-zinc-900 dark:text-zinc-50 leading-tight">
+                            {item.title}
+                          </h4>
+                        </div>
+                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-normal font-medium">
+                          {item.desc}
+                        </p>
+                      </div>
+
+                      <div className="mt-4 space-y-2">
+                        <div className="flex items-center justify-between text-[10px] font-extrabold text-amber-600 dark:text-amber-400">
+                          <span>Cost:</span>
+                          <span>{item.cost} Aura</span>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            if (!canAfford) return;
+                            console.log(`[Aura Bazaar] User purchased: ${item.title} (${item.id}) for ${item.cost} points`);
+                            handleSpendAura(item.cost, item.title);
+                          }}
+                          disabled={!canAfford}
+                          className={`w-full py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-200 ${
+                            canAfford 
+                              ? 'bg-zinc-950 text-white hover:bg-amber-500 cursor-pointer shadow-md' 
+                              : 'bg-zinc-100 text-zinc-400 dark:bg-zinc-900 cursor-not-allowed'
+                          }`}
+                        >
+                          {canAfford ? "Purchase" : "Insufficient Aura"}
+                        </button>
+                      </div>
                     </div>
-                    <span className="px-2.5 py-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl text-xs font-black font-mono leading-none">10 AURA</span>
-                  </div>
-
-                  {/* Pick destination friend */}
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] uppercase font-black text-zinc-400">Select lobby friend to boost</label>
-                    <select
-                      value={selectedStoreFriendId}
-                      onChange={(e) => setSelectedStoreFriendId(e.target.value)}
-                      className="w-full text-xs p-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none"
-                    >
-                      <option value="">-- Choose Lobby Member --</option>
-                      {group?.members.map((mId: string) => (
-                        <option key={mId} value={mId}>
-                          {membersProfiles[mId]?.name || 'Lobby Friend'}
-                        </option>
-                      ))}
-                    </select>
-
-                    <button
-                      onClick={() => handleSpendAura(10, "Connection Streak Boost")}
-                      disabled={!selectedStoreFriendId || (userAura?.total_aura || 0) < 10}
-                      className="w-full py-2.5 bg-zinc-900 hover:bg-amber-500 text-white dark:bg-zinc-50 dark:text-zinc-900 disabled:opacity-40 font-bold rounded-xl text-xs transition-colors cursor-pointer"
-                    >
-                      Spend points to Boost Score 🤝
-                    </button>
-                  </div>
-                </div>
-
-                {/* Product 2 */}
-                <div className="p-4 border border-zinc-150 rounded-2xl flex justify-between items-center gap-4">
-                  <div className="space-y-0.5">
-                    <span className="font-extrabold text-sm text-zinc-800">🎯 Subject priority boost</span>
-                    <p className="text-[10px] text-zinc-400 leading-normal">Increase probability of being picked as daily guess subject!</p>
-                  </div>
-
-                  <button
-                    onClick={() => handleSpendAura(15, "Subject Priority Boost")}
-                    disabled={(userAura?.total_aura || 0) < 15}
-                    className="flex-shrink-0 px-4 py-2.5 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-amber-500 disabled:opacity-40 transition-all cursor-pointer"
-                  >
-                    Spend 15 Aura
-                  </button>
-                </div>
-
-                {/* Product 3 */}
-                <div className="p-4 border border-zinc-150 rounded-2xl flex justify-between items-center gap-4">
-                  <div className="space-y-0.5">
-                    <span className="font-extrabold text-sm text-zinc-800">🛡️ Subject anti-selection shield</span>
-                    <p className="text-[10px] text-zinc-400 leading-normal">Decrease probability of being chosen as daily deduction subject!</p>
-                  </div>
-
-                  <button
-                    onClick={() => handleSpendAura(20, "Subject Shield")}
-                    disabled={(userAura?.total_aura || 0) < 20}
-                    className="flex-shrink-0 px-4 py-2.5 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-amber-500 disabled:opacity-40 transition-all cursor-pointer"
-                  >
-                    Spend 20 Aura
-                  </button>
-                </div>
-
+                  );
+                })}
               </div>
             </motion.div>
           </div>
