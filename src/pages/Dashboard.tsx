@@ -1036,6 +1036,7 @@ export default function Dashboard() {
               <div className="space-y-4">
                 <input 
                   type="date"
+                  min="2026-01-01"
                   className="w-full p-5 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border-none text-center font-bold text-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                   onBlur={(e) => {
                     if (e.target.value) handleSaveBirthday(e.target.value);
