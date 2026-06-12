@@ -45,7 +45,8 @@ import {
   getDocs,
   orderBy,
   deleteDoc,
-  deleteField
+  deleteField,
+  arrayRemove
 } from 'firebase/firestore';
 import { cn, getDaysUntil } from '../lib/utils';
 
@@ -148,6 +149,29 @@ export default function GroupPlanning() {
   const [adminTypedMessage, setAdminTypedMessage] = React.useState('');
   const [isSendingNotifyCrew, setIsSendingNotifyCrew] = React.useState(false);
 
+  const handleLeaveRoom = async () => {
+    if (!id || !firebaseUser || !group) return;
+    if (window.confirm("Are you sure you want to leave this workspace? If you are the last member, this temporary room will be automatically deleted completely.")) {
+      try {
+        const roomRef = doc(db, 'rooms', id);
+        const currentMembers = group.members || [];
+        
+        if (currentMembers.length <= 1) {
+          console.log("[Lifecycle] Last member left, deleting temporary room:", id);
+          await deleteDoc(roomRef);
+          navigate('/rooms');
+        } else {
+          await updateDoc(roomRef, {
+            members: arrayRemove(firebaseUser.uid)
+          });
+          navigate('/rooms');
+        }
+      } catch (err) {
+        console.error("Error leaving room:", err);
+      }
+    }
+  };
+
   React.useEffect(() => {
     if (!id || !firebaseUser) return;
 
@@ -212,7 +236,7 @@ export default function GroupPlanning() {
                       userIds: targetMembers,
                       title: "The Vault is UNLOCKED! 🔓",
                       body: `Surprises for ${groupData.person_name || 'your friends'} are officially live! Tap to watch the reveal!`,
-                      url: `/groups/${id}`
+                      url: `/rooms/${id}`
                     })
                   });
                 }
@@ -227,30 +251,41 @@ export default function GroupPlanning() {
       } else {
         setLoading(false);
       }
+    }, (err) => {
+      console.warn("Handled snapshot restriction gracefully:", err.message);
+      setLoading(false);
     });
 
     // Contributions subscription
     const contributionsRef = collection(db, 'rooms', id, 'contributions');
     const unsubscribeContributions = onSnapshot(contributionsRef, (snapshot) => {
       setContributions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => {
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     // Date polls subscription
     const datePollsRef = collection(db, 'rooms', id, 'date_polls');
     const unsubscribeDatePolls = onSnapshot(datePollsRef, (snapshot) => {
       setDatePolls(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => {
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     // Ideas subscription
     const ideasRef = collection(db, 'rooms', id, 'ideas');
     const unsubscribeIdeas = onSnapshot(ideasRef, (snapshot) => {
       setIdeas(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => {
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     // Surprises subscription
     const surprisesRef = collection(db, 'rooms', id, 'surprises');
     const unsubscribeSurprises = onSnapshot(surprisesRef, (snapshot) => {
       setSurprises(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => {
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     // Chat subscription
@@ -258,12 +293,16 @@ export default function GroupPlanning() {
     const qChat = query(chatRef, orderBy('created_at', 'asc'));
     const unsubscribeChat = onSnapshot(qChat, (snapshot) => {
       setChatMessages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => {
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     // Tasks subscription
     const tasksRef = collection(db, 'rooms', id, 'tasks');
     const unsubscribeTasks = onSnapshot(tasksRef, (snapshot) => {
       setTasks(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => {
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     // Polls subscription (client-side sort to be safe from index issues)
@@ -276,6 +315,8 @@ export default function GroupPlanning() {
         return tB - tA;
       });
       setPolls(list);
+    }, (err) => {
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     // Photos subscription (client-side sort to be safe from index issues)
@@ -288,6 +329,8 @@ export default function GroupPlanning() {
         return tB - tA;
       });
       setPhotos(list);
+    }, (err) => {
+      console.warn("Handled snapshot restriction gracefully:", err.message);
     });
 
     return () => {
@@ -461,7 +504,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
                   userIds: targetUserIds,
                   title: "New birthday card note 📝",
                   body: `${user?.name || firebaseUser.email} left a secret message in the locker!`,
-                  url: `/groups/${id}`
+                  url: `/rooms/${id}`
                 })
               });
             }
@@ -501,7 +544,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
                 userIds: group?.members || [],
                 title: "Gift Finalized! 🎁",
                 body: `The crew has locked in the gift choice for ${group?.person_name || 'our friend'}! Check it out.`,
-                url: `/groups/${id}`
+                url: `/rooms/${id}`
               })
             });
           } catch (e) {
@@ -531,7 +574,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
               userIds: group.members || [],
               title: "Gift Finalized! 🎁",
               body: `The crew has locked in the gift choice for ${group.person_name || 'our friend'}! Check it out.`,
-              url: `/groups/${id}`
+              url: `/rooms/${id}`
             })
           });
         } catch (pushErr) {
@@ -632,7 +675,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
         });
       }
       
-      navigate(`/groups/${groupDoc.id}`);
+      navigate(`/rooms/${groupDoc.id}`);
     } catch (err) {
       console.error(err);
       setJoinError('An error occurred while joining the group.');
@@ -743,7 +786,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
       // Fire and forget email notification
       sendBirthdayEmail(docRef.id, recipient_email.toLowerCase());
 
-      navigate(`/groups/${docRef.id}`);
+      navigate(`/rooms/${docRef.id}`);
     } catch (err) {
       console.error(err);
     }
@@ -781,7 +824,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
         target_amount: 0
       });
 
-      navigate(`/groups/${docRef.id}`);
+      navigate(`/rooms/${docRef.id}`);
     } catch (err) {
       console.error("Error creating party group:", err);
     }
@@ -1052,6 +1095,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
                       <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 ml-1">Party Date</label>
                       <input 
                         type="date"
+                        min="2026-01-01"
                         value={partyDate} 
                         onChange={(e) => setPartyDate(e.target.value)}
                         className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100" 
@@ -1363,7 +1407,7 @@ Return strictly as a JSON array (no markdown code fence blocks, just the array i
                 userIds: targetUserIds,
                 title: "New Poll dropped! 🗳️",
                 body: `${user?.name || firebaseUser.email} just posted a question in ${group?.name || 'the group'}. Go vote!`,
-                url: `/groups/${id}`
+                url: `/rooms/${id}`
               })
             });
           }
@@ -1491,7 +1535,7 @@ Return strictly as a JSON object (no markdown code fence blocks, just the object
                 userIds: targetMembers,
                 title: "New photo drop! 📸",
                 body: `${user?.name || 'Someone'} added a photo to the memory wall for ${group?.name || 'the group'}.`,
-                url: `/groups/${id}`
+                url: `/rooms/${id}`
               })
             });
           }
@@ -1538,7 +1582,7 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
             userIds: targetUserIds,
             title: `Alert from ${group.name} 🚨`,
             body: msgText,
-            url: `/groups/${id}`
+            url: `/rooms/${id}`
           })
         });
         alert('Alert sent successfully to everyone in the party planning room!');
@@ -1636,6 +1680,18 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
       }
     };
 
+    const handleClearSelectedDate = async () => {
+      if (!id) return;
+      try {
+        await updateDoc(doc(db, 'rooms', id), {
+          party_date: deleteField(),
+          party_time: deleteField()
+        });
+      } catch (err) {
+        console.error("Error clearing selected date:", err);
+      }
+    };
+
     const rsvps = group.rsvps || {};
     const rsvpCounts = { going: 0, maybe: 0, not_going: 0 };
     const memberList = group.members || [];
@@ -1659,14 +1715,19 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
 
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
-        <header className="p-6 pt-[calc(1.5rem+var(--sat))] flex flex-col gap-4 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10">
+        <header className="p-6 pt-[calc(1.5rem+var(--sat))] flex flex-col gap-4 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 sticky top-top z-10">
           <div className="flex items-center justify-between">
             <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"><ArrowLeft size={24} /></button>
             <div className="text-center">
               <h1 className="font-extrabold text-lg text-zinc-900 dark:text-zinc-50">{group.name} 🎉</h1>
               <p className="text-[10px] text-zinc-400 font-extrabold uppercase tracking-widest mt-0.5">For {group.person_name} • {group.vibe}</p>
             </div>
-            <div className="w-10" />
+            <button 
+              onClick={handleLeaveRoom}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/20 dark:text-rose-450 border border-rose-250/30 rounded-xl text-[10px] font-extrabold cursor-pointer transition-all shadow-sm"
+            >
+              <span>Leave 🚪</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-6 w-full gap-1 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl border border-zinc-200/50 dark:border-zinc-800/50">
@@ -1909,7 +1970,7 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
                     <div className="flex flex-wrap gap-2 pt-1">
                       {contributions.map((c: any, idx: number) => (
                         <span key={idx} className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black px-2.5 py-1.5 rounded-full flex items-center gap-1">
-                          💸 {c.user_name}: ${c.amount}
+                          💸 {c.user_name} contributed ${c.amount}
                         </span>
                       ))}
                     </div>
@@ -2217,10 +2278,11 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
                         <label className="text-[9px] font-bold text-zinc-405 uppercase tracking-widest block mb-1 ml-1 font-sans">Date *</label>
                         <input 
                           type="date"
+                          min="2026-01-01"
                           value={newPollDate}
                           onChange={(e) => setNewPollDate(e.target.value)}
                           required
-                          className="w-full p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 outline-none focus:ring-1 focus:ring-emerald-500"
+                          className="w-full p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-805 text-xs text-zinc-900 dark:text-zinc-100 outline-none focus:ring-1 focus:ring-emerald-500"
                         />
                       </div>
                       <div>
@@ -2341,6 +2403,15 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
                                 className="py-1.5 px-3 rounded-xl text-[10px] font-bold bg-zinc-900 hover:bg-zinc-850 text-white dark:bg-white dark:hover:bg-zinc-100 dark:text-zinc-900 transition-all flex items-center gap-1 cursor-pointer"
                               >
                                 Select this Date 🎯
+                              </button>
+                            )}
+
+                            {isCrewAdmin && isOptionSelected && (
+                              <button
+                                onClick={() => handleClearSelectedDate()}
+                                className="py-1.5 px-3 rounded-xl text-[10px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/30 dark:hover:bg-rose-900/30 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 transition-all flex items-center gap-1 cursor-pointer"
+                              >
+                                Clear Selection ✕
                               </button>
                             )}
 
@@ -2786,7 +2857,12 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
             <h1 className="font-bold">{group.code_name || group.name}</h1>
             <p className="text-[10px] text-zinc-400 uppercase font-bold">For {group.person_name}</p>
           </div>
-          <div className="w-10" />
+          <button 
+            onClick={handleLeaveRoom}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/20 dark:text-rose-450 border border-rose-250/30 rounded-xl text-[10px] font-extrabold cursor-pointer transition-all shadow-sm"
+          >
+            <span>Leave 🚪</span>
+          </button>
         </div>
 
         <div className="flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl">
@@ -2828,6 +2904,25 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
                   </div>
                 );
               })()
+            )}
+
+            {/* Administrative Broadcast banner */}
+            {isCrewAdminOrMod && (
+              <section className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-[32px] flex items-center justify-between gap-4 animate-fade-in">
+                <div className="space-y-1">
+                  <h3 className="font-extrabold text-sm tracking-tight text-amber-850 dark:text-amber-300">📣 Host Controls</h3>
+                  <p className="text-xs text-zinc-500">Send an urgent home screen ping to everyone in the birthday planning room.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setAdminTypedMessage('');
+                    setShowNotifyCrewModal(true);
+                  }}
+                  className="py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-amber-500/10 flex-shrink-0 cursor-pointer"
+                >
+                  Notify Crew
+                </button>
+              </section>
             )}
 
             {/* Invite Code */}
@@ -2872,6 +2967,22 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
                   animate={{ width: `${progress}%` }}
                   className="h-full bg-emerald-500" 
                 />
+              </div>
+
+              {/* Log list */}
+              <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                <p className="text-[10px] text-zinc-400 uppercase font-black tracking-wide">Chip-in Logs</p>
+                {contributions && contributions.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {contributions.map((c: any, idx: number) => (
+                      <span key={idx} className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black px-2.5 py-1.5 rounded-full flex items-center gap-1">
+                        💸 {c.user_name} contributed ${c.amount}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-400 italic">No pool contributions added yet.</p>
+                )}
               </div>
               
               <AnimatePresence>
