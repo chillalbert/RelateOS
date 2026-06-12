@@ -29,7 +29,7 @@ import { formatDate, getDaysUntil, getConnectionScore, cn, getTurningAge } from 
 import { generateBirthdayMessage, generateRecoveryPlan } from '../services/geminiService';
 import { db } from '../lib/firebase';
 import confetti from 'canvas-confetti';
-import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, setDoc, deleteDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, setDoc, deleteDoc, increment, arrayRemove } from 'firebase/firestore';
 import { useDynamicFriend } from '../hooks/useDynamicFriend';
 
 export default function PersonProfile() {
@@ -423,6 +423,48 @@ export default function PersonProfile() {
     setCopied(key);
     setTimeout(() => setCopied(null), 2000);
   };
+
+  const currentUserData = user;
+  const targetUserId = person?.host_uid;
+  const isBlocked = !!(targetUserId && currentUserData?.blocked_uids?.includes(targetUserId));
+
+  if (isBlocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 select-none">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 p-8 rounded-[32px] text-center space-y-6 shadow-xl"
+        >
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
+            🔒
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Profile Hidden</h1>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
+              You have soft-hidden/blocked this user. To restore their profile's visibility, click unblock.
+            </p>
+          </div>
+          <button 
+            onClick={async () => {
+              if (!firebaseUser || !targetUserId) return;
+              try {
+                const userRef = doc(db, 'users', firebaseUser.uid);
+                await updateDoc(userRef, {
+                  blocked_uids: arrayRemove(targetUserId)
+                });
+              } catch (unblockErr) {
+                console.error("Failed to unblock target user:", unblockErr);
+              }
+            }}
+            className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-wider cursor-pointer"
+          >
+            Unblock {person?.name || 'User'}
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (loading) return <LoadingScreen />;
   if (!person) return <div>Not found</div>;
