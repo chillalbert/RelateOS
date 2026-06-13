@@ -40,6 +40,12 @@ export default function PublicProfileCollector() {
         return;
       }
 
+      // Strict registration check - do not query unless visitor is signed in
+      if (!firebaseUser) {
+        setIsSearching(false);
+        return;
+      }
+
       try {
         const usersRef = collection(db, 'users');
         
@@ -79,6 +85,13 @@ export default function PublicProfileCollector() {
   // Handler to add host birthday & save social activity
   const handleGrabData = async () => {
     if (!hostUser || !firebaseUser || !user) return;
+    
+    // Explicit self-link bypass check: intercept and block adding own card
+    if (firebaseUser.uid === hostUser.id) {
+      console.warn("Self-link bypass: blocked creator from adding their own profile.");
+      return;
+    }
+
     setIsGrabbing(true);
 
     try {
@@ -209,6 +222,12 @@ export default function PublicProfileCollector() {
             className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/15 cursor-pointer flex items-center justify-center gap-1.5 transition-all"
           >
             Claim My Free Account <ArrowRight size={13} />
+          </button>
+          <button
+            onClick={() => navigate('/')}
+            className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-500 dark:text-zinc-400 rounded-2xl font-black text-[10px] uppercase tracking-wider cursor-pointer transition-all"
+          >
+            Cancel & Return
           </button>
         </motion.div>
       </div>
@@ -448,13 +467,22 @@ export default function PublicProfileCollector() {
         {/* Dynamic Action Panel */}
         <div className="space-y-3">
           {!hasGrabbed ? (
-            <button
-              onClick={handleGrabData}
-              disabled={isGrabbing}
-              className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 font-black text-xs text-white uppercase tracking-wider rounded-2xl shadow-lg shadow-emerald-500/15 cursor-pointer flex items-center justify-center gap-2 transition-all"
-            >
-              {isGrabbing ? 'Saving to list...' : `Add ${hostUser.name} to My Birthday List 🎂`}
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={handleGrabData}
+                disabled={isGrabbing || (firebaseUser && firebaseUser.uid === hostUser.id)}
+                className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 font-black text-xs text-white uppercase tracking-wider rounded-2xl shadow-lg shadow-emerald-500/15 cursor-pointer flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isGrabbing ? 'Saving to list...' : firebaseUser && firebaseUser.uid === hostUser.id ? "Your Own Invite Link (Cannot Add Self)" : `Add ${hostUser.name} to My Birthday List 🎂`}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-500 dark:text-zinc-400 rounded-2xl font-black text-[10px] uppercase tracking-wider cursor-pointer transition-all"
+              >
+                Cancel & Return
+              </button>
+            </div>
           ) : (
             <div className="space-y-4 pt-2">
               <div className="p-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-black text-center rounded-2xl flex items-center justify-center gap-1.5 animate-bounce">
