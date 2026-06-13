@@ -105,7 +105,7 @@ export default function Dashboard() {
   const [friendProfiles, setFriendProfiles] = React.useState<Record<string, any>>({});
   const [friendRequests, setFriendRequests] = React.useState<any[]>([]);
 
-  // 1. Real-time accepted friends listener (members array contains current user and status is accepted)
+  // 1. Real-time accepted friends listener (querying sender_uid AND receiver_uid individually to safely secure multi-clause connections)
   React.useEffect(() => {
     if (!firebaseUser) {
       setFriends([]);
@@ -113,20 +113,48 @@ export default function Dashboard() {
       return;
     }
     const frRef = collection(db, 'friend_requests');
-    const q = query(
-      frRef, 
-      where('status', '==', 'accepted'), 
-      where('members', 'array-contains', firebaseUser.uid)
+    const qSender = query(
+      frRef,
+      where('status', '==', 'accepted'),
+      where('sender_uid', '==', firebaseUser.uid)
     );
-    const unsub = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setFriends(docs);
+    const qReceiver = query(
+      frRef,
+      where('status', '==', 'accepted'),
+      where('receiver_uid', '==', firebaseUser.uid)
+    );
+
+    let senderDocs: any[] = [];
+    let receiverDocs: any[] = [];
+
+    const handleDocsChange = () => {
+      const mergedMap = new Map();
+      senderDocs.forEach(d => mergedMap.set(d.id, d));
+      receiverDocs.forEach(d => mergedMap.set(d.id, d));
+      setFriends(Array.from(mergedMap.values()));
       setFriendsLoading(false);
+    };
+
+    const unsubSender = onSnapshot(qSender, (snapshot) => {
+      senderDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      handleDocsChange();
     }, (err) => {
-      console.error("Friends listener error:", err);
+      console.error("Friends list sender_uid listener error:", err);
       setFriendsLoading(false);
     });
-    return () => unsub();
+
+    const unsubReceiver = onSnapshot(qReceiver, (snapshot) => {
+      receiverDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      handleDocsChange();
+    }, (err) => {
+      console.error("Friends list receiver_uid listener error:", err);
+      setFriendsLoading(false);
+    });
+
+    return () => {
+      unsubSender();
+      unsubReceiver();
+    };
   }, [firebaseUser]);
 
   // 2. Real-time pending requests listener
