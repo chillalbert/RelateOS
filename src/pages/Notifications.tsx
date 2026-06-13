@@ -32,27 +32,8 @@ export default function Notifications() {
 
   const [friendRequests, setFriendRequests] = React.useState<any[]>([]);
 
-  const fetchNotifications = async () => {
-    if (!firebaseUser) return;
-    try {
-      const notifRef = collection(db, 'notifications');
-      const q = query(notifRef, where('user_id', '==', firebaseUser.uid));
-      const querySnapshot = await getDocs(q);
-      const data = querySnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as any))
-        .sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0));
-      setNotifications(data);
-    } catch (err) {
-      console.error('Error fetching notifications:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   React.useEffect(() => {
     if (!firebaseUser) return;
-
-    fetchNotifications();
 
     // 1. Real-time onSnapshot listener for 'social_activity' scoped by host_uid
     const actRef = collection(db, 'social_activity');
@@ -83,9 +64,28 @@ export default function Notifications() {
       console.error('Error in friend_requests listener:', err);
     });
 
+    // 3. Real-time onSnapshot listener for 'notifications' scoped by user_id
+    const notifRef = collection(db, 'notifications');
+    const qNotif = query(notifRef, where('user_id', '==', firebaseUser.uid));
+
+    const unsubscribeNotifications = onSnapshot(qNotif, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      data.sort((a, b) => {
+        const secondsA = a.created_at?.seconds || (a.created_at ? new Date(a.created_at).getTime() / 1000 : 0);
+        const secondsB = b.created_at?.seconds || (b.created_at ? new Date(b.created_at).getTime() / 1000 : 0);
+        return secondsB - secondsA;
+      });
+      setNotifications(data);
+      setLoading(false);
+    }, (err) => {
+      console.error("Error in notifications listener:", err);
+      setLoading(false);
+    });
+
     return () => {
       unsubscribeActivities();
       unsubscribeFriendRequests();
+      unsubscribeNotifications();
     };
   }, [firebaseUser]);
 
@@ -93,19 +93,28 @@ export default function Notifications() {
     try {
       const notifRef = doc(db, 'notifications', id);
       await updateDoc(notifRef, { is_read: true });
-      setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
     } catch (err) {
       console.error(err);
     }
   };
 
   const deleteNotification = async (id: string) => {
+    if (!window.confirm("Are you sure you want to permanently delete this system log alert?")) return;
     try {
       const notifRef = doc(db, 'notifications', id);
       await deleteDoc(notifRef);
-      setNotifications(notifications.filter(n => n.id !== id));
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDeleteSocialActivity = async (id: string) => {
+    if (!window.confirm("Are you sure you want to permanently delete this social activity alert?")) return;
+    try {
+      const actRef = doc(db, 'social_activity', id);
+      await deleteDoc(actRef);
+    } catch (err) {
+      console.error("Error deleting social activity:", err);
     }
   };
 
@@ -297,7 +306,6 @@ export default function Notifications() {
         }).map(d => deleteDoc(doc(db, 'notifications', d.id)));
         
         await Promise.all(deletePromises);
-        fetchNotifications();
       } catch (purgeErr) {
         console.warn('Error purging redundant friend request notifications:', purgeErr);
       }
@@ -595,9 +603,10 @@ export default function Notifications() {
                             </div>
                           </div>
 
-                          <div className="flex gap-2 shrink-0 md:self-center">
+                          <div className="flex gap-2 shrink-0 md:self-center items-center">
                             {/* Button A: Request Birthday Back */}
                             <button
+                              id={`req-back-btn-${act.id}`}
                               onClick={() => handleRequestBirthdayBack(act)}
                               disabled={!!isActionBusy || !!isBlockBusy}
                               className="px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 dark:hover:bg-emerald-400/10 rounded-xl transition-all cursor-pointer disabled:opacity-50"
@@ -607,11 +616,22 @@ export default function Notifications() {
 
                             {/* Button B: Block User */}
                             <button
+                              id={`block-user-btn-${act.id}`}
                               onClick={() => handleBlockUser(act)}
                               disabled={!!isBlockBusy}
                               className="px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800 text-[10px] font-black uppercase tracking-wider text-red-500 hover:bg-red-500/10 dark:hover:bg-red-500/10 rounded-xl transition-all cursor-pointer disabled:opacity-50"
                             >
                               {isBlockBusy || 'Block User 🛑'}
+                            </button>
+
+                            {/* Button C: Trash Deletion Button */}
+                            <button
+                              id={`delete-act-btn-${act.id}`}
+                              onClick={() => handleDeleteSocialActivity(act.id)}
+                              className="p-2.5 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 dark:hover:bg-red-500/25 rounded-xl transition-all cursor-pointer"
+                              title="Delete social activity alert"
+                            >
+                              <Trash2 id={`delete-act-icon-${act.id}`} size={16} />
                             </button>
                           </div>
                         </motion.div>
