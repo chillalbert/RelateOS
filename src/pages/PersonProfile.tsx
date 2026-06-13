@@ -63,6 +63,7 @@ export default function PersonProfile() {
   const [reflectionText, setReflectionText] = React.useState('');
   const [hasReflectedThisYear, setHasReflectedThisYear] = React.useState(false);
   const [existingReflection, setExistingReflection] = React.useState<string>('');
+  const [isPermissionBlocked, setIsPermissionBlocked] = React.useState(false);
 
   React.useEffect(() => {
     if (friendshipStatus === 'accepted' && friendRequestDocId) {
@@ -325,8 +326,12 @@ export default function PersonProfile() {
             };
           });
         }
-      } catch (err) {
-        console.error(err);
+      } catch (err: any) {
+        console.warn("Gracefully caught profile access exception:", err);
+        const errMsg = err?.message || String(err);
+        if (errMsg.toLowerCase().includes('permission') || errMsg.toLowerCase().includes('insufficient') || errMsg.toLowerCase().includes('denied')) {
+          setIsPermissionBlocked(true);
+        }
       } finally {
         setLoading(false);
       }
@@ -427,6 +432,34 @@ export default function PersonProfile() {
   const currentUserData = user;
   const targetUserId = person?.host_uid;
   const isBlocked = !!(targetUserId && currentUserData?.blocked_uids?.includes(targetUserId));
+
+  if (isPermissionBlocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 select-none">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 p-8 rounded-[32px] text-center space-y-4 shadow-xl"
+        >
+          <div className="mx-auto w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-xl">
+            🔒
+          </div>
+          <div className="space-y-1.5">
+            <h1 className="text-base font-black tracking-tight text-zinc-900 dark:text-white">Profile Unavailable</h1>
+            <p className="text-xs text-zinc-500 dark:text-zinc-405 font-semibold leading-relaxed">
+              This friend list entry is protected by security constraints and cannot be loaded at this time.
+            </p>
+          </div>
+          <button 
+            onClick={() => navigate('/')}
+            className="w-full py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl font-bold text-xs uppercase tracking-wider cursor-pointer"
+          >
+            Back to Dashboard
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (isBlocked) {
     return (
