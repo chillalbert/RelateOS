@@ -509,7 +509,7 @@ export default function GroupView() {
               <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
                 <span>{group.type}</span>
                 <span>•</span>
-                <span>{group.members?.length || 1} playing</span>
+                <span>{(group.members || []).filter((memberId: string) => !(user?.blocked_uids || []).includes(memberId)).length || 1} playing</span>
               </div>
               {/* Prominent Invite Code & Copy Invite Link Button */}
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
@@ -1008,7 +1008,7 @@ export default function GroupView() {
                   </div>
 
                   <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/60 dark:border-zinc-800 shadow-sm divide-y divide-zinc-100 dark:divide-zinc-800/60 overflow-hidden">
-                    {group?.members?.map((memberId: string) => {
+                    {(group?.members || []).filter((memberId: string) => !(user?.blocked_uids || []).includes(memberId)).map((memberId: string) => {
                       const memberProfile = membersMetadata[memberId] || {};
                       const name = memberProfile.name || 'Friend';
                       const avatarUrl = memberProfile.profile_picture_url || '';
