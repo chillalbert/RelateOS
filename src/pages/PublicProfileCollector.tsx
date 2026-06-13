@@ -23,6 +23,34 @@ export default function PublicProfileCollector() {
   const [hasGrabbed, setHasGrabbed] = React.useState(false);
   const [friendRequestSent, setFriendRequestSent] = React.useState(false);
   const [isSendingRequest, setIsSendingRequest] = React.useState(false);
+  const [alreadyInOrbit, setAlreadyInOrbit] = React.useState(false);
+
+  // Pre-flight duplicate orbital check
+  React.useEffect(() => {
+    const checkOrbit = async () => {
+      if (!firebaseUser || !hostUser) {
+        setAlreadyInOrbit(false);
+        return;
+      }
+      try {
+        const peopleRef = collection(db, 'people');
+        const q = query(
+          peopleRef,
+          where('user_id', '==', firebaseUser.uid),
+          where('host_uid', '==', hostUser.id)
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          setAlreadyInOrbit(true);
+        } else {
+          setAlreadyInOrbit(false);
+        }
+      } catch (err) {
+        console.error("Error checking pre-flight duplicate status:", err);
+      }
+    };
+    checkOrbit();
+  }, [firebaseUser, hostUser]);
 
   // Month labels helper
   const getMonthLabel = (m: number) => {
@@ -115,6 +143,8 @@ export default function PublicProfileCollector() {
       const formattedDay = String(hostUser.birthday_day).padStart(2, '0');
       const bDayStr = `2000-${formattedMonth}-${formattedDay}`;
 
+      const compiledNotes = `Favorite Sports Teams: ${hostUser.fav_sports_teams || ''}\nFavorite Artists: ${hostUser.fav_artists || ''}\nWeekend Activities: ${hostUser.weekend_activities || ''}\nExtra Notes: ${hostUser.anything_extra || ''}`;
+
       await addDoc(peopleRef, {
         name: hostUser.name,
         nickname: hostUser.name,
@@ -122,7 +152,8 @@ export default function PublicProfileCollector() {
         birthYearUnknown: true, 
         category: 'friend',
         importance: 4, 
-        notes: `Grabbed from handle link /u/${username}`,
+        notes: compiledNotes,
+        ai_notes: compiledNotes,
         interests: hostUser.fav_artists || '',
         photo_url: hostUser.profile_picture_url || '',
         user_id: firebaseUser.uid, // visitor's UID
@@ -479,9 +510,27 @@ export default function PublicProfileCollector() {
 
         {/* Dynamic Action Panel */}
         <div className="space-y-3">
-          {!hasGrabbed ? (
+          {alreadyInOrbit ? (
+            <div className="space-y-3">
+              <div 
+                id="already-in-orbit-badge"
+                className="w-full py-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 font-extrabold text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed select-none"
+              >
+                Already in Orbit ✨
+              </div>
+              <button
+                id="cancel-return-btn"
+                type="button"
+                onClick={() => navigate('/')}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-650 text-white rounded-2xl font-black text-[10px] uppercase tracking-wider cursor-pointer transition-all"
+              >
+                Go to Dashboard
+              </button>
+            </div>
+          ) : !hasGrabbed ? (
             <div className="space-y-2">
               <button
+                id="grab-data-btn"
                 onClick={handleGrabData}
                 disabled={isGrabbing || (firebaseUser && firebaseUser.uid === hostUser.id)}
                 className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 font-black text-xs text-white uppercase tracking-wider rounded-2xl shadow-lg shadow-emerald-500/15 cursor-pointer flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -489,6 +538,7 @@ export default function PublicProfileCollector() {
                 {isGrabbing ? 'Saving to list...' : firebaseUser && firebaseUser.uid === hostUser.id ? "Your Own Invite Link (Cannot Add Self)" : `Add ${hostUser.name} to My Birthday List 🎂`}
               </button>
               <button
+                id="cancel-return-guest-btn"
                 type="button"
                 onClick={() => navigate('/')}
                 className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-500 dark:text-zinc-400 rounded-2xl font-black text-[10px] uppercase tracking-wider cursor-pointer transition-all"
