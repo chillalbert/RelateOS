@@ -1694,7 +1694,8 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
 
     const rsvps = group.rsvps || {};
     const rsvpCounts = { going: 0, maybe: 0, not_going: 0 };
-    const memberList = group.members || [];
+    const blockedUids = user?.blocked_uids || [];
+    const memberList = (group.members || []).filter((uid: string) => !blockedUids.includes(uid));
     memberList.forEach((uid: string) => {
       const status = rsvps[uid] || 'maybe';
       if (status === 'going') rsvpCounts.going++;
@@ -1852,7 +1853,7 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
                       className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 outline-none text-xs text-zinc-500 dark:text-zinc-450"
                     >
                       <option value="">Assignee</option>
-                      {group.members?.map((uid: string) => (
+                      {(group.members || []).filter((uid: string) => !(user?.blocked_uids || []).includes(uid)).map((uid: string) => (
                         <option key={uid} value={uid}>{memberNames[uid] || 'Crew Member'}</option>
                       ))}
                     </select>
