@@ -68,7 +68,7 @@ export default function PersonProfile() {
   const [resolvedId, setResolvedId] = React.useState<string | null>(null);
   const [isCrossBlocked, setIsCrossBlocked] = React.useState(false);
 
-  // Unified data container to hold data state updates gracefully
+  // Unified data fallback state sheet
   const displayPerson = person || originalPerson;
 
   React.useEffect(() => {
@@ -269,60 +269,83 @@ export default function PersonProfile() {
     }
   };
 
-  // Case Insensitive Normalization Lookup Pipeline
+  // DEEP INSTRUMENTATION LOGGING ENGINE
   React.useEffect(() => {
     const fetchPerson = async () => {
-      if (!id || !firebaseUser) return;
+      if (!id || !firebaseUser) {
+        console.log("%c[Profile Diagnostic] Guard triggered: missing id or firebaseUser", "color: orange", { id, uid: firebaseUser?.uid });
+        return;
+      }
       try {
         setLoading(true);
+        console.log(`%c[Profile Diagnostic] 🚀 Initiating pipeline fetch for handle/id: "${id}"`, "color: cyan; font-weight: bold;");
+        console.log(`[Profile Diagnostic] Active viewer context UID: ${firebaseUser.uid}`);
+        
         let trueId = id;
         const personRef = doc(db, 'people', id);
         let personSnap = await getDoc(personRef);
         let data: any = null;
 
         if (personSnap.exists()) {
+          console.log("%c[Profile Diagnostic] Direct Document Match found in 'people' collection!", "color: green; font-weight: bold;");
           data = { id: personSnap.id, ...personSnap.data() };
         } else {
-          // Normalize matching options to bypass database casing rules completely
+          console.log("[Profile Diagnostic] Direct lookup failed. Assembling mutation variations for query testing...");
           const variations = Array.from(new Set([
             id,
             id.toLowerCase(),
             id.toUpperCase(),
             id.charAt(0).toUpperCase() + id.slice(1).toLowerCase()
           ]));
+          console.log("[Profile Diagnostic] Generated search permutations:", variations);
 
+          // Step 1: Query 'people' collection handles
+          console.log("[Profile Diagnostic] Executing query on collection('people') where 'handle' in variations...");
           const peopleQ = query(collection(db, 'people'), where('handle', 'in', variations));
           const peopleQuerySnap = await getDocs(peopleQ);
+          console.log(`[Profile Diagnostic] Results from 'people' query: snapshot size = ${peopleQuerySnap.size}`);
 
           if (!peopleQuerySnap.empty) {
             const docSnap = peopleQuerySnap.docs[0];
             trueId = docSnap.id;
             data = { id: docSnap.id, ...docSnap.data() };
+            console.log("%c[Profile Diagnostic] Handle match verified in 'people' catalog!", "color: green;", data);
           } else {
+            // Step 2: Query 'users' collection catalog
+            console.log("[Profile Diagnostic] 'people' scan empty. Querying collection('users') where 'handle' in variations...");
             let userQ = query(collection(db, 'users'), where('handle', 'in', variations));
             let userQuerySnap = await getDocs(userQ);
+            console.log(`[Profile Diagnostic] Results from 'users' handle query: snapshot size = ${userQuerySnap.size}`);
 
             if (userQuerySnap.empty) {
+              console.log("[Profile Diagnostic] User handle query empty. Falling back to query where 'username' in variations...");
               userQ = query(collection(db, 'users'), where('username', 'in', variations));
               userQuerySnap = await getDocs(userQ);
+              console.log(`[Profile Diagnostic] Results from 'users' username query: snapshot size = ${userQuerySnap.size}`);
             }
             
             if (!userQuerySnap.empty) {
               const userDocData = userQuerySnap.docs[0].data();
               const targetUid = userQuerySnap.docs[0].id;
+              console.log(`%c[Profile Diagnostic] Base User account uncovered! Target UID: ${targetUid}`, "color: yellow; font-weight: bold;");
+              console.log("[Profile Diagnostic] Target raw field dump:", userDocData);
               
+              console.log(`[Profile Diagnostic] Scanning for connection contract in 'people' for viewer: ${firebaseUser.uid} -> target: ${targetUid}`);
               const contactCardQ = query(
                 collection(db, 'people'), 
                 where('user_id', '==', firebaseUser.uid), 
                 where('host_uid', '==', targetUid)
               );
               const contactCardQuerySnap = await getDocs(contactCardQ);
+              console.log(`[Profile Diagnostic] Connection card search response: size = ${contactCardQuerySnap.size}`);
               
               if (!contactCardQuerySnap.empty) {
                 const docSnap = contactCardQuerySnap.docs[0];
                 trueId = docSnap.id;
                 data = { id: docSnap.id, ...docSnap.data() };
+                console.log("%c[Profile Diagnostic] Connected card profile mapped!", "color: green;", data);
               } else {
+                console.log("%c[Profile Diagnostic] Independent link entry. Generating fresh transient payload.", "color: magenta;");
                 trueId = targetUid;
                 data = {
                   id: targetUid,
@@ -339,16 +362,20 @@ export default function PersonProfile() {
                   notes: userDocData.notes || ''
                 };
               }
+            } else {
+              console.log("%c[Profile Diagnostic] All fallback query streams failed to capture a target match.", "color: red; font-weight: bold;");
             }
           }
         }
 
         if (!data) {
+          console.error(`%c[Profile Diagnostic] Core data assembly object built as NULL. Aborting lifecycle to display 'Orbit Not Found'. Handle parsed: "${id}"`, "color: red; font-weight: bold;");
           setPerson(null);
           setLoading(false);
           return;
         }
 
+        console.log(`[Profile Diagnostic] Target Identity Resolved. Binding sub-collection tracking files to ID pointer: ${trueId}`);
         setResolvedId(trueId);
 
         let crossBlocked = false;
@@ -359,6 +386,7 @@ export default function PersonProfile() {
             const hostData = hostUserSnap.data();
             const hostBlockedUids = hostData?.blocked_uids || [];
             if (hostBlockedUids.includes(firebaseUser.uid)) {
+              console.log("%c[Profile Diagnostic] Security Warning: Viewer UID falls within host block filters.", "color: red;");
               crossBlocked = true;
             }
           }
@@ -390,6 +418,7 @@ export default function PersonProfile() {
         }
 
         const fullData = { ...data, tasks, memories, gifts };
+        console.log("%c[Profile Diagnostic] Fully structural view bundle complete!", "color: lightgreen; font-weight: bold;", fullData);
         setPerson(fullData);
 
         const today = new Date();
@@ -417,7 +446,7 @@ export default function PersonProfile() {
           });
         }
       } catch (err: any) {
-        console.warn("Gracefully caught profile access exception:", err);
+        console.error("%c[Profile Diagnostic] Exception broken in database reading pipeline:", "color: red;", err);
         const errMsg = err?.message || String(err);
         if (errMsg.toLowerCase().includes('permission') || errMsg.toLowerCase().includes('insufficient') || errMsg.toLowerCase().includes('denied')) {
           setIsPermissionBlocked(true);
@@ -1358,7 +1387,7 @@ export default function PersonProfile() {
                       className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
                       value={editData.birthday || ''}
                       onChange={(e) => setEditData({ ...editData, birthday: e.target.value })}
-                  />
+                    />
                   </div>
                 </div>
                 <div className="space-y-1">
