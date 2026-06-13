@@ -1,5 +1,6 @@
 {
   "name": "RelateOS",
   "description": "A relationship management OS for meaningful connections.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
