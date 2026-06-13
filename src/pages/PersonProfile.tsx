@@ -28,7 +28,7 @@ import LoadingScreen from '../components/LoadingScreen';
 import { formatDate, getDaysUntil, getConnectionScore, cn, getTurningAge } from '../lib/utils';
 import { generateBirthdayMessage, generateRecoveryPlan } from '../services/geminiService';
 import { db } from '../lib/firebase';
-import confetti from 'canvas-commetti';
+import confetti from 'canvas-confetti';
 import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, setDoc, deleteDoc, increment, arrayRemove } from 'firebase/firestore';
 import { useDynamicFriend } from '../hooks/useDynamicFriend';
 
@@ -68,7 +68,7 @@ export default function PersonProfile() {
   const [resolvedId, setResolvedId] = React.useState<string | null>(null);
   const [isCrossBlocked, setIsCrossBlocked] = React.useState(false);
 
-  // Unified data fallback shield prevents timing race condition flashes while the friend hook syncs
+  // Unified data container to prevent race condition flashes when hook computes friendship array overlays
   const displayPerson = person || originalPerson;
 
   React.useEffect(() => {
@@ -269,12 +269,11 @@ export default function PersonProfile() {
     }
   };
 
-  // FIXED: Multi-Case Normalization Query Pipeline Engine
+  // FIXED: Multi-Collection Cross-Query Handle Engine Pipeline Lookup
   React.useEffect(() => {
     const fetchPerson = async () => {
       if (!id || !firebaseUser) return;
       try {
-        setLoading(true);
         let trueId = id;
         const personRef = doc(db, 'people', id);
         let personSnap = await getDoc(personRef);
@@ -283,78 +282,55 @@ export default function PersonProfile() {
         if (personSnap.exists()) {
           data = { id: personSnap.id, ...personSnap.data() };
         } else {
-          // Generate key case variations to completely resolve case sensitivity mismatches
-          const variations = Array.from(new Set([
-            id,
-            id.toLowerCase(),
-            id.toUpperCase(),
-            id.charAt(0).toUpperCase() + id.slice(1).toLowerCase()
-          ]));
-
-          // 1. Query 'people' collection with flexible variations array mapping
-          const peopleQ = query(collection(db, 'people'), where('handle', 'in', variations));
-          const peopleQuerySnap = await getDocs(peopleQ);
-
-          if (!peopleQuerySnap.empty) {
-            const docSnap = peopleQuerySnap.docs[0];
-            trueId = docSnap.id;
-            data = { id: docSnap.id, ...docSnap.data() };
-          } else {
-            // 2. Query 'users' catalog using handle field mutations
-            let userQ = query(collection(db, 'users'), where('handle', 'in', variations));
-            let userQuerySnap = await getDocs(userQ);
-
-            if (userQuerySnap.empty) {
-              userQ = query(collection(db, 'users'), where('username', 'in', variations));
-              userQuerySnap = await getDocs(userQ);
-            }
+          // 1. Resolve handle string value by pointing query pipeline directly to 'users' collection
+          const userQ = query(collection(db, 'users'), where('handle', '==', id));
+          const userQuerySnap = await getDocs(userQ);
+          
+          if (!userQuerySnap.empty) {
+            const userDocData = userQuerySnap.docs[0].data();
+            const targetUid = userQuerySnap.docs[0].id;
             
-            if (!userQuerySnap.empty) {
-              const userDocData = userQuerySnap.docs[0].data();
-              const targetUid = userQuerySnap.docs[0].id;
-              
-              const contactCardQ = query(
-                collection(db, 'people'), 
-                where('user_id', '==', firebaseUser.uid), 
-                where('host_uid', '==', targetUid)
-              );
-              const contactCardQuerySnap = await getDocs(contactCardQ);
-              
-              if (!contactCardQuerySnap.empty) {
-                const docSnap = contactCardQuerySnap.docs[0];
-                trueId = docSnap.id;
-                data = { id: docSnap.id, ...docSnap.data() };
-              } else {
-                // 3. Fallback transient viewport view assembly
-                trueId = targetUid;
-                data = {
-                  id: targetUid,
-                  name: userDocData.name || id,
-                  nickname: userDocData.nickname || '',
-                  birthday: userDocData.birthday || '2000-01-01',
-                  category: 'Friend',
-                  host_uid: targetUid,
-                  photo_url: userDocData.photo_url || '',
-                  fav_sports_teams: userDocData.fav_sports_teams || '',
-                  fav_artists: userDocData.fav_artists || '',
-                  anything_extra: userDocData.anything_extra || '',
-                  interests: userDocData.interests || '',
-                  notes: userDocData.notes || ''
-                };
-              }
+            // 2. Locate matching contact card configuration assigned to logged-in user inside 'people' collection
+            const peopleQ = query(
+              collection(db, 'people'), 
+              where('user_id', '==', firebaseUser.uid), 
+              where('host_uid', '==', targetUid)
+            );
+            const peopleQuerySnap = await getDocs(peopleQ);
+            
+            if (!peopleQuerySnap.empty) {
+              const docSnap = peopleQuerySnap.docs[0];
+              trueId = docSnap.id;
+              data = { id: docSnap.id, ...docSnap.data() };
+            } else {
+              // 3. Synthesize view model on the fly from user record to ensure public card link lookup resolves for non-contacts
+              trueId = targetUid;
+              data = {
+                id: targetUid,
+                name: userDocData.name || id,
+                nickname: userDocData.nickname || '',
+                birthday: userDocData.birthday || '2000-01-01',
+                category: 'User',
+                host_uid: targetUid,
+                photo_url: userDocData.photo_url || '',
+                fav_sports_teams: userDocData.fav_sports_teams || '',
+                fav_artists: userDocData.fav_artists || '',
+                anything_extra: userDocData.anything_extra || '',
+                interests: userDocData.interests || '',
+                notes: userDocData.notes || ''
+              };
             }
           }
         }
 
         if (!data) {
-          setPerson(null);
           setLoading(false);
           return;
         }
 
         setResolvedId(trueId);
 
-        // Security blocking evaluation
+        // Mutual Cross-Blocking Security Interceptor
         let crossBlocked = false;
         if (data.host_uid && firebaseUser.uid) {
           const hostUserRef = doc(db, 'users', data.host_uid);
@@ -369,7 +345,7 @@ export default function PersonProfile() {
         }
         setIsCrossBlocked(crossBlocked);
 
-        // Fetch remaining sub-collections
+        // Fetch sub-collections mapping using target unique key variables
         const tasksRef = collection(db, 'people', trueId, 'tasks');
         const tasksSnap = await getDocs(tasksRef);
         const tasks = tasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -397,9 +373,9 @@ export default function PersonProfile() {
         const fullData = { ...data, tasks, memories, gifts };
         setPerson(fullData);
 
-        // Date layout setups
+        // Standard dynamic background task validation rule checking logic
         const today = new Date();
-        const bday = new Date(data.birthday || '2000-01-01');
+        const bday = new Date(data.birthday);
         let nextBday = new Date(today.getFullYear(), bday.getMonth(), bday.getDate());
         if (nextBday < today) {
           nextBday.setFullYear(today.getFullYear() + 1);
@@ -552,40 +528,13 @@ export default function PersonProfile() {
     );
   }
 
+  // Soft block layouts redirect cleanly with 0 markup flashes
   if (isBlocked || isCrossBlocked) {
     return null;
   }
 
   if (loading) return <LoadingScreen />;
-
-  // FIXED: Defends against frame-timing race conditions by double checking fallback hooks
-  if (!person && !originalPerson) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 select-none">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 p-8 rounded-[32px] text-center space-y-4 shadow-xl"
-        >
-          <div className="mx-auto w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-xl">
-            🛰️
-          </div>
-          <div className="space-y-1.5">
-            <h1 className="text-base font-black tracking-tight text-zinc-900 dark:text-white">Orbit Not Found</h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-405 font-semibold leading-relaxed">
-              We couldn't locate a profile matching "{id}". Verify that the handle link is correct.
-            </p>
-          </div>
-          <button 
-            onClick={() => navigate('/')}
-            className="w-full py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl font-bold text-xs uppercase tracking-wider cursor-pointer"
-          >
-            Go to Dashboard
-          </button>
-        </motion.div>
-      </div>
-    );
-  }
+  if (!displayPerson) return <div>Not found</div>;
 
   const daysUntil = getDaysUntil(displayPerson.birthday);
   const isMissed = daysUntil > 350;
