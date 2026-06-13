@@ -57,13 +57,15 @@ export default function PersonProfile() {
   const [showReminderSettings, setShowReminderSettings] = React.useState(false);
   const [showEditModal, setShowEditModal] = React.useState(false);
   const [editData, setEditData] = React.useState<any>(null);
-  const [activeTab, setActiveTab] = React.useState<'overview' | 'gifts' | 'timeline'>('overview');
+  const [activeTab, setActiveTab] = React.useState<'overview' | 'gifts' | 'bio'>('overview');
   const [showGiftForm, setShowGiftForm] = React.useState(false);
   const [newGift, setNewGift] = React.useState({ name: '', status: 'idea', price: '', notes: '' });
   const [reflectionText, setReflectionText] = React.useState('');
   const [hasReflectedThisYear, setHasReflectedThisYear] = React.useState(false);
   const [existingReflection, setExistingReflection] = React.useState<string>('');
   const [isPermissionBlocked, setIsPermissionBlocked] = React.useState(false);
+  const [resolvedId, setResolvedId] = React.useState<string | null>(null);
+  const [isCrossBlocked, setIsCrossBlocked] = React.useState(false);
 
   React.useEffect(() => {
     if (friendshipStatus === 'accepted' && friendRequestDocId) {
@@ -98,9 +100,10 @@ export default function PersonProfile() {
   };
 
   const addGift = async () => {
-    if (!id) return;
+    const targetId = resolvedId || id;
+    if (!targetId) return;
     try {
-      const giftsRef = collection(db, 'people', id, 'gifts');
+      const giftsRef = collection(db, 'people', targetId, 'gifts');
       const docRef = await addDoc(giftsRef, {
         ...newGift,
         price: newGift.price ? parseFloat(newGift.price) : null,
@@ -119,9 +122,10 @@ export default function PersonProfile() {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id) return;
+    const targetId = resolvedId || id;
+    if (!targetId) return;
     try {
-      const personRef = doc(db, 'people', id);
+      const personRef = doc(db, 'people', targetId);
       await setDoc(personRef, editData, { merge: true });
       setPerson({ ...person, ...editData });
       setShowEditModal(false);
@@ -131,9 +135,10 @@ export default function PersonProfile() {
   };
 
   const toggleTask = async (taskId: string, completed: boolean) => {
-    if (!id) return;
+    const targetId = resolvedId || id;
+    if (!targetId) return;
     try {
-      const taskRef = doc(db, 'people', id, 'tasks', taskId);
+      const taskRef = doc(db, 'people', targetId, 'tasks', taskId);
       await setDoc(taskRef, { completed: !completed }, { merge: true });
       setPerson((prev: any) => {
         if (!prev) return prev;
@@ -147,10 +152,11 @@ export default function PersonProfile() {
     }
   };
 
-  const addTask = async (title: string, dueDate?: string) => {
-    if (!id) return;
+  const addTask = async (title: string, dueDate?: string, targetIdOverride?: string) => {
+    const targetId = targetIdOverride || resolvedId || id;
+    if (!targetId) return;
     try {
-      const tasksRef = collection(db, 'people', id, 'tasks');
+      const tasksRef = collection(db, 'people', targetId, 'tasks');
       const docRef = await addDoc(tasksRef, {
         title,
         completed: false,
@@ -171,9 +177,10 @@ export default function PersonProfile() {
   };
 
   const addMemory = async () => {
-    if (!id) return;
+    const targetId = resolvedId || id;
+    if (!targetId) return;
     try {
-      const memoriesRef = collection(db, 'people', id, 'memories');
+      const memoriesRef = collection(db, 'people', targetId, 'memories');
       const docRef = await addDoc(memoriesRef, {
         year: new Date().getFullYear(),
         type: newMemory.type,
@@ -195,12 +202,13 @@ export default function PersonProfile() {
   };
 
   const deleteMemory = async (memoryId: string) => {
-    if (!id || !memoryId) return;
+    const targetId = resolvedId || id;
+    if (!targetId || !memoryId) return;
     if (!window.confirm('Are you sure you want to delete this memory?')) return;
     try {
       // Delete from both "people" and "contacts" subcollections for ultimate safety and test conformance
-      await deleteDoc(doc(db, 'people', id, 'memories', memoryId));
-      await deleteDoc(doc(db, 'contacts', id, 'memories', memoryId));
+      await deleteDoc(doc(db, 'people', targetId, 'memories', memoryId));
+      await deleteDoc(doc(db, 'contacts', targetId, 'memories', memoryId));
 
       setPerson((prev: any) => ({
         ...prev,
@@ -214,9 +222,10 @@ export default function PersonProfile() {
 
   const handleSaveReflection = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !reflectionText) return;
+    const targetId = resolvedId || id;
+    if (!targetId || !reflectionText) return;
     try {
-      const reflectionsRef = collection(db, 'people', id, 'reflections');
+      const reflectionsRef = collection(db, 'people', targetId, 'reflections');
       await addDoc(reflectionsRef, {
         text: reflectionText,
         year: new Date().getFullYear(),
@@ -224,7 +233,7 @@ export default function PersonProfile() {
       });
 
       // Increment friendship score of the person by 15 points
-      const personRef = doc(db, 'people', id);
+      const personRef = doc(db, 'people', targetId);
       await updateDoc(personRef, {
         friendshipScore: increment(15)
       });
@@ -248,9 +257,10 @@ export default function PersonProfile() {
   };
 
   const updateReminders = async (settings: any) => {
-    if (!id) return;
+    const targetId = resolvedId || id;
+    if (!targetId) return;
     try {
-      const personRef = doc(db, 'people', id);
+      const personRef = doc(db, 'people', targetId);
       await setDoc(personRef, { reminder_settings: settings }, { merge: true });
       setPerson({ ...person, reminder_settings: settings });
     } catch (err) {
@@ -262,31 +272,63 @@ export default function PersonProfile() {
     const fetchPerson = async () => {
       if (!id || !firebaseUser) return;
       try {
+        let trueId = id;
         const personRef = doc(db, 'people', id);
-        const personSnap = await getDoc(personRef);
-        if (!personSnap.exists()) {
+        let personSnap = await getDoc(personRef);
+        let data: any = null;
+
+        if (personSnap.exists()) {
+          data = { id: personSnap.id, ...personSnap.data() };
+        } else {
+          // fallback query check searching the 'people' collection
+          const q = query(collection(db, 'people'), where('handle', '==', id));
+          const querySnapshot = await getDocs(q);
+          if (!querySnapshot.empty) {
+            const docSnap = querySnapshot.docs[0];
+            trueId = docSnap.id;
+            data = { id: docSnap.id, ...docSnap.data() };
+          }
+        }
+
+        if (!data) {
           setLoading(false);
           return;
         }
-        const data = { id: personSnap.id, ...personSnap.data() } as any;
+
+        setResolvedId(trueId);
+
+        // Mutual cross-blocking verification
+        let crossBlocked = false;
+        if (data.host_uid && firebaseUser.uid) {
+          const hostUserRef = doc(db, 'users', data.host_uid);
+          const hostUserSnap = await getDoc(hostUserRef);
+          if (hostUserSnap.exists()) {
+            const hostData = hostUserSnap.data();
+            const hostBlockedUids = hostData?.blocked_uids || [];
+            if (hostBlockedUids.includes(firebaseUser.uid)) {
+              crossBlocked = true;
+            }
+          }
+        }
+        setIsCrossBlocked(crossBlocked);
 
         // Fetch tasks
-        const tasksRef = collection(db, 'people', id, 'tasks');
+        const tasksRef = collection(db, 'people', trueId, 'tasks');
         const tasksSnap = await getDocs(tasksRef);
         const tasks = tasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         // Fetch memories
-        const memoriesRef = collection(db, 'people', id, 'memories');
+        const memoriesRef = collection(db, 'people', trueId, 'memories');
         const memoriesSnap = await getDocs(memoriesRef);
         const memories = memoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         // Fetch gifts
-        const giftsRef = collection(db, 'people', id, 'gifts');
+        const giftsRef = collection(db, 'people', trueId, 'gifts');
         const giftsSnap = await getDocs(giftsRef);
         const gifts = giftsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         // Fetch reflections
-        const reflectionsRef = collection(db, 'people', id, 'reflections');
+        const reflectionsRef = collection(db, 'people', trueId, 'reflections');
         const reflectionsSnap = await getDocs(reflectionsRef);
         const currentYear = new Date().getFullYear();
         const thisYearReflection = reflectionsSnap.docs.find(doc => doc.data().year === currentYear);
@@ -314,9 +356,9 @@ export default function PersonProfile() {
 
         const cardTask = tasks.find((t: any) => t.title === 'Card Message') as any;
         if (!cardTask) {
-          await addTask('Card Message', dueDateStr);
+          await addTask('Card Message', dueDateStr, trueId);
         } else if (cardTask.due_date !== dueDateStr) {
-          const taskRef = doc(db, 'people', id, 'tasks', cardTask.id);
+          const taskRef = doc(db, 'people', trueId, 'tasks', cardTask.id);
           await setDoc(taskRef, { due_date: dueDateStr }, { merge: true });
           setPerson((prev: any) => {
             if (!prev) return prev;
@@ -355,7 +397,8 @@ export default function PersonProfile() {
   };
 
   const handleWishBirthday = async () => {
-    if (!id || !firebaseUser || !user) return;
+    const targetId = resolvedId || id;
+    if (!targetId || !firebaseUser || !user) return;
     try {
       confetti({
         particleCount: 150,
@@ -368,7 +411,7 @@ export default function PersonProfile() {
       const newStreak = (user.streak || 0) + 1;
       await updateDoc(userRef, { streak: newStreak });
 
-      const personRef = doc(db, 'people', id);
+      const personRef = doc(db, 'people', targetId);
       const currentYear = new Date().getFullYear();
       await updateDoc(personRef, {
         friendshipScore: increment(15),
@@ -384,7 +427,7 @@ export default function PersonProfile() {
       }));
       
       // Log it as a memory
-      const memoriesRef = collection(db, 'people', id, 'memories');
+      const memoriesRef = collection(db, 'people', targetId, 'memories');
       await addDoc(memoriesRef, {
         year: new Date().getFullYear(),
         type: 'milestone',
@@ -461,42 +504,8 @@ export default function PersonProfile() {
     );
   }
 
-  if (isBlocked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 select-none">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 p-8 rounded-[32px] text-center space-y-6 shadow-xl"
-        >
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
-            🔒
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Profile Hidden</h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
-              You have soft-hidden/blocked this user. To restore their profile's visibility, click unblock.
-            </p>
-          </div>
-          <button 
-            onClick={async () => {
-              if (!firebaseUser || !targetUserId) return;
-              try {
-                const userRef = doc(db, 'users', firebaseUser.uid);
-                await updateDoc(userRef, {
-                  blocked_uids: arrayRemove(targetUserId)
-                });
-              } catch (unblockErr) {
-                console.error("Failed to unblock target user:", unblockErr);
-              }
-            }}
-            className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-wider cursor-pointer"
-          >
-            Unblock {person?.name || 'User'}
-          </button>
-        </motion.div>
-      </div>
-    );
+  if (isBlocked || isCrossBlocked) {
+    return null;
   }
 
   if (loading) return <LoadingScreen />;
@@ -631,7 +640,7 @@ export default function PersonProfile() {
       <div className="p-6 space-y-8 max-w-2xl mx-auto">
         {/* Tab Switcher */}
         <div className="flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-2xl">
-          {(['overview', 'gifts', 'timeline'] as const).map((tab) => (
+          {(['overview', 'gifts', 'bio'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -642,7 +651,7 @@ export default function PersonProfile() {
                   : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
               )}
             >
-              {tab}
+              {tab === 'bio' ? 'Bio & Favorites' : tab}
             </button>
           ))}
         </div>
@@ -1165,19 +1174,69 @@ export default function PersonProfile() {
           </motion.div>
         )}
 
-        {activeTab === 'timeline' && (
+        {activeTab === 'bio' && (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-black tracking-tight">Connection Timeline</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-black tracking-tight font-sans text-gray-900">Bio & Favorites</h2>
             </div>
-            {/* Timeline content already exists below in the original code, 
-                but we'll move it here for better organization */}
-            <div className="space-y-4">
-              {/* Timeline content */}
+            
+            <div className="grid grid-cols-1 gap-6">
+              {/* Weekend Escape Strategy */}
+              <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-2">
+                <h3 className="text-xs font-bold uppercase text-zinc-400 tracking-wider">Weekend Escape Strategy</h3>
+                <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                  {person.weekend_activity || "No weekend strategy set yet."}
+                </p>
+              </div>
+
+              {/* Core Interests & Hobbies */}
+              <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-2">
+                <h3 className="text-xs font-bold uppercase text-zinc-400 tracking-wider">Core Interests & Hobbies</h3>
+                <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                  {person.interests || "No core interests mentioned yet."}
+                </p>
+              </div>
+
+              {/* Rich AI Profile Notebook */}
+              <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-2">
+                <h3 className="text-xs font-bold uppercase text-zinc-400 tracking-wider">Rich AI Profile Notebook</h3>
+                <p className="text-sm font-semibold text-zinc-750 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                  {person.ai_notes || person.notes || "No profile notebook notes yet."}
+                </p>
+              </div>
+            </div>
+
+            {/* Historic memories wrapper below */}
+            <div className="pt-4 space-y-4">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                <History size={16} />
+                Historical Interactions
+              </h3>
+              <div className="space-y-3">
+                {person.memories && person.memories.length > 0 ? (
+                  person.memories.map((memory: any) => (
+                    <div key={memory.id} className="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex gap-3">
+                      <div className="mt-1">
+                        {memory.type === 'gift' && <Gift size={16} className="text-emerald-500" />}
+                        {memory.type === 'joke' && <Smile size={16} className="text-amber-500" />}
+                        {memory.type === 'milestone' && <Zap size={16} className="text-blue-500" />}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{memory.content}</p>
+                        <p className="text-[10px] text-zinc-400 uppercase font-black mt-1">
+                          {memory.year} • {memory.type}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-zinc-500 text-center py-4">No historical memories yet.</p>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
