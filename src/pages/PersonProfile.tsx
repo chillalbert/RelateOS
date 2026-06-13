@@ -27,9 +27,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import LoadingScreen from '../components/LoadingScreen';
 import { formatDate, getDaysUntil, getConnectionScore, cn, getTurningAge } from '../lib/utils';
 import { generateBirthdayMessage, generateRecoveryPlan } from '../services/geminiService';
-import { db } from '../lib/firebase';
+import { db, storage } from '../lib/firebase';
 import confetti from 'canvas-confetti';
-import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, setDoc, deleteDoc, increment, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, setDoc, deleteDoc, increment, arrayRemove, onSnapshot } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useDynamicFriend } from '../hooks/useDynamicFriend';
 
 export default function PersonProfile() {
@@ -67,6 +68,21 @@ export default function PersonProfile() {
   const [isPermissionBlocked, setIsPermissionBlocked] = React.useState(false);
   const [resolvedId, setResolvedId] = React.useState<string | null>(null);
   const [isCrossBlocked, setIsCrossBlocked] = React.useState(false);
+  const [photoLog, setPhotoLog] = React.useState<any[]>([]);
+  const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!resolvedId) return;
+    const photosRef = collection(db, 'people', resolvedId, 'photos');
+    const q = query(photosRef, orderBy('uploadedAt', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setPhotoLog(docs);
+    }, (err) => {
+      console.error("Error listening to photo logs:", err);
+    });
+    return () => unsub();
+  }, [resolvedId]);
 
   // Unified data fallback state sheet
   const displayPerson = person || originalPerson;
@@ -219,6 +235,77 @@ export default function PersonProfile() {
     } catch (err) {
       console.error("Error deleting memory:", err);
       alert("Failed to delete memory.");
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const targetId = resolvedId || id;
+    if (!file || !targetId) return;
+
+    setIsUploadingPhoto(true);
+
+    try {
+      // 1. Upload the image file to Firebase Storage under the path people/{personId}/photos/{fileName}
+      const storageRef = ref(storage, `people/${targetId}/photos/${file.name}`);
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
+
+      // 2. Read the image as base64 to send to server-side Gemini Vision API
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (err) => reject(err);
+      });
+
+      // 3. Perform server-side Gemini multi-modal Vision API inquiry
+      const res = await fetch("/api/analyze-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: base64Data }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to analyze image with server Gemini Vision engine");
+      }
+
+      const { description } = await res.json();
+
+      // 4. Update the Firestore logged entries inside the photos sub-collection
+      const photosRef = collection(db, 'people', targetId, 'photos');
+      await addDoc(photosRef, {
+        url: downloadUrl,
+        fileName: file.name,
+        aiInsight: description,
+        uploadedAt: serverTimestamp()
+      });
+
+      // 5. Enrich the person's master ai_notes field in Firestore:
+      const currentNotes = displayPerson?.ai_notes || displayPerson?.notes || "";
+      const updatedNotes = currentNotes 
+        ? `${currentNotes}\n\n[Photo Insight]: ${description}` 
+        : `[Photo Insight]: ${description}`;
+
+      const personRef = doc(db, 'people', targetId);
+      await updateDoc(personRef, {
+        ai_notes: updatedNotes
+      });
+
+      setPerson((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          ai_notes: updatedNotes
+        };
+      });
+
+      alert("Photo memory uploaded and successfully analyzed by Gemini AI! Custom insights auto-enriched.");
+    } catch (err) {
+      console.error("Error in photo upload & AI vision analysis logic:", err);
+      alert("Failed to upload or analyze photo memory. Please check the console logs.");
+    } finally {
+      setIsUploadingPhoto(false);
     }
   };
 
@@ -1304,6 +1391,61 @@ export default function PersonProfile() {
                 <p className="text-sm font-semibold text-zinc-750 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
                   {displayPerson.ai_notes || displayPerson.notes || "No profile notebook notes yet."}
                 </p>
+              </div>
+
+              {/* Photo Upload & AI Vision Memories Gallery */}
+              <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-base font-black text-gray-900 dark:text-white">Visual Memory Album</h3>
+                    <p className="text-xs text-zinc-400 font-semibold mb-1">Upload shared photos to enrich AI writing insights in real-time.</p>
+                  </div>
+                  
+                  <label className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all shadow-sm">
+                    <Plus size={14} />
+                    <span>Upload Photo</span>
+                    <input 
+                      type="file" 
+                      accept="image/png, image/jpeg, image/jpg" 
+                      onChange={handlePhotoUpload} 
+                      className="hidden" 
+                      disabled={isUploadingPhoto}
+                    />
+                  </label>
+                </div>
+
+                {isUploadingPhoto && (
+                  <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl flex flex-col items-center justify-center gap-2 border border-dashed border-zinc-200 dark:border-zinc-800 animate-pulse">
+                    <Sparkles className="text-emerald-500 animate-spin" size={20} />
+                    <p className="text-xs font-bold text-zinc-600 dark:text-zinc-400">Uploading and Analyzing Memory...</p>
+                    <p className="text-[10px] text-zinc-400">Gemini AI is examining photo details to enrich milestone options.</p>
+                  </div>
+                )}
+
+                {photoLog && photoLog.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {photoLog.map((item: any) => (
+                      <div key={item.id} className="group relative bg-zinc-50 dark:bg-zinc-950 border border-zinc-150 dark:border-zinc-850 rounded-2xl overflow-hidden flex flex-col p-3 gap-3 hover:shadow-md transition-all">
+                        <img 
+                          src={item.url} 
+                          alt="Shared memory" 
+                          referrerPolicy="no-referrer"
+                          className="w-full h-32 object-cover rounded-xl bg-zinc-100 dark:bg-zinc-900" 
+                        />
+                        <div className="flex-1 space-y-1">
+                          <p className="text-[10px] uppercase font-black tracking-widest text-zinc-400">Memory Insight</p>
+                          <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                            {item.aiInsight || "Analyzing visual components..."}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 border border-dashed border-zinc-150 dark:border-zinc-850 rounded-2xl bg-zinc-50/50">
+                    <p className="text-xs text-zinc-500 font-semibold">No sensory photos logged yet.</p>
+                  </div>
+                )}
               </div>
             </div>
 
