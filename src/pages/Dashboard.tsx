@@ -25,10 +25,10 @@ import { Link } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import CalendarImportStep from '../components/CalendarImportStep';
 import { getDaysUntil, formatDate, cn, getConnectionScore, getPreciseCountdown, getTurningAge } from '../lib/utils';
-import { Gift, MessageSquare, Sparkles as SparklesIcon, Trash2 } from 'lucide-react';
+import { Gift, MessageSquare, Sparkles as SparklesIcon, Trash2, ShieldAlert, Lock as LockIcon } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit, setDoc, addDoc, serverTimestamp, increment, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit, setDoc, addDoc, serverTimestamp, increment, deleteDoc, onSnapshot, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { generateGiftSuggestions, generateBirthdayMessage } from '../services/geminiService';
 import { subscribeUserToPush } from '../lib/pushManager';
 
@@ -80,6 +80,87 @@ export default function Dashboard() {
   const [friendStreaks, setFriendStreaks] = React.useState<Record<string, number>>({});
   const [syncedProfiles, setSyncedProfiles] = React.useState<Record<string, any>>({});
   const [hasPendingFriendRequest, setHasPendingFriendRequest] = React.useState(false);
+  const [showFriendsDrawer, setShowFriendsDrawer] = React.useState(false);
+  const [friends, setFriends] = React.useState<any[]>([]);
+  const [friendsLoading, setFriendsLoading] = React.useState(true);
+  const [friendProfiles, setFriendProfiles] = React.useState<Record<string, any>>({});
+  const [friendRequests, setFriendRequests] = React.useState<any[]>([]);
+
+  // 1. Real-time accepted friends listener (members array contains current user and status is accepted)
+  React.useEffect(() => {
+    if (!firebaseUser) {
+      setFriends([]);
+      setFriendsLoading(false);
+      return;
+    }
+    const frRef = collection(db, 'friend_requests');
+    const q = query(
+      frRef, 
+      where('status', '==', 'accepted'), 
+      where('members', 'array-contains', firebaseUser.uid)
+    );
+    const unsub = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setFriends(docs);
+      setFriendsLoading(false);
+    }, (err) => {
+      console.error("Friends listener error:", err);
+      setFriendsLoading(false);
+    });
+    return () => unsub();
+  }, [firebaseUser]);
+
+  // 2. Real-time pending requests listener
+  React.useEffect(() => {
+    if (!firebaseUser) {
+      setFriendRequests([]);
+      return;
+    }
+    const frRef = collection(db, 'friend_requests');
+    const q = query(
+      frRef, 
+      where('receiver_uid', '==', firebaseUser.uid), 
+      where('status', '==', 'pending')
+    );
+    const unsub = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setFriendRequests(docs);
+    }, (err) => {
+      console.error("Pending requests listener error:", err);
+    });
+    return () => unsub();
+  }, [firebaseUser]);
+
+  // 3. Real-time profile listen for each friend to fetch their up-to-date name, photo_url, and blocked_uids
+  React.useEffect(() => {
+    if (friends.length === 0 || !firebaseUser) {
+      setFriendProfiles({});
+      return;
+    }
+    const activeListeners: (() => void)[] = [];
+    friends.forEach((frDoc) => {
+      const friendUid = frDoc.sender_uid === firebaseUser.uid 
+        ? frDoc.receiver_uid 
+        : frDoc.sender_uid;
+      if (friendUid) {
+        const userRef = doc(db, 'users', friendUid);
+        const unsub = onSnapshot(userRef, (snap) => {
+          if (snap.exists()) {
+            setFriendProfiles((prev) => ({
+              ...prev,
+              [friendUid]: { id: snap.id, ...snap.data() }
+            }));
+          }
+        }, (err) => {
+          console.error(`Error listening to friend profile ${friendUid}:`, err);
+        });
+        activeListeners.push(unsub);
+      }
+    });
+    return () => {
+      activeListeners.forEach(unsub => unsub());
+    };
+  }, [friends, firebaseUser]);
 
   React.useEffect(() => {
     if (!firebaseUser) {
@@ -375,6 +456,101 @@ export default function Dashboard() {
     }
   };
 
+  const handleToggleBlockFriend = async (friendUid: string, isCurrentlyBlocked: boolean) => {
+    if (!firebaseUser) return;
+    try {
+      const userDocRef = doc(db, 'users', firebaseUser.uid);
+      if (isCurrentlyBlocked) {
+        await updateDoc(userDocRef, {
+          blocked_uids: arrayRemove(friendUid)
+        });
+      } else {
+        await updateDoc(userDocRef, {
+          blocked_uids: arrayUnion(friendUid)
+        });
+      }
+      if (refreshUser) {
+        await refreshUser();
+      }
+    } catch (err) {
+      console.error("Error toggling block:", err);
+      alert("Failed to update status.");
+    }
+  };
+
+  const handleDrawerAcceptRequest = async (reqId: string, senderUid: string, senderName: string) => {
+    if (!firebaseUser) return;
+    try {
+      const frDoc = doc(db, 'friend_requests', reqId);
+      await updateDoc(frDoc, { 
+        status: 'accepted',
+        streak_count: 0,
+        last_interaction_date: null
+      });
+      
+      const peopleRef = collection(db, 'people');
+      const pq = query(peopleRef, where('user_id', '==', firebaseUser.uid), where('host_uid', '==', senderUid));
+      const psnap = await getDocs(pq);
+      
+      if (psnap.empty) {
+        const userRef = collection(db, 'users');
+        let bMonth = 1;
+        let bDay = 1;
+        let bPhotoUrl = '';
+        try {
+          const uSnap = await getDocs(query(userRef, where('name', '==', senderName)));
+          if (!uSnap.empty) {
+            const uData = uSnap.docs[0].data();
+            bMonth = uData.birthday_month || 1;
+            bDay = uData.birthday_day || 1;
+            bPhotoUrl = uData.profile_picture_url || '';
+          }
+        } catch (e) {
+          console.warn(e);
+        }
+
+        const formattedMonth = String(bMonth).padStart(2, '0');
+        const formattedDay = String(bDay).padStart(2, '0');
+        const bDayStr = `2000-${formattedMonth}-${formattedDay}`;
+
+        await addDoc(peopleRef, {
+          name: senderName,
+          nickname: senderName,
+          birthday: bDayStr,
+          birthYearUnknown: true,
+          category: 'friend',
+          notes: `Accepted friend request 🤝`,
+          user_id: firebaseUser.uid,
+          photo_url: bPhotoUrl,
+          host_uid: senderUid,
+          created_at: serverTimestamp()
+        });
+      }
+      alert("Friend request accepted! 🤝");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDrawerDeclineRequest = async (reqId: string) => {
+    try {
+      const frDoc = doc(db, 'friend_requests', reqId);
+      await updateDoc(frDoc, { status: 'declined' });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDrawerDeleteRequest = async (reqId: string, senderName: string) => {
+    if (!window.confirm(`Are you sure you want to delete the friend request from ${senderName}?`)) return;
+    try {
+      await deleteDoc(doc(db, 'friend_requests', reqId));
+      alert("Friend request deleted.");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleDeletePerson = async (personId: string, personName: string) => {
     if (!window.confirm(`Are you sure you want to delete ${personName}?`)) return;
     try {
@@ -448,8 +624,13 @@ export default function Dashboard() {
               <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white dark:border-zinc-900 rounded-full animate-pulse" />
             )}
           </Link>
-          <button className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800">
-            <Search size={20} />
+          <button 
+            onClick={() => setShowFriendsDrawer(true)}
+            className="px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-emerald-500/10 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
+            title="Friends List"
+          >
+            <Users size={14} />
+            <span>Friends</span>
           </button>
         </div>
       </header>
@@ -1077,6 +1258,226 @@ export default function Dashboard() {
             onComplete={() => setShowCalendarImport(false)} 
             firebaseUserId={firebaseUser?.uid || ''} 
           />
+        )}
+      </AnimatePresence>
+
+      {/* Friends & Block Drawer (Objective 1) */}
+      <AnimatePresence>
+        {showFriendsDrawer && (
+          <div className="fixed inset-0 z-[120] flex justify-end">
+            {/* Backdrop Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowFriendsDrawer(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            {/* Slide-out Sidebar */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="relative w-full max-w-sm h-full bg-white dark:bg-zinc-900 shadow-2xl p-6 flex flex-col z-10"
+            >
+              {/* Header */}
+              <div className="flex justify-between items-center pb-4 border-b border-zinc-150 dark:border-zinc-805">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 bg-gradient-to-tr from-emerald-500 to-teal-500 text-white rounded-2xl shadow-md shadow-emerald-500/10">
+                    <Users size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-base tracking-tight leading-none text-zinc-900 dark:text-white">Friends & Crew</h3>
+                    <p className="text-[10px] uppercase tracking-wider font-extrabold text-zinc-400 mt-1">Real-time Synchronization</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowFriendsDrawer(false)}
+                  className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-full transition-colors cursor-pointer text-zinc-500 hover:text-zinc-800 dark:hover:text-white"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Scrollable Contents */}
+              <div className="flex-1 overflow-y-auto py-4 space-y-6 scrollbar-hide">
+                {/* 1. Pending Requests Section inside the Drawer (Objective 2 Integration) */}
+                {friendRequests.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-505 animate-pulse" />
+                        Pending Invitations ({friendRequests.length})
+                      </h4>
+                    </div>
+                    <div className="space-y-2">
+                      {friendRequests.map((req) => {
+                        const senderName = req.sender_name || 'Anonymous User';
+                        return (
+                          <div 
+                            key={req.id} 
+                            className="p-4 rounded-3xl border border-amber-100 dark:border-amber-500/10 bg-amber-500/5 dark:bg-amber-500/5 flex flex-col gap-3 transition-all"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-xs">
+                                  {senderName.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-xs font-black text-zinc-900 dark:text-zinc-100">{senderName}</span>
+                              </div>
+                              <button
+                                onClick={() => handleDrawerDeleteRequest(req.id, senderName)}
+                                className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                                title="Delete/Reject Request"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleDrawerAcceptRequest(req.id, req.sender_uid, senderName)}
+                                className="flex-1 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-extrabold uppercase tracking-wider rounded-xl cursor-pointer"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => handleDrawerDeclineRequest(req.id)}
+                                className="flex-1 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-300 text-[9px] font-extrabold uppercase tracking-wider rounded-xl cursor-pointer"
+                              >
+                                Decline
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Active Crew / Friends List */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 px-1">
+                    Your Connections ({friends.length})
+                  </h4>
+
+                  {friendsLoading ? (
+                    <div className="p-8 text-center text-zinc-400 font-bold text-xs uppercase animate-pulse">
+                      Syncing database...
+                    </div>
+                  ) : friends.length === 0 ? (
+                    <div className="p-8 text-center bg-zinc-50 dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-150 dark:border-zinc-800 space-y-2">
+                      <p className="text-zinc-400 text-xs font-medium">No active connections found.</p>
+                      <p className="text-[10px] text-zinc-500 leading-relaxed">
+                        Share your landing URL with other users to sync birthdays and unlock streak alerts!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {friends.map((friendDoc) => {
+                        const friendUid = friendDoc.sender_uid === firebaseUser.uid 
+                          ? friendDoc.receiver_uid 
+                          : friendDoc.sender_uid;
+
+                        // Retrieve live updated profile metadata
+                        const liveProfile = friendProfiles[friendUid];
+                        const displayName = liveProfile?.name || (friendDoc.sender_uid === firebaseUser.uid ? friendDoc.receiver_name : friendDoc.sender_name) || "Friend";
+                        const displayPic = liveProfile?.profile_picture_url || liveProfile?.photo_url;
+                        const streak = friendDoc.streak_count || friendStreaks[friendUid] || 0;
+
+                        // Multi-cross blocking checks
+                        const blockedByUs = blockedUids.includes(friendUid);
+                        const blockedByThem = liveProfile?.blocked_uids?.includes(firebaseUser.uid);
+                        const isMutuallyBlocked = blockedByUs && blockedByThem;
+                        const isBlocked = blockedByUs || blockedByThem;
+
+                        return (
+                          <div 
+                            key={friendDoc.id}
+                            className={cn(
+                              "p-3 rounded-2xl border transition-all flex items-center justify-between gap-3",
+                              isBlocked 
+                                ? "bg-zinc-50/50 dark:bg-zinc-950/30 border-red-200/40 dark:border-red-900/10 opacity-70" 
+                                : "bg-white dark:bg-zinc-850 border-zinc-100 dark:border-zinc-800/80 hover:border-zinc-200 dark:hover:border-zinc-700 shadow-sm"
+                            )}
+                          >
+                            <div className="flex items-center gap-3">
+                              {/* Beautiful high-energy circular badge avatar */}
+                              <div className="relative">
+                                {isBlocked ? (
+                                  <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-850 flex items-center justify-center text-zinc-500 overflow-hidden shrink-0 border border-red-500/20">
+                                    <ShieldAlert size={18} className="text-red-500" />
+                                  </div>
+                                ) : displayPic ? (
+                                  <img 
+                                    src={displayPic} 
+                                    alt={displayName} 
+                                    className="w-10 h-10 rounded-full object-cover border border-zinc-150 dark:border-zinc-700 shadow-sm"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
+                                    {displayName.charAt(0)}
+                                  </div>
+                                )}
+                                
+                                {/* Pulsing streak/live indicator */}
+                                {!isBlocked && (
+                                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-zinc-900 rounded-full animate-pulse" />
+                                )}
+                              </div>
+
+                              <div className="min-w-0">
+                                <h5 className={cn(
+                                  "text-xs font-black leading-tight flex items-center gap-1.5 truncate",
+                                  isBlocked ? "text-zinc-400 line-through" : "text-zinc-900 dark:text-zinc-100"
+                                )}>
+                                  <span className="truncate max-w-[120px]">{displayName}</span>
+                                  {!isBlocked && streak > 0 && (
+                                    <span className="text-[10px] font-extrabold text-orange-500 shrink-0">🔥 {streak}</span>
+                                  )}
+                                </h5>
+                                <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1">
+                                  {isMutuallyBlocked 
+                                    ? "Mutually Locked 🛑" 
+                                    : blockedByUs 
+                                      ? "Blocked by you" 
+                                      : blockedByThem 
+                                        ? "Restricted connection" 
+                                        : "Active Sync"}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Easy-to-use Block/Unblock toggle button */}
+                            <button
+                              onClick={() => handleToggleBlockFriend(friendUid, blockedByUs)}
+                              className={cn(
+                                "px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-widest rounded-xl transition-all cursor-pointer",
+                                blockedByUs 
+                                  ? "bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white"
+                                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20"
+                              )}
+                              title={blockedByUs ? "Unblock Crew Member" : "Block Crew Member"}
+                            >
+                              {blockedByUs ? "Blocked" : "Block"}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Empty background space warning */}
+              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 text-center">
+                <p className="text-[9px] text-zinc-400 leading-normal">
+                  Blocking instantly restricts profile card updates, sync feeds and gift suggestions between devices.
+                </p>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
