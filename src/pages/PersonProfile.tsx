@@ -46,6 +46,7 @@ export default function PersonProfile() {
     streakCount, 
     lastInteractionDate 
   } = useDynamicFriend(originalPerson, firebaseUser?.uid);
+  
   const [loading, setLoading] = React.useState(true);
   const [expandedYear, setExpandedYear] = React.useState<number | null>(new Date().getFullYear());
   const [aiMessage, setAiMessage] = React.useState<any>(null);
@@ -67,11 +68,13 @@ export default function PersonProfile() {
   const [resolvedId, setResolvedId] = React.useState<string | null>(null);
   const [isCrossBlocked, setIsCrossBlocked] = React.useState(false);
 
+  // Unified data container to prevent race condition flashes when hook computes friendship array overlays
+  const displayPerson = person || originalPerson;
+
   React.useEffect(() => {
     if (friendshipStatus === 'accepted' && friendRequestDocId) {
       const todayStr = new Date().toISOString().split('T')[0];
       if (!lastInteractionDate || lastInteractionDate !== todayStr) {
-        // Increment streak_count on viewing the profile!
         const reqRef = doc(db, 'friend_requests', friendRequestDocId);
         updateDoc(reqRef, {
           streak_count: increment(1),
@@ -82,15 +85,15 @@ export default function PersonProfile() {
   }, [friendshipStatus, friendRequestDocId, lastInteractionDate]);
 
   const handleCreateSharedHypeRoom = async () => {
-    if (!firebaseUser || !person || !person.host_uid) return;
+    if (!firebaseUser || !displayPerson || !displayPerson.host_uid) return;
     try {
       const roomsRef = collection(db, 'rooms');
       const docRef = await addDoc(roomsRef, {
         room_type: 'hype',
-        name: `Hype Lounge 🔥 with ${person.name}`,
-        person_name: person.name,
+        name: `Hype Lounge 🔥 with ${displayPerson.name}`,
+        person_name: displayPerson.name,
         created_by: firebaseUser.uid,
-        members: [firebaseUser.uid, person.host_uid],
+        members: [firebaseUser.uid, displayPerson.host_uid],
         created_at: serverTimestamp()
       });
       navigate(`/groups/${docRef.id}`);
@@ -127,7 +130,7 @@ export default function PersonProfile() {
     try {
       const personRef = doc(db, 'people', targetId);
       await setDoc(personRef, editData, { merge: true });
-      setPerson({ ...person, ...editData });
+      setPerson({ ...displayPerson, ...editData });
       setShowEditModal(false);
     } catch (err) {
       console.error(err);
@@ -206,7 +209,6 @@ export default function PersonProfile() {
     if (!targetId || !memoryId) return;
     if (!window.confirm('Are you sure you want to delete this memory?')) return;
     try {
-      // Delete from both "people" and "contacts" subcollections for ultimate safety and test conformance
       await deleteDoc(doc(db, 'people', targetId, 'memories', memoryId));
       await deleteDoc(doc(db, 'contacts', targetId, 'memories', memoryId));
 
@@ -232,7 +234,6 @@ export default function PersonProfile() {
         created_at: serverTimestamp()
       });
 
-      // Increment friendship score of the person by 15 points
       const personRef = doc(db, 'people', targetId);
       await updateDoc(personRef, {
         friendshipScore: increment(15)
@@ -262,12 +263,13 @@ export default function PersonProfile() {
     try {
       const personRef = doc(db, 'people', targetId);
       await setDoc(personRef, { reminder_settings: settings }, { merge: true });
-      setPerson({ ...person, reminder_settings: settings });
+      setPerson({ ...displayPerson, reminder_settings: settings });
     } catch (err) {
       console.error(err);
     }
   };
 
+  // FIXED: Multi-Collection Cross-Query Handle Engine Pipeline Lookup
   React.useEffect(() => {
     const fetchPerson = async () => {
       if (!id || !firebaseUser) return;
@@ -280,13 +282,44 @@ export default function PersonProfile() {
         if (personSnap.exists()) {
           data = { id: personSnap.id, ...personSnap.data() };
         } else {
-          // fallback query check searching the 'people' collection
-          const q = query(collection(db, 'people'), where('handle', '==', id));
-          const querySnapshot = await getDocs(q);
-          if (!querySnapshot.empty) {
-            const docSnap = querySnapshot.docs[0];
-            trueId = docSnap.id;
-            data = { id: docSnap.id, ...docSnap.data() };
+          // 1. Resolve handle string value by pointing query pipeline directly to 'users' collection
+          const userQ = query(collection(db, 'users'), where('handle', '==', id));
+          const userQuerySnap = await getDocs(userQ);
+          
+          if (!userQuerySnap.empty) {
+            const userDocData = userQuerySnap.docs[0].data();
+            const targetUid = userQuerySnap.docs[0].id;
+            
+            // 2. Locate matching contact card configuration assigned to logged-in user inside 'people' collection
+            const peopleQ = query(
+              collection(db, 'people'), 
+              where('user_id', '==', firebaseUser.uid), 
+              where('host_uid', '==', targetUid)
+            );
+            const peopleQuerySnap = await getDocs(peopleQ);
+            
+            if (!peopleQuerySnap.empty) {
+              const docSnap = peopleQuerySnap.docs[0];
+              trueId = docSnap.id;
+              data = { id: docSnap.id, ...docSnap.data() };
+            } else {
+              // 3. Synthesize view model on the fly from user record to ensure public card link lookup resolves for non-contacts
+              trueId = targetUid;
+              data = {
+                id: targetUid,
+                name: userDocData.name || id,
+                nickname: userDocData.nickname || '',
+                birthday: userDocData.birthday || '2000-01-01',
+                category: 'User',
+                host_uid: targetUid,
+                photo_url: userDocData.photo_url || '',
+                fav_sports_teams: userDocData.fav_sports_teams || '',
+                fav_artists: userDocData.fav_artists || '',
+                anything_extra: userDocData.anything_extra || '',
+                interests: userDocData.interests || '',
+                notes: userDocData.notes || ''
+              };
+            }
           }
         }
 
@@ -297,7 +330,7 @@ export default function PersonProfile() {
 
         setResolvedId(trueId);
 
-        // Mutual cross-blocking verification
+        // Mutual Cross-Blocking Security Interceptor
         let crossBlocked = false;
         if (data.host_uid && firebaseUser.uid) {
           const hostUserRef = doc(db, 'users', data.host_uid);
@@ -312,22 +345,19 @@ export default function PersonProfile() {
         }
         setIsCrossBlocked(crossBlocked);
 
-        // Fetch tasks
+        // Fetch sub-collections mapping using target unique key variables
         const tasksRef = collection(db, 'people', trueId, 'tasks');
         const tasksSnap = await getDocs(tasksRef);
         const tasks = tasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Fetch memories
         const memoriesRef = collection(db, 'people', trueId, 'memories');
         const memoriesSnap = await getDocs(memoriesRef);
         const memories = memoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Fetch gifts
         const giftsRef = collection(db, 'people', trueId, 'gifts');
         const giftsSnap = await getDocs(giftsRef);
         const gifts = giftsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Fetch reflections
         const reflectionsRef = collection(db, 'people', trueId, 'reflections');
         const reflectionsSnap = await getDocs(reflectionsRef);
         const currentYear = new Date().getFullYear();
@@ -343,7 +373,7 @@ export default function PersonProfile() {
         const fullData = { ...data, tasks, memories, gifts };
         setPerson(fullData);
 
-        // Ensure "Card Message" task exists with correct due date
+        // Standard dynamic background task validation rule checking logic
         const today = new Date();
         const bday = new Date(data.birthday);
         let nextBday = new Date(today.getFullYear(), bday.getMonth(), bday.getDate());
@@ -383,13 +413,12 @@ export default function PersonProfile() {
 
   const handleGenerateMessage = async () => {
     setIsGenerating(true);
-    
     const message = await generateBirthdayMessage({
-      name: person.name,
-      age: (person.birthday && !person.birthYearUnknown) ? new Date().getFullYear() - new Date(person.birthday).getFullYear() : 'Unknown',
-      relationship: person.category,
-      interests: person.interests || 'No specific interests mentioned',
-      notes: person.notes || 'No specific notes mentioned',
+      name: displayPerson.name,
+      age: (displayPerson.birthday && !displayPerson.birthYearUnknown) ? new Date().getFullYear() - new Date(displayPerson.birthday).getFullYear() : 'Unknown',
+      relationship: displayPerson.category,
+      interests: displayPerson.interests || 'No specific interests mentioned',
+      notes: displayPerson.notes || 'No specific notes mentioned',
       reflection: existingReflection || ''
     });
     setAiMessage(message);
@@ -426,7 +455,6 @@ export default function PersonProfile() {
         lastWishedDate: new Date().toISOString()
       }));
       
-      // Log it as a memory
       const memoriesRef = collection(db, 'people', targetId, 'memories');
       await addDoc(memoriesRef, {
         year: new Date().getFullYear(),
@@ -435,8 +463,7 @@ export default function PersonProfile() {
         created_at: serverTimestamp()
       });
 
-      // Mark card task as done if it exists
-      const cardTask = person.tasks?.find((t: any) => t.title === 'Card Message');
+      const cardTask = displayPerson.tasks?.find((t: any) => t.title === 'Card Message');
       if (cardTask && !cardTask.completed) {
         await toggleTask(cardTask.id, false);
       }
@@ -449,14 +476,12 @@ export default function PersonProfile() {
   };
 
   const handleDeletePerson = async (targetId: string) => {
-    if (!targetId || !person) return;
-    if (!window.confirm(`Are you sure you want to delete ${person.name}?`)) return;
+    if (!targetId || !displayPerson) return;
+    if (!window.confirm(`Are you sure you want to delete ${displayPerson.name}?`)) return;
     try {
-      // Modular Firebase Web v10 delete syntax targeting both people and contacts
       await deleteDoc(doc(db, 'people', targetId));
       await deleteDoc(doc(db, 'contacts', targetId));
-
-      alert(`${person.name} has been removed from your contacts.`);
+      alert(`${displayPerson.name} has been removed from your contacts.`);
       navigate('/');
     } catch (err) {
       console.error("Error deleting person:", err);
@@ -465,7 +490,6 @@ export default function PersonProfile() {
   };
 
   const [copied, setCopied] = React.useState<string | null>(null);
-
   const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
     setCopied(key);
@@ -473,7 +497,7 @@ export default function PersonProfile() {
   };
 
   const currentUserData = user;
-  const targetUserId = person?.host_uid;
+  const targetUserId = displayPerson?.host_uid;
   const isBlocked = !!(targetUserId && currentUserData?.blocked_uids?.includes(targetUserId));
 
   if (isPermissionBlocked) {
@@ -504,23 +528,24 @@ export default function PersonProfile() {
     );
   }
 
+  // Soft block layouts redirect cleanly with 0 markup flashes
   if (isBlocked || isCrossBlocked) {
     return null;
   }
 
   if (loading) return <LoadingScreen />;
-  if (!person) return <div>Not found</div>;
+  if (!displayPerson) return <div>Not found</div>;
 
-  const daysUntil = getDaysUntil(person.birthday);
-  const isMissed = daysUntil > 350; // Roughly, if it was in the last 15 days
+  const daysUntil = getDaysUntil(displayPerson.birthday);
+  const isMissed = daysUntil > 350;
   const daysLate = 365 - daysUntil;
-  const score = getConnectionScore(person);
+  const score = getConnectionScore(displayPerson);
 
   const handleRecovery = async () => {
     setIsRecovering(true);
     const plan = await generateRecoveryPlan({
       daysLate,
-      relationship: person.category
+      relationship: displayPerson.category
     });
     setRecoveryPlan(plan);
     setIsRecovering(false);
@@ -537,19 +562,19 @@ export default function PersonProfile() {
           <div className="flex items-center gap-2">
             <span className="label-micro mb-0">Profile</span>
             <div className="w-1 h-1 bg-zinc-300 rounded-full" />
-            <span className="text-xs font-bold text-zinc-400">{person.category}</span>
+            <span className="text-xs font-bold text-zinc-400">{displayPerson.category}</span>
           </div>
           <button 
             onClick={() => {
               setEditData({
-                name: person.name,
-                nickname: person.nickname,
-                birthday: person.birthday,
-                category: person.category,
-                importance: person.importance,
-                notes: person.notes,
-                interests: person.interests,
-                photo_url: person.photo_url
+                name: displayPerson.name,
+                nickname: displayPerson.nickname,
+                birthday: displayPerson.birthday,
+                category: displayPerson.category,
+                importance: displayPerson.importance,
+                notes: displayPerson.notes,
+                interests: displayPerson.interests,
+                photo_url: displayPerson.photo_url
               });
               setShowEditModal(true);
             }} 
@@ -565,15 +590,15 @@ export default function PersonProfile() {
             animate={{ scale: 1, opacity: 1 }}
             className="w-28 h-28 rounded-[2rem] bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-4xl font-black shadow-2xl shadow-zinc-900/10 dark:shadow-white/5 overflow-hidden border-4 border-white dark:border-zinc-900"
           >
-            {person.photo_url ? (
-              <img src={person.photo_url} alt={person.name} className="w-full h-full object-cover" />
+            {displayPerson.photo_url ? (
+              <img src={displayPerson.photo_url} alt={displayPerson.name} className="w-full h-full object-cover" />
             ) : (
-              <span className="serif-italic">{person.name[0]}</span>
+              <span className="serif-italic">{displayPerson.name ? displayPerson.name[0] : 'U'}</span>
             )}
           </motion.div>
           <div className="space-y-1">
             <div className="flex items-center justify-center gap-2">
-              <h1 className="text-3xl font-black tracking-tight">{person?.name}</h1>
+              <h1 className="text-3xl font-black tracking-tight">{displayPerson?.name}</h1>
               {streakCount > 0 && (
                 <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-orange-100 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 rounded-full text-[11px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-850/50">
                   🔥 {streakCount}
@@ -581,11 +606,10 @@ export default function PersonProfile() {
               )}
             </div>
             <p className="text-zinc-500 font-medium serif-italic text-lg">
-              {person?.nickname || person?.category} • {person?.birthYearUnknown ? "🎂" : `Turning ${getTurningAge(person?.birthday || '2000-01-01')}`}
+              {displayPerson?.nickname || displayPerson?.category} • {displayPerson?.birthYearUnknown ? "🎂" : `Turning ${getTurningAge(displayPerson?.birthday || '2000-01-01')}`}
             </p>
           </div>
 
-          {/* If fully connected/accepted, display their real-time public vibe details */}
           {friendshipStatus === 'accepted' && (
             <div className="w-full max-w-sm mt-4 p-5 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-[28px] border border-emerald-500/15 text-left space-y-4 shadow-xl shadow-emerald-500/5">
               <div className="flex items-center gap-2">
@@ -593,28 +617,27 @@ export default function PersonProfile() {
                 <span className="text-[10px] uppercase font-black tracking-wider text-emerald-600 dark:text-emerald-400">Synced Vibe Card</span>
               </div>
               
-              {person?.fav_sports_teams && (
+              {displayPerson?.fav_sports_teams && (
                 <div className="space-y-0.5">
                   <p className="text-[10px] text-zinc-400 uppercase font-bold">Favorite Sports Teams</p>
-                  <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{person.fav_sports_teams}</p>
+                  <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{displayPerson.fav_sports_teams}</p>
                 </div>
               )}
 
-              {person?.fav_artists && (
+              {displayPerson?.fav_artists && (
                 <div className="space-y-0.5">
                   <p className="text-[10px] text-zinc-400 uppercase font-bold">Favorite Artists</p>
-                  <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{person.fav_artists}</p>
+                  <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{displayPerson.fav_artists}</p>
                 </div>
               )}
 
-              {person?.anything_extra && (
+              {displayPerson?.anything_extra && (
                 <div className="space-y-0.5">
                   <p className="text-[10px] text-zinc-400 uppercase font-bold">Anything Extra</p>
-                  <p className="text-xs text-zinc-650 dark:text-zinc-300 leading-relaxed font-semibold">{person.anything_extra}</p>
+                  <p className="text-xs text-zinc-650 dark:text-zinc-300 leading-relaxed font-semibold">{displayPerson.anything_extra}</p>
                 </div>
               )}
 
-              {/* Action dashboard panel button */}
               <button 
                 onClick={handleCreateSharedHypeRoom}
                 className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-500/15 cursor-pointer mt-1"
@@ -744,7 +767,7 @@ export default function PersonProfile() {
 
             {/* Quick Actions */}
             <div className="grid grid-cols-1 gap-4">
-              {daysUntil === 0 && person.lastWishedYear !== new Date().getFullYear() && (
+              {daysUntil === 0 && displayPerson.lastWishedYear !== new Date().getFullYear() && (
                 <motion.button
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -759,28 +782,28 @@ export default function PersonProfile() {
               <div className="grid grid-cols-2 gap-4">
                 <button 
                   onClick={handleGenerateMessage}
-                disabled={isGenerating}
-                className="flex items-center justify-center gap-2 p-4 bg-zinc-900 text-white rounded-2xl font-bold shadow-lg hover:scale-[1.02] transition-transform disabled:opacity-50 relative overflow-hidden group"
-              >
-                {isGenerating && (
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent"
-                    animate={{ x: ['-100%', '100%'] }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                  />
-                )}
-                <Sparkles size={18} className={cn(isGenerating && "animate-pulse text-emerald-400")} />
-                <span className="relative z-10">{isGenerating ? 'Writing...' : 'AI Message'}</span>
-              </button>
-              <Link 
-                to={`/rooms/create?personId=${person.id}`}
-                className="flex items-center justify-center gap-2 p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl font-bold shadow-sm hover:scale-[1.02] transition-transform"
-              >
-                <Zap size={18} className="text-amber-500" />
-                Plan Group
-              </Link>
+                  disabled={isGenerating}
+                  className="flex items-center justify-center gap-2 p-4 bg-zinc-900 text-white rounded-2xl font-bold shadow-lg hover:scale-[1.02] transition-transform disabled:opacity-50 relative overflow-hidden group"
+                >
+                  {isGenerating && (
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent"
+                      animate={{ x: ['-100%', '100%'] }}
+                      transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                    />
+                  )}
+                  <Sparkles size={18} className={cn(isGenerating && "animate-pulse text-emerald-400")} />
+                  <span className="relative z-10">{isGenerating ? 'Writing...' : 'AI Message'}</span>
+                </button>
+                <Link 
+                  to={`/rooms/create?personId=${displayPerson.id}`}
+                  className="flex items-center justify-center gap-2 p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl font-bold shadow-sm hover:scale-[1.02] transition-transform"
+                >
+                  <Zap size={18} className="text-amber-500" />
+                  Plan Group
+                </Link>
+              </div>
             </div>
-          </div>
 
             {/* AI Message Result */}
             <AnimatePresence>
@@ -798,32 +821,32 @@ export default function PersonProfile() {
                     </h3>
                     <button onClick={() => setAiMessage(null)} className="label-micro mb-0 text-emerald-600 hover:underline">Clear</button>
                   </div>
-                    <div className="space-y-6">
-                      <div className="space-y-2 group relative">
-                        <div className="flex justify-between items-center">
-                          <p className="label-micro">Short Text</p>
-                          <button 
-                            onClick={() => copyToClipboard(aiMessage.shortText, 'short')}
-                            className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded transition-colors"
-                          >
-                            {copied === 'short' ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} className="text-emerald-600" />}
-                          </button>
-                        </div>
-                        <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">"{aiMessage.shortText}"</p>
+                  <div className="space-y-6">
+                    <div className="space-y-2 group relative">
+                      <div className="flex justify-between items-center">
+                        <p className="label-micro">Short Text</p>
+                        <button 
+                          onClick={() => copyToClipboard(aiMessage.shortText, 'short')}
+                          className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded transition-colors"
+                        >
+                          {copied === 'short' ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} className="text-emerald-600" />}
+                        </button>
                       </div>
-                      <div className="space-y-2 group relative">
-                        <div className="flex justify-between items-center">
-                          <p className="label-micro">Card Message</p>
-                          <button 
-                            onClick={() => copyToClipboard(aiMessage.cardMessage, 'card')}
-                            className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded transition-colors"
-                          >
-                            {copied === 'card' ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} className="text-emerald-600" />}
-                          </button>
-                        </div>
-                        <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">"{aiMessage.cardMessage}"</p>
-                      </div>
+                      <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">"{aiMessage.shortText}"</p>
                     </div>
+                    <div className="space-y-2 group relative">
+                      <div className="flex justify-between items-center">
+                        <p className="label-micro">Card Message</p>
+                        <button 
+                          onClick={() => copyToClipboard(aiMessage.cardMessage, 'card')}
+                          className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded transition-colors"
+                        >
+                          {copied === 'card' ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} className="text-emerald-600" />}
+                        </button>
+                      </div>
+                      <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">"{aiMessage.cardMessage}"</p>
+                    </div>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -836,7 +859,7 @@ export default function PersonProfile() {
               Log a Memory
             </button>
 
-            {/* Planning Checklist (Project Manager) */}
+            {/* Planning Checklist */}
             <section className="space-y-4">
               <div className="flex justify-between items-center px-1">
                 <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
@@ -847,7 +870,7 @@ export default function PersonProfile() {
               </div>
               <div className="card-premium p-2 space-y-1">
                 {['Gift Decision', 'Card Message', 'Celebration Prep'].map((defaultTask) => {
-                  const task = person.tasks?.find((t: any) => t.title === defaultTask);
+                  const task = displayPerson.tasks?.find((t: any) => t.title === defaultTask);
                   return (
                     <motion.button
                       key={defaultTask}
@@ -886,14 +909,14 @@ export default function PersonProfile() {
               </div>
               <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 p-6 space-y-4">
                 <p className="text-xs text-zinc-500 leading-relaxed">
-                  Select when you'd like to be notified about {person.name.split(' ')[0]}'s birthday. These settings are saved specifically for this profile.
+                  Select when you'd like to be notified about {displayPerson.name.split(' ')[0]}'s birthday. These settings are saved specifically for this profile.
                 </p>
                 <div className="grid grid-cols-1 gap-2">
-                  {Object.entries(person.reminder_settings || {}).map(([key, val]) => (
+                  {Object.entries(displayPerson.reminder_settings || {}).map(([key, val]) => (
                     <button
                       key={key}
                       onClick={() => {
-                        const settings = { ...(person.reminder_settings || {}) };
+                        const settings = { ...(displayPerson.reminder_settings || {}) };
                         settings[key] = !val;
                         updateReminders(settings);
                       }}
@@ -983,8 +1006,8 @@ export default function PersonProfile() {
                           exit={{ height: 0 }}
                           className="px-4 pb-4 space-y-3"
                         >
-                          {person.memories?.filter((m: any) => m.year === year).length > 0 ? (
-                            person.memories.filter((m: any) => m.year === year).map((memory: any) => (
+                          {displayPerson.memories?.filter((m: any) => m.year === year).length > 0 ? (
+                            displayPerson.memories.filter((m: any) => m.year === year).map((memory: any) => (
                               <div key={memory.id} className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl flex gap-3 group/memory">
                                 <div className="mt-1">
                                   {memory.type === 'gift' && <Gift size={16} className="text-emerald-500" />}
@@ -1027,7 +1050,7 @@ export default function PersonProfile() {
                 </div>
               ) : (
                 <>
-                  <p className="text-sm text-zinc-400">What's one thing that changed about {person.name.split(' ')[0]} this year?</p>
+                  <p className="text-sm text-zinc-400">What's one thing that changed about {displayPerson.name.split(' ')[0]} this year?</p>
                   <form onSubmit={handleSaveReflection} className="space-y-4">
                     <textarea 
                       className="w-full bg-zinc-800 border-none rounded-xl p-3 text-sm focus:ring-1 focus:ring-emerald-500 text-white placeholder-zinc-500 focus:outline-none"
@@ -1115,8 +1138,8 @@ export default function PersonProfile() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <p className="label-micro text-zinc-400">Wishlist & Ideas</p>
-                {person.gifts?.filter((g: any) => g.status === 'idea').length > 0 ? (
-                  person.gifts.filter((g: any) => g.status === 'idea').map((gift: any) => (
+                {displayPerson.gifts?.filter((g: any) => g.status === 'idea').length > 0 ? (
+                  displayPerson.gifts.filter((g: any) => g.status === 'idea').map((gift: any) => (
                     <div key={gift.id} className="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex justify-between items-center shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-lg">
@@ -1129,7 +1152,7 @@ export default function PersonProfile() {
                       </div>
                       <button 
                         onClick={async () => {
-                          const giftRef = doc(db, 'people', id!, 'gifts', gift.id);
+                          const giftRef = doc(db, 'people', resolvedId || id!, 'gifts', gift.id);
                           await setDoc(giftRef, { status: 'given', date: new Date().toISOString() }, { merge: true });
                           setPerson((prev: any) => ({
                             ...prev,
@@ -1151,8 +1174,8 @@ export default function PersonProfile() {
 
               <div className="space-y-2">
                 <p className="label-micro text-zinc-400">Gift History</p>
-                {person.gifts?.filter((g: any) => g.status === 'given').length > 0 ? (
-                  person.gifts.filter((g: any) => g.status === 'given').map((gift: any) => (
+                {displayPerson.gifts?.filter((g: any) => g.status === 'given').length > 0 ? (
+                  displayPerson.gifts.filter((g: any) => g.status === 'given').map((gift: any) => (
                     <div key={gift.id} className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-transparent flex justify-between items-center opacity-70">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-zinc-200 dark:bg-zinc-700 text-zinc-500 rounded-lg">
@@ -1181,31 +1204,31 @@ export default function PersonProfile() {
             className="space-y-6"
           >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-black tracking-tight font-sans text-gray-900">Bio & Favorites</h2>
+              <h2 className="text-xl font-black tracking-tight font-sans text-gray-900 dark:text-white">Bio & Favorites</h2>
             </div>
             
             <div className="grid grid-cols-1 gap-6">
               {/* Weekend Escape Strategy */}
-              <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-2">
+              <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 space-y-2">
                 <h3 className="text-xs font-bold uppercase text-zinc-400 tracking-wider">Weekend Escape Strategy</h3>
                 <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                  {person.weekend_activity || "No weekend strategy set yet."}
+                  {displayPerson.weekend_activity || "No weekend strategy set yet."}
                 </p>
               </div>
 
               {/* Core Interests & Hobbies */}
-              <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-2">
+              <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 space-y-2">
                 <h3 className="text-xs font-bold uppercase text-zinc-400 tracking-wider">Core Interests & Hobbies</h3>
                 <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                  {person.interests || "No core interests mentioned yet."}
+                  {displayPerson.interests || "No core interests mentioned yet."}
                 </p>
               </div>
 
               {/* Rich AI Profile Notebook */}
-              <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-2">
+              <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 space-y-2">
                 <h3 className="text-xs font-bold uppercase text-zinc-400 tracking-wider">Rich AI Profile Notebook</h3>
                 <p className="text-sm font-semibold text-zinc-750 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                  {person.ai_notes || person.notes || "No profile notebook notes yet."}
+                  {displayPerson.ai_notes || displayPerson.notes || "No profile notebook notes yet."}
                 </p>
               </div>
             </div>
@@ -1217,9 +1240,9 @@ export default function PersonProfile() {
                 Historical Interactions
               </h3>
               <div className="space-y-3">
-                {person.memories && person.memories.length > 0 ? (
-                  person.memories.map((memory: any) => (
-                    <div key={memory.id} className="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex gap-3">
+                {displayPerson.memories && displayPerson.memories.length > 0 ? (
+                  displayPerson.memories.map((memory: any) => (
+                    <div key={memory.id} className="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-150 dark:border-zinc-800 flex gap-3">
                       <div className="mt-1">
                         {memory.type === 'gift' && <Gift size={16} className="text-emerald-500" />}
                         {memory.type === 'joke' && <Smile size={16} className="text-amber-500" />}
@@ -1343,7 +1366,7 @@ export default function PersonProfile() {
                 <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-4">
                   <button
                     type="button"
-                    onClick={() => handleDeletePerson(person?.id || id || '')}
+                    onClick={() => handleDeletePerson(displayPerson?.id || resolvedId || id || '')}
                     className="w-full py-4 bg-red-50 text-red-600 dark:bg-red-950/20 dark:text-red-400 rounded-2xl font-bold text-sm hover:bg-red-100 dark:hover:bg-red-950/40 transition-colors flex items-center justify-center gap-2"
                   >
                     <Trash2 size={16} />
