@@ -49,9 +49,23 @@ export default function PublicProfileCollector() {
       try {
         const usersRef = collection(db, 'users');
         
-        // Exact lowercase matches for handle or custom_handle
-        const q1 = query(usersRef, where('handle', '==', username.toLowerCase()));
-        const q2 = query(usersRef, where('custom_handle', '==', username.toLowerCase()));
+        // Strip leading '@' if it exists in the URL param to normalize testing variations
+        const cleanHandle = username.startsWith('@') ? username.slice(1) : username;
+        
+        // Generate flexible variations to bypass strict case sensitivity matches completely
+        const variations = Array.from(new Set([
+          cleanHandle,
+          cleanHandle.toLowerCase(),
+          cleanHandle.toUpperCase(),
+          cleanHandle.charAt(0).toUpperCase() + cleanHandle.slice(1).toLowerCase(),
+          `@${cleanHandle}`,
+          `@${cleanHandle.toLowerCase()}`
+        ]));
+        
+        // Execute optimized multi-case lookup matrices
+        const q1 = query(usersRef, where('handle', 'in', variations));
+        const q2 = query(usersRef, where('custom_handle', 'in', variations));
+        
         const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
         const matchedDoc = snap1.docs[0] || snap2.docs[0];
 
@@ -80,7 +94,7 @@ export default function PublicProfileCollector() {
     };
 
     fetchHostUser();
-  }, [username]);
+  }, [username, firebaseUser]);
 
   // Handler to add host birthday & save social activity
   const handleGrabData = async () => {
@@ -352,7 +366,7 @@ export default function PublicProfileCollector() {
           </div>
           <div className="space-y-3">
             <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">This Profile is Private 🔒</h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
+            <p className="text-xs text-zinc-500 dark:text-zinc-405 font-semibold leading-relaxed">
               {hostUser.name}'s workspace is configured for maximum confidentiality. Direct public invitations are disabled.
             </p>
           </div>
@@ -374,7 +388,6 @@ export default function PublicProfileCollector() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md space-y-6"
       >
-        {/* Modern high-energy circular badge avatar representation */}
         <div className="flex flex-col items-center text-center space-y-3">
           <div className="relative">
             <div className="w-24 h-24 rounded-full overflow-hidden border-[4px] border-emerald-500 shadow-xl shadow-emerald-500/10 bg-white dark:bg-zinc-900 relative z-10">
@@ -437,8 +450,8 @@ export default function PublicProfileCollector() {
 
             {hostUser.fav_artists && (
               <div className="space-y-1">
-                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">🎵 Currently Jaming</span>
-                <p className="text-xs text-zinc-700 dark:text-zinc-305 font-bold">
+                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">🎵 Currently Jamming</span>
+                <p className="text-xs text-zinc-700 dark:text-zinc-300 font-bold">
                   {hostUser.fav_artists}
                 </p>
               </div>
@@ -456,7 +469,7 @@ export default function PublicProfileCollector() {
             {hostUser.anything_extra && (
               <div className="space-y-1">
                 <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">✨ Anything Extra</span>
-                <p className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-xs text-zinc-650 dark:text-zinc-350 font-semibold leading-relaxed">
+                <p className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-xs text-zinc-650 dark:text-zinc-300 font-semibold leading-relaxed">
                   {hostUser.anything_extra}
                 </p>
               </div>
@@ -489,9 +502,7 @@ export default function PublicProfileCollector() {
                 <Check size={14} strokeWidth={3} /> Saved to Your Personal Birthday List!
               </div>
 
-              {/* POST-COPY SPLIT ACTION CHOICE LAYOUT */}
               <div className="grid grid-cols-2 gap-3">
-                {/* Left Card: Send Friend Request */}
                 <button
                   type="button"
                   disabled={friendRequestSent || isSendingRequest}
@@ -499,7 +510,7 @@ export default function PublicProfileCollector() {
                   className={`p-4 rounded-2xl border text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer ${
                     friendRequestSent 
                       ? 'border-emerald-500 bg-emerald-500/5 text-emerald-600' 
-                      : 'border-zinc-200 dark:border-zinc-800 hover:border-emerald-500 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-350 shadow-sm'
+                      : 'border-zinc-200 dark:border-zinc-800 hover:border-emerald-500 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 shadow-sm'
                   }`}
                 >
                   <span className="text-[11px] font-black uppercase tracking-wider">
@@ -510,7 +521,6 @@ export default function PublicProfileCollector() {
                   </span>
                 </button>
 
-                {/* Right Card: Done */}
                 <button
                   type="button"
                   onClick={() => navigate('/')}
