@@ -24,6 +24,7 @@ export default function PublicProfileCollector() {
   const [friendRequestSent, setFriendRequestSent] = React.useState(false);
   const [isSendingRequest, setIsSendingRequest] = React.useState(false);
   const [alreadyInOrbit, setAlreadyInOrbit] = React.useState(false);
+  const [friendRequestRelationship, setFriendRequestRelationship] = React.useState<string | null>(null);
 
   // Pre-flight duplicate orbital check
   React.useEffect(() => {
@@ -51,6 +52,32 @@ export default function PublicProfileCollector() {
     };
     checkOrbit();
   }, [firebaseUser, hostUser]);
+
+  // Pre-flight duplicate friend request check
+  React.useEffect(() => {
+    const checkFriendRequest = async () => {
+      if (!firebaseUser || !hostUser) {
+        setFriendRequestRelationship(null);
+        return;
+      }
+      try {
+        const frCollection = collection(db, 'friend_requests');
+        const q1 = query(frCollection, where('sender_uid', '==', firebaseUser.uid), where('receiver_uid', '==', hostUser.id));
+        const q2 = query(frCollection, where('sender_uid', '==', hostUser.id), where('receiver_uid', '==', firebaseUser.uid));
+        
+        const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+        const reqDoc = snap1.docs[0] || snap2.docs[0];
+        if (reqDoc) {
+          setFriendRequestRelationship(reqDoc.data().status || null);
+        } else {
+          setFriendRequestRelationship(null);
+        }
+      } catch (err) {
+        console.error("Error checking pre-flight friend request duplicate:", err);
+      }
+    };
+    checkFriendRequest();
+  }, [firebaseUser, hostUser, friendRequestSent]);
 
   // Month labels helper
   const getMonthLabel = (m: number) => {
@@ -143,7 +170,7 @@ export default function PublicProfileCollector() {
       const formattedDay = String(hostUser.birthday_day).padStart(2, '0');
       const bDayStr = `2000-${formattedMonth}-${formattedDay}`;
 
-      const compiledNotes = `Favorite Sports Teams: ${hostUser.fav_sports_teams || ''}\nFavorite Artists: ${hostUser.fav_artists || ''}\nWeekend Activities: ${hostUser.weekend_activities || ''}\nExtra Notes: ${hostUser.anything_extra || ''}`;
+      const compiledNotes = `Favorite Sports Teams: ${hostUser.fav_sports_teams || ''}\nFavorite Artists: ${hostUser.fav_artists || ''}\nWeekend Activities: ${hostUser.weekend_activities || ''}\nExtra Details: ${hostUser.anything_extra || ''}`;
 
       await addDoc(peopleRef, {
         name: hostUser.name,
@@ -214,6 +241,7 @@ export default function PublicProfileCollector() {
         receiver_uid: hostUser.id,
         sender_name: user.name || 'A Friend',
         status: 'pending',
+        members: [firebaseUser.uid, hostUser.id],
         timestamp: serverTimestamp()
       });
       setFriendRequestSent(true);
@@ -555,19 +583,38 @@ export default function PublicProfileCollector() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  disabled={friendRequestSent || isSendingRequest}
+                  disabled={
+                    friendRequestSent || 
+                    isSendingRequest || 
+                    friendRequestRelationship === 'pending' || 
+                    friendRequestRelationship === 'accepted'
+                  }
                   onClick={handleSendFriendRequest}
                   className={`p-4 rounded-2xl border text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer ${
-                    friendRequestSent 
-                      ? 'border-emerald-500 bg-emerald-500/5 text-emerald-600' 
-                      : 'border-zinc-200 dark:border-zinc-800 hover:border-emerald-500 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 shadow-sm'
+                    friendRequestRelationship === 'pending' || friendRequestSent
+                      ? 'border-amber-500 bg-amber-500/5 text-amber-600'
+                      : friendRequestRelationship === 'accepted'
+                        ? 'border-emerald-500 bg-emerald-500/5 text-emerald-600'
+                        : 'border-zinc-200 dark:border-zinc-800 hover:border-emerald-500 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 shadow-sm'
                   }`}
                 >
                   <span className="text-[11px] font-black uppercase tracking-wider">
-                    {friendRequestSent ? 'Sent! 🤝' : 'Send Friend Request 🤝'}
+                    {friendRequestRelationship === 'pending'
+                      ? 'Request Pending ⏳'
+                      : friendRequestRelationship === 'accepted'
+                        ? 'Connected 🤝'
+                        : friendRequestSent 
+                          ? 'Sent! 🤝' 
+                          : 'Send Friend Request 🤝'}
                   </span>
                   <span className="text-[9px] text-zinc-400 font-semibold leading-tight">
-                    {friendRequestSent ? 'Outbound request pending' : 'Connect accounts to sync updates'}
+                    {friendRequestRelationship === 'pending'
+                      ? 'Awaiting response'
+                      : friendRequestRelationship === 'accepted'
+                        ? 'Connected'
+                        : friendRequestSent 
+                          ? 'Outbound request pending' 
+                          : 'Connect accounts to sync updates'}
                   </span>
                 </button>
 
