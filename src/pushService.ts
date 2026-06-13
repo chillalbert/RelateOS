@@ -6,7 +6,7 @@
  */
 
 // Your public VAPID key from your push notification provider (e.g. Firebase Cloud Messaging / WebPush)
-const VAPID_PUBLIC_KEY = 'YOUR_VAPID_PUBLIC_KEY_PLACEHOLDER';
+const VAPID_PUBLIC_KEY = 'BCFXI0MEi3CVogRK6TZVK7B0zuqcuwU_K8mBNr7sD1yXkdXHTr-Z_vwDZaYiF4VdhstF4V-I1ncoFdoR4E2IIFA';
 
 /**
  * Service Worker Registration and Push Subscription Bootstrapper
