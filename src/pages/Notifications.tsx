@@ -68,9 +68,13 @@ export default function Notifications() {
       setActivitiesLoading(false);
     });
 
-    // 2. Real-time onSnapshot listener for 'friend_requests' scoped by receiver_uid
+    // 2. Real-time onSnapshot listener for 'friend_requests' scoped by receiver_uid AND pending status
     const frRef = collection(db, 'friend_requests');
-    const qFr = query(frRef, where('receiver_uid', '==', firebaseUser.uid));
+    const qFr = query(
+      frRef,
+      where('receiver_uid', '==', firebaseUser.uid),
+      where('status', '==', 'pending')
+    );
 
     const unsubscribeFriendRequests = onSnapshot(qFr, (querySnapshot) => {
       const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
