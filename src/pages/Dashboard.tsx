@@ -62,7 +62,26 @@ const AnimatedNumber = ({ value }: { value: number }) => {
 export default function Dashboard() {
   const { user, firebaseUser, refreshUser } = useAuth();
   const [people, setPeople] = React.useState<any[]>([]);
-  const blockedUids = React.useMemo(() => user?.blocked_uids || [], [user?.blocked_uids]);
+  const [liveBlockedUids, setLiveBlockedUids] = React.useState<string[]>(user?.blocked_uids || []);
+
+  React.useEffect(() => {
+    if (!firebaseUser) {
+      setLiveBlockedUids([]);
+      return;
+    }
+    const userRef = doc(db, 'users', firebaseUser.uid);
+    const unsub = onSnapshot(userRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setLiveBlockedUids(data?.blocked_uids || []);
+      }
+    }, (err) => {
+      console.error("Error listening to user profile block list:", err);
+    });
+    return () => unsub();
+  }, [firebaseUser]);
+
+  const blockedUids = React.useMemo(() => liveBlockedUids, [liveBlockedUids]);
   const activePeople = React.useMemo(() => {
     return people.filter(p => !p.host_uid || !blockedUids.includes(p.host_uid));
   }, [people, blockedUids]);
