@@ -67,13 +67,35 @@ async function sendSubscriptionToServer(subscription: PushSubscription) {
 /**
  * Utility: Converts VAPID Base64 string to Uint8Array for PushManager subscriptions
  */
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
+function urlBase64ToUint8Array(base64String: string | null | undefined) {
+  if (!base64String) {
+    console.error('VAPID key string is null, empty, or undefined.');
+    return new Uint8Array(0);
   }
-  return outputArray;
+
+  // 1) strip any accidental literal single or double quotes
+  let cleaned = base64String.trim().replace(/^['"]|['"]$/g, '');
+  if (!cleaned) {
+    console.error('VAPID key string is empty after trimming and stripping quotes.');
+    return new Uint8Array(0);
+  }
+
+  // 3) replace URL-safe '-' with '+' and '_' with '/'
+  cleaned = cleaned.replace(/\-/g, '+').replace(/_/g, '/');
+
+  // 2) dynamically recalculate and append missing '=' padding characters based on string length remainder
+  const padding = '='.repeat((4 - (cleaned.length % 4)) % 4);
+  const base64 = cleaned + padding;
+
+  try {
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  } catch (error) {
+    console.error('Failed to execute atob during VAPID conversion. Cleaned string: ' + base64String, error);
+    return new Uint8Array(0);
+  }
 }
