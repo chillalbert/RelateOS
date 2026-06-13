@@ -95,14 +95,14 @@ export default function Groups() {
                   
                   <div className="flex items-center justify-between pt-4 border-t border-zinc-50 dark:border-zinc-800">
                     <div className="flex -space-x-2">
-                      {group.members?.slice(0, 4).map((m: string, idx: number) => (
+                      {((group.members || []) as string[]).filter((m: string) => !(user?.blocked_uids || []).includes(m)).slice(0, 4).map((m: string, idx: number) => (
                         <div key={idx} className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 border-2 border-white dark:border-zinc-900 flex items-center justify-center text-[10px] font-bold">
                           {idx + 1}
                         </div>
                       ))}
-                      {(group.members?.length || 0) > 4 && (
+                      {((group.members || []) as string[]).filter((m: string) => !(user?.blocked_uids || []).includes(m)).length > 4 && (
                         <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 border-2 border-white dark:border-zinc-900 flex items-center justify-center text-[10px] font-bold text-zinc-400">
-                          +{(group.members?.length || 0) - 4}
+                          +{((group.members || []) as string[]).filter((m: string) => !(user?.blocked_uids || []).includes(m)).length - 4}
                         </div>
                       )}
                     </div>
