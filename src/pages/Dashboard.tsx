@@ -62,6 +62,11 @@ const AnimatedNumber = ({ value }: { value: number }) => {
 export default function Dashboard() {
   const { user, firebaseUser, refreshUser } = useAuth();
   const [people, setPeople] = React.useState<any[]>([]);
+  const blockedUids = React.useMemo(() => user?.blocked_uids || [], [user?.blocked_uids]);
+  const activePeople = React.useMemo(() => {
+    return people.filter(p => !p.host_uid || !blockedUids.includes(p.host_uid));
+  }, [people, blockedUids]);
+
   const [analytics, setAnalytics] = React.useState<any>(null);
   const [notifications, setNotifications] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -129,7 +134,7 @@ export default function Dashboard() {
   React.useEffect(() => {
     const activeListeners: (() => void)[] = [];
     
-    people.forEach((p) => {
+    activePeople.forEach((p) => {
       if (p.host_uid) {
         const userRef = doc(db, 'users', p.host_uid);
         const unsub = onSnapshot(userRef, (snap) => {
@@ -154,7 +159,7 @@ export default function Dashboard() {
     return () => {
       activeListeners.forEach((unsub) => unsub());
     };
-  }, [people]);
+  }, [activePeople]);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -306,16 +311,16 @@ export default function Dashboard() {
     }
   };
 
-  const upcoming = [...people]
+  const upcoming = [...activePeople]
     .sort((a, b) => getDaysUntil(a.birthday) - getDaysUntil(b.birthday))
     .slice(0, 5);
 
-  const priorityPeople = [...people]
+  const priorityPeople = [...activePeople]
     .sort((a, b) => b.importance - a.importance)
     .slice(0, 3);
 
   const currentMonth = new Date().getMonth();
-  const birthdaysThisMonth = people.filter(p => {
+  const birthdaysThisMonth = activePeople.filter(p => {
     const [y, m, d] = p.birthday.split('-').map(Number);
     return (m - 1) === currentMonth;
   }).sort((a, b) => {
