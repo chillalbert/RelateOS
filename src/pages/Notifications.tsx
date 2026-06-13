@@ -264,7 +264,7 @@ export default function Notifications() {
       
       setActionStatus(prev => ({ ...prev, [reqId]: 'Accepted 🤝' }));
 
-      // 3. Clear all redundant notifications of type 'sync birthdays' from this sender
+      // 3. Clear all redundant duplicate notifications referencing this pair
       try {
         const notifRefCol = collection(db, 'notifications');
         const notifQuery = query(notifRefCol, where('user_id', '==', firebaseUser.uid));
@@ -272,21 +272,30 @@ export default function Notifications() {
         
         const deletePromises = notifSnap.docs.filter(d => {
           const dData = d.data();
-          const msg = (dData.message || dData.body || '').toLowerCase();
-          const isSyncBirthdays = msg.includes('sync birthdays') || (msg.includes('sync') && msg.includes('birthday'));
-          
-          const hasSenderRef = msg.includes(senderUid) || 
-                               (senderName && msg.includes(senderName.toLowerCase())) ||
-                               dData.sender_uid === senderUid ||
-                               dData.sender_id === senderUid;
+          const title = (dData.title || '').toLowerCase();
+          const message = (dData.message || dData.body || dData.description || '').toLowerCase();
+          const textMatches = 
+            title.includes('sync birthdays') || 
+            title.includes('request birthday back') ||
+            message.includes('sync birthdays') || 
+            message.includes('request birthday back');
+            
+          const belongsToPair = 
+            dData.sender_uid === senderUid || 
+            dData.sender_id === senderUid ||
+            dData.person_id === senderUid ||
+            dData.host_uid === senderUid ||
+            dData.guest_uid === senderUid ||
+            message.includes(senderUid) ||
+            (senderName && message.includes(senderName.toLowerCase()));
                                
-          return isSyncBirthdays && hasSenderRef;
+          return textMatches && belongsToPair;
         }).map(d => deleteDoc(doc(db, 'notifications', d.id)));
         
         await Promise.all(deletePromises);
         fetchNotifications();
       } catch (purgeErr) {
-        console.warn('Error purging sync birthday notifications:', purgeErr);
+        console.warn('Error purging redundant friend request notifications:', purgeErr);
       }
     } catch (err) {
       console.error('Error accepting friend request:', err);
