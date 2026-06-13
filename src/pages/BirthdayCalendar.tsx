@@ -14,7 +14,7 @@ const MONTHS = [
 ];
 
 export default function BirthdayCalendar() {
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, user } = useAuth();
   const navigate = useNavigate();
   const [people, setPeople] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -25,8 +25,10 @@ export default function BirthdayCalendar() {
       const peopleRef = collection(db, 'people');
       const q = query(peopleRef, where('user_id', '==', firebaseUser.uid));
       const querySnapshot = await getDocs(q);
-      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setPeople(data);
+      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+      const blockedUids = user?.blocked_uids || [];
+      const visibleData = data.filter((p: any) => !p.host_uid || !blockedUids.includes(p.host_uid));
+      setPeople(visibleData);
     } catch (err) {
       console.error(err);
     } finally {
