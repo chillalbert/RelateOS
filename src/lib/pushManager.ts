@@ -43,6 +43,49 @@ export const enableNativeNotifications = async () => {
   }
 };
 
+/**
+ * Dispatches an immediate, high-priority background payload to trigger a system lock screen notification.
+ */
+export const triggerSystemNotification = async (title: string, body: string, url: string = "/") => {
+  console.log("Structuring background lockscreen notification:", { title, body, url });
+  
+  // Try using the Service Worker background registration object if available
+  if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      if (registration && 'showNotification' in registration) {
+        await registration.showNotification(title, {
+          body: body,
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          vibrate: [300, 100, 300, 100, 400],
+          requireInteraction: true, // Crucial for lock screen high-priority staying
+          tag: 'system-lockscreen-alert',
+          data: {
+            url: url
+          }
+        } as any);
+        console.log("Background system notification payload successfully structured and delivered.");
+        return;
+      }
+    } catch (e) {
+      console.warn("Service worker showNotification was bypassed, falling back:", e);
+    }
+  }
+
+  // Fallback to standard Window Notification if permissions are already granted
+  if (typeof window !== 'undefined' && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    try {
+      new Notification(title, {
+        body: body,
+        requireInteraction: true
+      });
+    } catch (e) {
+      console.error("Secondary notification fallback failed:", e);
+    }
+  }
+};
+
 export async function subscribeUserToPush(firebaseUserId: string): Promise<boolean> {
   try {
     await enableNativeNotifications();
