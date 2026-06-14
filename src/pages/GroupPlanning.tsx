@@ -30,6 +30,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import Navigation from '../components/Navigation';
 import { generateGiftSuggestions, callCoachModel } from '../services/geminiService';
+import { triggerSystemNotification } from '../lib/pushManager';
 import { db } from '../lib/firebase';
 import { 
   doc, 
@@ -56,6 +57,53 @@ export default function GroupPlanning() {
   const personId = searchParams.get('personId');
   const { firebaseUser, user } = useAuth();
   const navigate = useNavigate();
+
+  const [recipientEmail, setRecipientEmail] = React.useState('');
+  const [defaultRoomName, setDefaultRoomName] = React.useState('');
+
+  React.useEffect(() => {
+    const fetchRecipientInfo = async () => {
+      if (!personId) return;
+      try {
+        const { getDoc, doc, collection, query, where, getDocs } = await import('firebase/firestore');
+        const personDoc = await getDoc(doc(db, 'people', personId));
+        if (personDoc.exists()) {
+          const pData = personDoc.data();
+          const pName = pData.name || 'Someone';
+          
+          setDefaultRoomName(`${pName}'s Birthday Surprise`);
+          
+          if (pData.email) {
+            setRecipientEmail(pData.email);
+            return;
+          }
+          if (pData.host_uid) {
+            const userDoc = await getDoc(doc(db, 'users', pData.host_uid));
+            if (userDoc.exists() && userDoc.data().email) {
+              setRecipientEmail(userDoc.data().email);
+              return;
+            }
+          }
+
+          // Search the users collection directly for match by name
+          const usersRef = collection(db, 'users');
+          const usersQuery = query(usersRef, where('name', '==', pName));
+          const usersSnap = await getDocs(usersQuery);
+          if (!usersSnap.empty) {
+            const matchedUser = usersSnap.docs[0].data();
+            if (matchedUser.email) {
+              setRecipientEmail(matchedUser.email);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error auto-filling surprise recipient email:", err);
+      }
+    };
+
+    fetchRecipientInfo();
+  }, [personId]);
   
   const [group, setGroup] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
@@ -674,6 +722,13 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
           members: arrayUnion(firebaseUser.uid)
         });
       }
+
+      // Trigger automatic high-priority background system alert
+      await triggerSystemNotification(
+        `Joined ${groupData.name || 'Friend Circle'}! 🤝`,
+        `You have been successfully added to the network Circle: '${groupData.name}'. Tap to start planning!`,
+        `/rooms/${groupDoc.id}`
+      );
       
       navigate(`/rooms/${groupDoc.id}`);
     } catch (err) {
@@ -1012,6 +1067,8 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
                     <input 
                       name="name" 
                       required 
+                      defaultValue={defaultRoomName}
+                      key={`name-${defaultRoomName}`}
                       className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100" 
                       placeholder="e.g. Sarah's 30th Crew" 
                     />
@@ -1030,6 +1087,8 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
                       name="recipient_email" 
                       type="email" 
                       required 
+                      value={recipientEmail}
+                      onChange={(e) => setRecipientEmail(e.target.value)}
                       className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100" 
                       placeholder="The person we are surprising" 
                     />
