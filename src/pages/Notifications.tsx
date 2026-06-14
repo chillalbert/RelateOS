@@ -31,6 +31,8 @@ export default function Notifications() {
   const [actionStatus, setActionStatus] = React.useState<{[key: string]: string}>({});
 
   const [friendRequests, setFriendRequests] = React.useState<any[]>([]);
+  const [acceptedFriends, setAcceptedFriends] = React.useState<any[]>([]);
+  const [allPendingRequests, setAllPendingRequests] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     if (!firebaseUser) return;
@@ -64,6 +66,32 @@ export default function Notifications() {
       console.error('Error in friend_requests listener:', err);
     });
 
+    // 2b. Real-time accepted friends listener for relational suppression checks
+    const qAccepted = query(
+      frRef,
+      where('status', '==', 'accepted'),
+      where('members', 'array-contains', firebaseUser.uid)
+    );
+    const unsubscribeAccepted = onSnapshot(qAccepted, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setAcceptedFriends(data);
+    }, (err) => {
+      console.error('Error in accepted friends listener:', err);
+    });
+
+    // 2c. Real-time ALL pending friend requests listener for relational suppression checks
+    const qFrPendingAll = query(
+      frRef,
+      where('status', '==', 'pending'),
+      where('members', 'array-contains', firebaseUser.uid)
+    );
+    const unsubscribeFrPendingAll = onSnapshot(qFrPendingAll, (snap) => {
+      const data = snap.docs.map(doc => doc.data() as any);
+      setAllPendingRequests(data);
+    }, (err) => {
+      console.error('Error in full pending requests listener:', err);
+    });
+
     // 3. Real-time onSnapshot listener for 'notifications' scoped by user_id
     const notifRef = collection(db, 'notifications');
     const qNotif = query(notifRef, where('user_id', '==', firebaseUser.uid));
@@ -85,6 +113,8 @@ export default function Notifications() {
     return () => {
       unsubscribeActivities();
       unsubscribeFriendRequests();
+      unsubscribeAccepted();
+      unsubscribeFrPendingAll();
       unsubscribeNotifications();
     };
   }, [firebaseUser]);
@@ -577,6 +607,13 @@ export default function Notifications() {
                 <div className="space-y-3">
                   <AnimatePresence mode="popLayout">
                     {activities.map((act) => {
+                      const isAlreadyConnected = acceptedFriends.some(f => f.members?.includes(act.grabber_uid));
+                      const hasOutstandingInvitation = allPendingRequests.some(r => r.members?.includes(act.grabber_uid));
+                      
+                      if (isAlreadyConnected || hasOutstandingInvitation) {
+                        return null; // completely suppress redundant "Sync Birthday Card" visual cards
+                      }
+
                       const isActionBusy = actionStatus[act.grabber_uid];
                       const isBlockBusy = actionStatus[act.grabber_uid + '_block'];
 
