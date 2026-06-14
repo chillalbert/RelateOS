@@ -2,6 +2,9 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  SECRETS_SCAN_OMIT_KEYS = "VITE_CLOUDINARY_CLOUD_NAME,VITE_CLOUDINARY_UPLOAD_PRESET,FCM_SERVER_KEY,VAPID_PRIVATE_KEY,VAPID_PUBLIC_KEY"
+
 [functions]
   external_node_modules = ["web-push"]
 
