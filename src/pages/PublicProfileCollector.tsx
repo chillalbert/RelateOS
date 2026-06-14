@@ -8,6 +8,7 @@ import {
   Sparkles, Check, User, Heart, Lock, ShieldAlert, 
   HelpCircle, Copy, Share2, CornerDownRight, ArrowRight, Home
 } from 'lucide-react';
+import { triggerSystemNotification } from '../lib/pushManager';
 
 export default function PublicProfileCollector() {
   const { username } = useParams<{ username: string }>();
@@ -244,6 +245,14 @@ export default function PublicProfileCollector() {
         members: [firebaseUser.uid, hostUser.id],
         timestamp: serverTimestamp()
       });
+
+      // Trigger automatic high-priority background system alert
+      await triggerSystemNotification(
+        "New Orbit Invitation! 🚀",
+        `${user.name || 'A Friend'} invited you to join their network Circle. Check it out now!`,
+        "/notifications"
+      );
+
       setFriendRequestSent(true);
     } catch (err) {
       console.error('Error sending friend request:', err);
