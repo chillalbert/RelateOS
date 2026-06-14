@@ -121,26 +121,47 @@ export default function PersonProfile() {
   const addGift = async () => {
     const targetId = resolvedId || id;
     if (!targetId) return;
+    const tempId = 'opt_' + Math.random().toString(36).substring(2, 9);
+    const localGift = {
+      id: tempId,
+      ...newGift,
+      price: newGift.price ? parseFloat(newGift.price) : null
+    };
+
+    // 1. Optimistic local update
+    setPerson((prev: any) => ({
+      ...prev,
+      gifts: [...(prev.gifts || []), localGift]
+    }));
+    setNewGift({ name: '', status: 'idea', price: '', notes: '' });
+    setShowGiftForm(false);
+
     try {
       const giftsRef = collection(db, 'people', targetId, 'gifts');
       const docRef = await addDoc(giftsRef, {
-        ...newGift,
-        price: newGift.price ? parseFloat(newGift.price) : null,
+        name: localGift.name,
+        status: localGift.status,
+        price: localGift.price,
+        notes: localGift.notes,
         created_at: serverTimestamp()
       });
+      // 2. Replace tempId with actual db ID
       setPerson((prev: any) => ({
         ...prev,
-        gifts: [...(prev.gifts || []), { id: docRef.id, ...newGift, price: newGift.price ? parseFloat(newGift.price) : null }]
+        gifts: (prev.gifts || []).map((g: any) => g.id === tempId ? { ...g, id: docRef.id } : g)
       }));
-      setNewGift({ name: '', status: 'idea', price: '', notes: '' });
-      setShowGiftForm(false);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to add gift online:", err);
+      // Rollback on error
+      setPerson((prev: any) => ({
+        ...prev,
+        gifts: (prev.gifts || []).filter((g: any) => g.id !== tempId)
+      }));
+      alert("Failed to sync registry item with the server. Rolled back.");
     }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
     const targetId = resolvedId || id;
     if (!targetId) return;
     try {
@@ -198,25 +219,52 @@ export default function PersonProfile() {
   const addMemory = async () => {
     const targetId = resolvedId || id;
     if (!targetId) return;
+    const tempId = 'opt_' + Math.random().toString(36).substring(2, 9);
+    const localMemory = {
+      id: tempId,
+      year: new Date().getFullYear(),
+      type: newMemory.type,
+      content: newMemory.content
+    };
+
+    // 1. Optimistic local update
+    setPerson((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        memories: [...(prev.memories || []), localMemory]
+      };
+    });
+    setNewMemory({ type: 'gift', content: '' });
+    setShowMemoryForm(false);
+
     try {
       const memoriesRef = collection(db, 'people', targetId, 'memories');
       const docRef = await addDoc(memoriesRef, {
         year: new Date().getFullYear(),
-        type: newMemory.type,
-        content: newMemory.content,
+        type: localMemory.type,
+        content: localMemory.content,
         created_at: serverTimestamp()
       });
+      // 2. Replace tempId with actual db ID
       setPerson((prev: any) => {
         if (!prev) return prev;
         return {
           ...prev,
-          memories: [...(prev.memories || []), { id: docRef.id, year: new Date().getFullYear(), type: newMemory.type, content: newMemory.content }]
+          memories: (prev.memories || []).map((m: any) => m.id === tempId ? { ...m, id: docRef.id } : m)
         };
       });
-      setNewMemory({ type: 'gift', content: '' });
-      setShowMemoryForm(false);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to upload memory online:", err);
+      // Rollback on error
+      setPerson((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          memories: (prev.memories || []).filter((m: any) => m.id !== tempId)
+        };
+      });
+      alert("Failed to sync shared memory with the server. Rolled back.");
     }
   };
 
@@ -246,10 +294,34 @@ export default function PersonProfile() {
     setIsUploadingPhoto(true);
 
     try {
-      // 1. Upload the image file to Firebase Storage under the path people/{personId}/photos/{fileName}
-      const storageRef = ref(storage, `people/${targetId}/photos/${file.name}`);
-      await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(storageRef);
+      // 1. Upload image file directly to Cloudinary instead of Firebase Storage
+      const cloudName = "dffkrlv1k";
+      const uploadPreset = "relateos_uploads";
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', uploadPreset);
+
+      console.log(`Uploading to Cloudinary: ${file.name} using preset: ${uploadPreset}`);
+      const cloudinaryRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!cloudinaryRes.ok) {
+        let errMsg = cloudinaryRes.statusText;
+        try {
+          const errData = await cloudinaryRes.json();
+          if (errData && errData.error && errData.error.message) {
+            errMsg = errData.error.message;
+          }
+        } catch (_) {}
+        throw new Error(`Failed to upload image file to Cloudinary: ${errMsg}`);
+      }
+
+      const cloudinaryData = await cloudinaryRes.json();
+      const downloadUrl = cloudinaryData.secure_url;
+      console.log("Successfully uploaded to Cloudinary! URL:", downloadUrl);
 
       // 2. Read the image as base64 to send to server-side Gemini Vision API
       const base64Data = await new Promise<string>((resolve, reject) => {
