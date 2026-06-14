@@ -295,8 +295,8 @@ export default function PersonProfile() {
 
     try {
       // 1. Upload image file directly to Cloudinary instead of Firebase Storage
-      const cloudName = "dffkrlv1k";
-      const uploadPreset = "relateos_uploads";
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "dffkrlv1k";
+      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "relateos_uploads";
 
       const formData = new FormData();
       formData.append('file', file);
