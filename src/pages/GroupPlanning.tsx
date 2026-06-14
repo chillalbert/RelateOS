@@ -490,11 +490,14 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
       
       try {
         setIsUploadingImage(true);
+        const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dffkrlv1k';
+        const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'relateos_uploads';
+        
         const formData = new FormData();
         formData.append('file', selectedImageFile);
-        formData.append('upload_preset', 'relateos_uploads');
+        formData.append('upload_preset', uploadPreset);
         
-        const response = await fetch('https://api.cloudinary.com/v1_1/dffkrlv1k/image/upload', {
+        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
           method: 'POST',
           body: formData
         });
@@ -1561,11 +1564,14 @@ Return strictly as a JSON object (no markdown code fence blocks, just the object
     if (!file || !id || !firebaseUser) return;
     setIsUploadingPhoto(true);
     try {
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dffkrlv1k';
+      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'relateos_uploads';
+
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('upload_preset', 'relateos_uploads');
+      formData.append('upload_preset', uploadPreset);
 
-      const response = await fetch('https://api.cloudinary.com/v1_1/dffkrlv1k/image/upload', {
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: 'POST',
         body: formData
       });
