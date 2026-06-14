@@ -120,11 +120,14 @@ export default function OnboardingFlow() {
     setUploadError('');
 
     try {
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dffkrlv1k';
+      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'relateos_uploads';
+
       const uploadData = new FormData();
       uploadData.append('file', file);
-      uploadData.append('upload_preset', 'relateos_uploads');
+      uploadData.append('upload_preset', uploadPreset);
 
-      const response = await fetch('https://api.cloudinary.com/v1_1/dffkrlv1k/image/upload', {
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: 'POST',
         body: uploadData
       });
