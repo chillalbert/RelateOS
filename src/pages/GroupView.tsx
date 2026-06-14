@@ -35,7 +35,8 @@ import {
   Camera, 
   Heart,
   Share2,
-  Users
+  Users,
+  X
 } from 'lucide-react';
 
 export default function GroupView() {
@@ -86,6 +87,7 @@ export default function GroupView() {
   // Social connection states
   const [friendRequests, setFriendRequests] = useState<any[]>([]);
   const [mutualFriends, setMutualFriends] = useState<any[]>([]);
+  const [showMutualFriendsCarousel, setShowMutualFriendsCarousel] = useState(true);
 
   // Listen to all friend requests in real-time involving this user
   useEffect(() => {
@@ -567,9 +569,16 @@ export default function GroupView() {
         </header>
 
         {/* MUTUAL FRIENDS CAROUSEL BAR (Directly beneath the header) */}
-        {friendsNotInGroup.length > 0 && (
-          <div className="mx-4 mt-3 p-3 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
-            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-450 flex items-center gap-1 px-1 mb-1.5">
+        {showMutualFriendsCarousel && friendsNotInGroup.length > 0 && (
+          <div className="mx-4 mt-3 p-3 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 rounded-2xl relative">
+            <button
+              onClick={() => setShowMutualFriendsCarousel(false)}
+              className="absolute top-2.5 right-2.5 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all cursor-pointer"
+              title="Close Suggestions"
+            >
+              <X size={14} />
+            </button>
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-450 flex items-center gap-1 px-1 mb-1.5 pr-6">
               <span>Add Mutual Friends 👥</span>
             </p>
             <div className="flex overflow-x-auto scrollbar-hide gap-3 py-1">
@@ -596,7 +605,7 @@ export default function GroupView() {
                     </p>
                   </div>
                   <button
-                    onClick={() => handleAddFriendToGroup(friend.uid)}
+                     onClick={() => handleAddFriendToGroup(friend.uid)}
                     className="bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-lg whitespace-nowrap transition-all shadow-sm cursor-pointer"
                   >
                     + Add
@@ -647,7 +656,6 @@ export default function GroupView() {
         {/* Tab Scroll Content Stage */}
         <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0">
           <AnimatePresence mode="wait">
-            
             {/* TAB 1: LOCKER ROOM CHAT & STORIES */}
             {activeTab === 'chat' && (
               <motion.div
@@ -658,46 +666,6 @@ export default function GroupView() {
                 transition={{ duration: 0.15 }}
                 className="flex flex-col h-full space-y-4"
               >
-                
-                {/* FRICTIONLESS SOCIAL GRAPH ADDITIONS: Add Friends horizontal carousel */}
-                {friendsNotInGroup.length > 0 && (
-                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-3xl space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1 px-1">
-                      <span>Add Friends to Circle 👥</span>
-                    </p>
-                    <div className="flex overflow-x-auto scrollbar-hide gap-3 py-2">
-                      {friendsNotInGroup.map((friend) => (
-                        <div 
-                          key={friend.uid} 
-                          className="flex items-center gap-2 p-1.5 bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl shadow-sm min-w-[190px] flex-shrink-0"
-                        >
-                          {friend.profile_picture_url ? (
-                            <img 
-                              src={friend.profile_picture_url} 
-                              alt={friend.name} 
-                              referrerPolicy="no-referrer"
-                              className="w-7 h-7 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-850 text-zinc-600 dark:text-zinc-300 flex items-center justify-center font-black text-[10px]">
-                              {friend.name?.substring(0, 2).toUpperCase()}
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[11px] font-bold truncate text-zinc-900 dark:text-white">{friend.name}</p>
-                          </div>
-                          <button
-                            onClick={() => handleAddFriendToGroup(friend.uid)}
-                            className="bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-lg whitespace-nowrap transition-all shadow-sm cursor-pointer"
-                          >
-                            + Add
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
                 {/* 24h Locker Stories Header Segment */}
                 <div className="flex flex-col gap-2.5 pb-2 border-b border-zinc-150 dark:border-zinc-800">
                   <div className="flex justify-between items-center px-1">
