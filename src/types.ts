@@ -8,6 +8,7 @@ export interface Person {
   notes?: string;
   interests?: string;
   photo_url?: string;
+  isCloseFriend?: boolean;
   reminder_settings?: {
     one_week_before: boolean;
     three_days_before: boolean;
