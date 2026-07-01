@@ -19,6 +19,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
 import { callCoachModel } from '../services/geminiService';
+import { getDisplayName, getAIAccent } from '../lib/utils';
 
 interface Message {
   id: string;
@@ -30,6 +31,7 @@ interface Message {
 
 export default function AICoach() {
   const { user, firebaseUser } = useAuth();
+  const accent = getAIAccent(user?.aiAccentColor);
   const navigate = useNavigate();
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [inputText, setInputText] = React.useState('');
@@ -117,7 +119,7 @@ export default function AICoach() {
         setContextSummary(`Today's date is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.\n\n${summary}`);
 
         // Call Gemini for the opening greeting
-        const userName = user?.name || 'Friend';
+        const userName = getDisplayName(user) || 'Friend';
         const openingPrompt = `
 System Context:
 Today's date is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.
@@ -387,9 +389,9 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
         <motion.div 
           animate={{ scale: [1, 1.15, 1] }}
           transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-          className="p-5 rounded-full bg-emerald-100 dark:bg-emerald-950/50 mb-4"
+          className={`p-5 rounded-full mb-4 ${accent.bgLight}`}
         >
-          <Brain className="text-emerald-500 w-12 h-12" />
+          <Brain className={`${accent.text} w-12 h-12`} />
         </motion.div>
         <p className="text-sm font-semibold text-zinc-600 dark:text-zinc-400 select-none animate-pulse">
           Scanning your relationships...
@@ -410,14 +412,14 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
           <button 
             type="button"
             title="Back"
-            onClick={() => navigate('/')} 
+            onClick={() => navigate(-1)} 
             className="p-2 -ml-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
           >
             <ArrowLeft size={20} />
           </button>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <Brain className="text-emerald-500 w-5 h-5 animate-pulse" />
+              <Brain className={`${accent.text} w-5 h-5 animate-pulse`} />
               <h1 className="text-lg font-black tracking-tight">AI Coach</h1>
           </div>
           <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-7">
@@ -430,7 +432,7 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
           <motion.div 
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-1.5 bg-zinc-800/80 border border-zinc-700/50 text-emerald-400 px-3 py-1 rounded-full text-xs font-bold"
+            className={`flex items-center gap-1.5 bg-zinc-800/80 border border-zinc-700/50 px-3 py-1 rounded-full text-xs font-bold ${accent.text}`}
           >
             <Lock size={12} />
             <span>Private mode</span>
@@ -453,7 +455,7 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
               {/* Main message text */}
               <div className={`p-4 text-sm leading-relaxed ${
                 msg.sender === 'user' 
-                  ? 'bg-emerald-500 text-white rounded-[20px] rounded-tr-sm' 
+                  ? `${accent.bgSolid} text-white rounded-[20px] rounded-tr-sm` 
                   : 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100 border border-zinc-100 dark:border-zinc-800 rounded-[20px] rounded-tl-sm shadow-sm'
               }`}>
                 {msg.text}
@@ -466,7 +468,7 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
                   {msg.action.type === 'generateMessage' && msg.action.messageData && (
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 shadow-md space-y-4 max-w-sm">
                       <div className="flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-850 pb-2">
-                        <MessageSquare className="text-emerald-500 w-4 h-4" />
+                        <MessageSquare className={`${accent.text} w-4 h-4`} />
                         <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Suggested for {msg.action.messageData.recipientName || 'Friend'}</span>
                       </div>
                       
@@ -480,7 +482,7 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
                             onClick={() => copyToClipboard(msg.action.messageData.shortText, msg.id + '-short')}
                             className="absolute right-2 top-2 p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
                           >
-                            {copiedIndex === msg.id + '-short' ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                            {copiedIndex === msg.id + '-short' ? <Check size={14} className={accent.text} /> : <Copy size={14} />}
                           </button>
                         </div>
                       )}
@@ -495,7 +497,7 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
                             onClick={() => copyToClipboard(msg.action.messageData.cardMessage, msg.id + '-card')}
                             className="absolute right-2 top-2 p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
                           >
-                            {copiedIndex === msg.id + '-card' ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                            {copiedIndex === msg.id + '-card' ? <Check size={14} className={accent.text} /> : <Copy size={14} />}
                           </button>
                         </div>
                       )}
@@ -506,13 +508,13 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
                   {msg.action.type === 'giftSuggestions' && msg.action.giftData && (
                     <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-1 max-w-sm">
                       {msg.action.giftData.map((gift: any, gIdx: number) => (
-                        <div key={gIdx} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm hover:border-emerald-500/30 transition-colors">
+                        <div key={gIdx} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
                           <div className="flex justify-between items-start gap-2">
                             <h4 className="text-sm font-extrabold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                              <Gift className="text-emerald-400 w-4 h-4" />
+                              <Gift className={`${accent.text} w-4 h-4`} />
                               {gift.title}
                             </h4>
-                            <span className="text-xs font-black text-emerald-500">{gift.price}</span>
+                            <span className={`text-xs font-black ${accent.text}`}>{gift.price}</span>
                           </div>
                           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-relaxed">{gift.reason}</p>
                           {gift.searchUrl && (
@@ -520,7 +522,7 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
                               href={gift.searchUrl} 
                               target="_blank" 
                               rel="noreferrer referrer" 
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-400 dark:text-zinc-500 hover:text-emerald-500 dark:hover:text-emerald-400 mt-2 transition-colors"
+                              className={`inline-flex items-center gap-1 text-[11px] font-bold text-zinc-400 dark:text-zinc-500 hover:${accent.text} mt-2 transition-colors`}
                             >
                               <Search size={10} />
                               Search online
@@ -535,7 +537,7 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
                   {msg.action.type === 'profileSummary' && msg.action.summaryData && (
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 shadow-md max-w-sm space-y-2">
                       <p className="text-xs font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-                        <Sparkles className="text-emerald-400 w-4 h-4 animate-spin" />
+                        <Sparkles className={`${accent.text} w-4 h-4 animate-spin`} />
                         Summary profile: {msg.action.summaryData.name}
                       </p>
                       <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
@@ -556,9 +558,9 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
             className="flex max-w-[85%] mr-auto items-start"
           >
             <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-[20px] rounded-tl-sm shadow-sm flex items-center gap-1.5">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <span className={`w-2 h-2 ${accent.bgSolid} rounded-full animate-bounce`} style={{ animationDelay: '0ms' }} />
+              <span className={`w-2 h-2 ${accent.bgSolid} rounded-full animate-bounce`} style={{ animationDelay: '150ms' }} />
+              <span className={`w-2 h-2 ${accent.bgSolid} rounded-full animate-bounce`} style={{ animationDelay: '300ms' }} />
             </div>
           </motion.div>
         )}
@@ -579,9 +581,9 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
                   setInputText(label);
                   handleSendMessage(label);
                 }}
-                className="whitespace-nowrap px-3.5 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 hover:border-emerald-500/50 transition-colors flex items-center gap-1 bg-white dark:bg-zinc-900"
+                className={`whitespace-nowrap px-3.5 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors flex items-center gap-1 bg-white dark:bg-zinc-900 hover:${accent.text}`}
               >
-                {sug === "Something else" ? <Sparkles size={11} className="text-zinc-400" /> : <Brain size={11} className="text-emerald-500" />}
+                {sug === "Something else" ? <Sparkles size={11} className="text-zinc-400" /> : <Brain size={11} className={accent.text} />}
                 {label}
               </button>
             );
@@ -608,12 +610,12 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             disabled={isAiThinking}
-            className="flex-1 bg-zinc-100 dark:bg-zinc-800 border-none rounded-full px-5 py-3 text-sm focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none"
+            className={`flex-1 bg-zinc-100 dark:bg-zinc-800 border-none rounded-full px-5 py-3 text-sm focus:ring-2 ${accent.focusRing} text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none`}
           />
           <button 
             type="submit" 
             disabled={isAiThinking || !inputText.trim()}
-            className="p-3 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:hover:bg-emerald-500 flex items-center justify-center shrink-0"
+            className={`p-3 text-white rounded-full transition-colors disabled:opacity-50 flex items-center justify-center shrink-0 ${accent.bgSolid} ${accent.bgSolidHover} disabled:hover:${accent.bgSolid}`}
           >
             <Send size={18} />
           </button>
