@@ -9,6 +9,11 @@ export interface Person {
   interests?: string;
   photo_url?: string;
   isCloseFriend?: boolean;
+  user_id?: string;
+  host_uid?: string;
+  birthYearUnknown?: boolean;
+  lastCheckIn?: { date: string; answer: 'yes' | 'no' };
+  checkInHistory?: { date: string; answer: 'yes' | 'no' }[];
   reminder_settings?: {
     one_week_before: boolean;
     three_days_before: boolean;
