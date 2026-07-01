@@ -21,7 +21,8 @@ import {
   Trash2,
   Heart,
   Copy,
-  Check
+  Check,
+  Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoadingScreen from '../components/LoadingScreen';
@@ -426,6 +427,42 @@ export default function PersonProfile() {
       setPerson({ ...displayPerson, reminder_settings: settings });
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleCloseFriendToggle = async () => {
+    const targetId = resolvedId || id;
+    if (!targetId) return;
+
+    const currentVal = !!displayPerson?.isCloseFriend;
+    const nextVal = !currentVal;
+
+    // Optimistically update local state (which updates originalPerson/person)
+    setPerson((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        isCloseFriend: nextVal
+      };
+    });
+
+    try {
+      const personRef = doc(db, 'people', targetId);
+      await updateDoc(personRef, {
+        isCloseFriend: nextVal
+      });
+      console.log(`[Close Friend] Updated ${targetId} isCloseFriend to ${nextVal}`);
+    } catch (err) {
+      console.error("[Close Friend] Failed to update close friend status:", err);
+      // Rollback on failure
+      setPerson((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          isCloseFriend: currentVal
+        };
+      });
+      alert("Failed to update close friend status. Rolled back state.");
     }
   };
 
@@ -1135,6 +1172,48 @@ export default function PersonProfile() {
                     </motion.button>
                   );
                 })}
+              </div>
+            </section>
+
+            {/* Close Friend Designation */}
+            <section className="space-y-4">
+              <div className="flex justify-between items-center px-1">
+                <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                  <Star size={16} className={displayPerson?.isCloseFriend ? "text-amber-500 fill-amber-500" : "text-zinc-400"} />
+                  Friendship Designation
+                </h2>
+              </div>
+              <div className="bg-white dark:bg-zinc-900 rounded-[32px] border border-zinc-150 dark:border-zinc-800 p-6 space-y-4 shadow-sm">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
+                  Designate {displayPerson?.name?.split(' ')[0]} as a Close Friend to prioritize them on your dashboard lists, birthday countdowns, and quick access filters.
+                </p>
+                <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-850/50 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-xl transition-colors ${displayPerson?.isCloseFriend ? 'bg-amber-500/10 text-amber-500 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>
+                      <Star className="w-4 h-4" fill={displayPerson?.isCloseFriend ? "currentColor" : "none"} />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold text-zinc-900 dark: text-white">Close Friend Status</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    id="close-friend-toggle-profile"
+                    onClick={handleCloseFriendToggle}
+                    className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${
+                      displayPerson?.isCloseFriend ? 'bg-amber-500' : 'bg-zinc-200 dark:bg-zinc-700'
+                    }`}
+                  >
+                    <motion.div 
+                      layout
+                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      className="bg-white w-5 h-5 rounded-full shadow-md"
+                      style={{
+                        x: displayPerson?.isCloseFriend ? 20 : 0
+                      }}
+                    />
+                  </button>
+                </div>
               </div>
             </section>
 
