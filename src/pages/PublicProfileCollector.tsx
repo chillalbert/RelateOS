@@ -577,6 +577,36 @@ export default function PublicProfileCollector() {
 
         {/* Dynamic Action Panel */}
         <div className="space-y-3">
+          {/* Premium Close Friend Toggle Card */}
+          <div className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-2xl shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg transition-colors ${isCloseFriend ? 'bg-amber-500/10 text-amber-500 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>
+                <Star className="w-4 h-4" fill={isCloseFriend ? "currentColor" : "none"} />
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-bold text-zinc-900 dark:text-white">Add as close friend</p>
+                <p className="text-[10px] text-zinc-400 font-semibold uppercase">Enables special indicators & priority updates</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              id="close-friend-toggle"
+              onClick={handleToggleCloseFriend}
+              className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${
+                isCloseFriend ? 'bg-amber-500' : 'bg-zinc-200 dark:bg-zinc-700'
+              }`}
+            >
+              <motion.div 
+                layout
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                className="bg-white w-5 h-5 rounded-full shadow-md"
+                style={{
+                  x: isCloseFriend ? 20 : 0
+                }}
+              />
+            </button>
+          </div>
+
           {alreadyInOrbit ? (
             <div className="space-y-3">
               <div 
@@ -596,36 +626,6 @@ export default function PublicProfileCollector() {
             </div>
           ) : !hasGrabbed ? (
             <div className="space-y-3">
-              {/* Premium Close Friend Toggle Card */}
-              <div className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-2xl shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg transition-colors ${isCloseFriend ? 'bg-amber-500/10 text-amber-500 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>
-                    <Star className="w-4 h-4" fill={isCloseFriend ? "currentColor" : "none"} />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-bold text-zinc-900 dark:text-white">Add as close friend</p>
-                    <p className="text-[10px] text-zinc-400 font-semibold uppercase">Enables special indicators & priority updates</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  id="close-friend-toggle"
-                  onClick={() => setIsCloseFriend(!isCloseFriend)}
-                  className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${
-                    isCloseFriend ? 'bg-amber-500' : 'bg-zinc-200 dark:bg-zinc-700'
-                  }`}
-                >
-                  <motion.div 
-                    layout
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                    className="bg-white w-5 h-5 rounded-full shadow-md"
-                    style={{
-                      x: isCloseFriend ? 20 : 0
-                    }}
-                  />
-                </button>
-              </div>
-
               <button
                 id="grab-data-btn"
                 onClick={handleGrabData}
