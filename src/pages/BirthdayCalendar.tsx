@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar as CalendarIcon, Sparkles } from 'lucide-react';
+import { ArrowLeft, Calendar as CalendarIcon, Sparkles, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 import { getDaysUntil, cn } from '../lib/utils';
 import Navigation from '../components/Navigation';
@@ -103,7 +103,12 @@ export default function BirthdayCalendar() {
                     </div>
                     
                     <div className="ml-4 flex-1">
-                      <h3 className="font-bold group-hover:text-emerald-500 transition-colors">{person.name}</h3>
+                      <h3 className="font-bold group-hover:text-emerald-500 transition-colors flex items-center gap-1.5 text-zinc-900 dark:text-white">
+                        {person.name}
+                        {person.isCloseFriend && (
+                          <Star size={12} className="text-amber-500 fill-amber-500 flex-shrink-0 inline-block align-middle" />
+                        )}
+                      </h3>
                       <p className="text-[10px] font-bold text-zinc-400 uppercase">
                         {bdayDate.getDate()}{['st', 'nd', 'rd'][((bdayDate.getDate() + 90) % 100 - 10) % 10 - 1] || 'th'} • {person.category}
                       </p>
