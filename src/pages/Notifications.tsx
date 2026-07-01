@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Navigation from '../components/Navigation';
-import { formatDate } from '../lib/utils';
+import { formatDate, getDisplayName } from '../lib/utils';
 import { db } from '../lib/firebase';
 import { 
   collection, query, where, getDocs, doc, updateDoc, deleteDoc, 
@@ -178,7 +178,7 @@ export default function Notifications() {
       await addDoc(frRef, {
         sender_uid: firebaseUser.uid,
         receiver_uid: targetUid,
-        sender_name: user?.name || 'A Friend',
+        sender_name: getDisplayName(user) || 'A Friend',
         status: 'pending',
         timestamp: serverTimestamp()
       });
@@ -191,7 +191,7 @@ export default function Notifications() {
           body: JSON.stringify({
             host_uid: targetUid,
             title: '🤝 Friend Invitation',
-            message: `${user?.name || 'Someone'} requested your birthday back!`
+            message: `${getDisplayName(user) || 'Someone'} requested your birthday back!`
           })
         });
       } catch (e) {
