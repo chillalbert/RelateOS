@@ -9,6 +9,7 @@ import {
   HelpCircle, Copy, Share2, CornerDownRight, ArrowRight, Home
 } from 'lucide-react';
 import { triggerSystemNotification } from '../lib/pushManager';
+import { getDisplayName } from '../lib/utils';
 
 export default function PublicProfileCollector() {
   const { username } = useParams<{ username: string }>();
@@ -199,13 +200,13 @@ export default function PublicProfileCollector() {
       await addDoc(activityRef, {
         host_uid: hostUser.id,
         grabber_uid: firebaseUser.uid,
-        grabber_name: user.name || 'Anonymous Friend',
+        grabber_name: getDisplayName(user) || 'Anonymous Friend',
         timestamp: serverTimestamp()
       });
 
       // 3. Fire push ping request to Notify host immediately
       const hostUid = hostUser?.id;
-      const visitorName = user?.name || 'A Friend';
+      const visitorName = getDisplayName(user) || 'A Friend';
       if (hostUid && visitorName) {
         try {
           await fetch('/.netlify/functions/send-push-ping', {
@@ -240,7 +241,7 @@ export default function PublicProfileCollector() {
       await addDoc(frRef, {
         sender_uid: firebaseUser.uid,
         receiver_uid: hostUser.id,
-        sender_name: user.name || 'A Friend',
+        sender_name: getDisplayName(user) || 'A Friend',
         status: 'pending',
         members: [firebaseUser.uid, hostUser.id],
         timestamp: serverTimestamp()
@@ -249,7 +250,7 @@ export default function PublicProfileCollector() {
       // Trigger automatic high-priority background system alert
       await triggerSystemNotification(
         "New Orbit Invitation! 🚀",
-        `${user.name || 'A Friend'} invited you to join their network Circle. Check it out now!`,
+        `${getDisplayName(user) || 'A Friend'} invited you to join their network Circle. Check it out now!`,
         "/notifications"
       );
 
