@@ -1,13 +1,14 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Bell, Shield, Moon, LogOut, ChevronRight, Sparkles, X, Calendar, Check, Lock, Trash2, AlertTriangle, Globe } from 'lucide-react';
+import { ArrowLeft, User, Bell, Shield, Moon, LogOut, ChevronRight, Sparkles, X, Calendar, Check, Lock, Trash2, AlertTriangle, Globe, Palette } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Navigation from '../components/Navigation';
 import CalendarImportStep from '../components/CalendarImportStep';
 import { db, auth } from '../lib/firebase';
 import { doc, updateDoc, setDoc, collection, getDocs, deleteDoc, query, where, arrayRemove } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { getDisplayName } from '../lib/utils';
 
 enum OperationType {
   CREATE = 'create',
@@ -60,6 +61,14 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 }
 
+const colorMap = {
+  violet: '#8b5cf6',
+  emerald: '#10b981',
+  amber: '#f59e0b',
+  sky: '#0ea5e9',
+  rose: '#f43f5e'
+};
+
 export default function Settings() {
   const { user, firebaseUser, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -78,6 +87,9 @@ export default function Settings() {
   const [editedBirthDay, setEditedBirthDay] = React.useState<number>(user?.birthday_day || 1);
   
   const [anythingExtra, setAnythingExtra] = React.useState(user?.anything_extra || '');
+  const [nameDisplayPref, setNameDisplayPref] = React.useState<'full' | 'first'>(user?.nameDisplayPreference || 'full');
+  const [aiAccent, setAiAccent] = React.useState<'violet' | 'emerald' | 'amber' | 'sky' | 'rose'>(user?.aiAccentColor || 'violet');
+  const [showColorPickerModal, setShowColorPickerModal] = React.useState(false);
   const [blockedUsers, setBlockedUsers] = React.useState<any[]>([]);
   const [loadingBlocked, setLoadingBlocked] = React.useState(false);
   
@@ -85,6 +97,41 @@ export default function Settings() {
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [handleError, setHandleError] = React.useState('');
   const [handleChecking, setHandleChecking] = React.useState(false);
+
+  const handleNamePrefToggle = async () => {
+    if (!firebaseUser) return;
+    const nextPref = nameDisplayPref === 'full' ? 'first' : 'full';
+    
+    // Optimistic UI update
+    setNameDisplayPref(nextPref);
+    
+    try {
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      await setDoc(userRef, { nameDisplayPreference: nextPref }, { merge: true });
+      await refreshUser();
+    } catch (err) {
+      console.error(err);
+      // Revert if error
+      setNameDisplayPref(nameDisplayPref);
+    }
+  };
+
+  const handleAiAccentChange = async (color: 'violet' | 'emerald' | 'amber' | 'sky' | 'rose') => {
+    if (!firebaseUser) return;
+    
+    // Optimistic UI update
+    setAiAccent(color);
+    
+    try {
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      await setDoc(userRef, { aiAccentColor: color }, { merge: true });
+      await refreshUser();
+    } catch (err) {
+      console.error(err);
+      // Revert if error
+      setAiAccent(user?.aiAccentColor || 'violet');
+    }
+  };
 
   React.useEffect(() => {
     if (user) {
@@ -96,6 +143,8 @@ export default function Settings() {
       if (user.birthday_month !== undefined) setEditedBirthMonth(user.birthday_month);
       if (user.birthday_day !== undefined) setEditedBirthDay(user.birthday_day);
       if (user.anything_extra && !anythingExtra) setAnythingExtra(user.anything_extra);
+      if (user.nameDisplayPreference !== undefined) setNameDisplayPref(user.nameDisplayPreference);
+      if (user.aiAccentColor !== undefined) setAiAccent(user.aiAccentColor);
     }
   }, [user]);
 
@@ -417,7 +466,7 @@ export default function Settings() {
     {
       title: 'Account',
       items: [
-        { icon: <User size={20} />, label: 'Profile Information', value: user?.name, onClick: () => { setUsername(user?.name || ''); setShowUsernameModal(true); } },
+        { icon: <User size={20} />, label: 'Profile Information', value: getDisplayName(user), onClick: () => { setUsername(user?.name || ''); setShowUsernameModal(true); } },
         { icon: <Sparkles size={20} />, label: 'My Birthday', value: birthday || 'Not set', onClick: () => setShowBirthdayModal(true) },
         { icon: <Calendar size={20} />, label: 'Import Contacts', value: 'Google Sync', onClick: () => setShowCalendarImport(true) },
         { icon: <Shield size={20} />, label: 'Security & Password', value: '••••••••', onClick: () => setShowPasswordModal(true) },
@@ -429,6 +478,22 @@ export default function Settings() {
         { icon: <Bell size={20} />, label: 'Notification Settings', value: `${Object.values(notifSettings).filter(Boolean).length} Active (@ ${notificationTime})`, onClick: () => setShowNotifModal(true) },
         { icon: <Sparkles size={20} />, label: 'AI Personality', value: personality, onClick: handlePersonalityChange },
         { icon: <Moon size={20} />, label: 'Appearance', value: appearance.charAt(0).toUpperCase() + appearance.slice(1), onClick: handleAppearanceToggle },
+        { 
+          icon: <User size={20} />, 
+          label: 'Display First Name Only', 
+          value: nameDisplayPref === 'first' ? 'On' : 'Off', 
+          isToggle: true, 
+          toggleState: nameDisplayPref === 'first', 
+          onClick: handleNamePrefToggle 
+        },
+        { 
+          icon: <Palette size={20} />, 
+          label: 'AI Accent Color', 
+          value: aiAccent.charAt(0).toUpperCase() + aiAccent.slice(1), 
+          isColorPicker: true, 
+          colorValue: aiAccent,
+          onClick: () => setShowColorPickerModal(true) 
+        }
       ]
     }
   ];
@@ -450,17 +515,17 @@ export default function Settings() {
           {user?.profile_picture_url ? (
             <img 
               src={user.profile_picture_url} 
-              alt={user.name} 
+              alt={getDisplayName(user)} 
               className="w-16 h-16 rounded-2xl object-cover bg-zinc-200 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" 
               referrerPolicy="no-referrer"
             />
           ) : (
             <div className="w-16 h-16 rounded-2xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center text-2xl font-black">
-              {user?.name?.[0]}
+              {getDisplayName(user)?.[0]}
             </div>
           )}
           <div>
-            <h2 className="font-black text-xl tracking-tight">{user?.name}</h2>
+            <h2 className="font-black text-xl tracking-tight">{getDisplayName(user)}</h2>
             <p className="text-sm text-zinc-500 font-medium">{user?.email}</p>
           </div>
         </div>
@@ -482,8 +547,38 @@ export default function Settings() {
                     <span className="text-sm font-medium">{item.label}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-zinc-400">{item.value}</span>
-                    <ChevronRight size={16} className="text-zinc-300" />
+                    {('isToggle' in item && item.isToggle) ? (
+                      <div className="flex items-center">
+                        <div 
+                          className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${
+                            item.toggleState ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'
+                          }`}
+                        >
+                          <motion.div 
+                            layout
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                            className="bg-white w-5 h-5 rounded-full shadow-md"
+                            style={{
+                              x: item.toggleState ? 20 : 0
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : ('isColorPicker' in item && item.isColorPicker) ? (
+                      <div className="flex items-center gap-2">
+                        <span 
+                          className="w-3.5 h-3.5 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm" 
+                          style={{ backgroundColor: colorMap[item.colorValue as keyof typeof colorMap] }} 
+                        />
+                        <span className="text-xs text-zinc-400">{item.value}</span>
+                        <ChevronRight size={16} className="text-zinc-300" />
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-xs text-zinc-400">{item.value}</span>
+                        <ChevronRight size={16} className="text-zinc-300" />
+                      </>
+                    )}
                   </div>
                 </button>
               ))}
@@ -503,7 +598,7 @@ export default function Settings() {
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Custom Handle URL</label>
               <div className="flex items-center bg-zinc-50 dark:bg-zinc-800/80 rounded-xl p-0.5 border border-zinc-100 dark:border-zinc-800">
-                <span className="pl-3 text-zinc-400 text-xs font-semibold font-mono">relateos.app/u/</span>
+                <span className="pl-3 text-zinc-400 text-xs font-semibold font-mono">relateosbday.netlify.app/u/</span>
                 <input
                   type="text"
                   className="flex-1 p-2.5 pl-0 bg-transparent border-none text-xs font-bold text-zinc-950 dark:text-white outline-none focus:ring-0"
@@ -1031,6 +1126,73 @@ export default function Settings() {
                     value={notificationTime}
                     onChange={(e) => handleNotificationTimeChange(e.target.value)}
                   />
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showColorPickerModal && (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowColorPickerModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-t-[32px] sm:rounded-[32px] p-8"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold">AI Accent Color</h2>
+                <button onClick={() => setShowColorPickerModal(false)} className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <p className="text-xs text-zinc-500 mb-2">
+                  Choose a signature color theme applied to all AI-generated suggestions, note summaries, and coaching interfaces.
+                </p>
+                <div className="grid grid-cols-1 gap-2">
+                  {(['violet', 'emerald', 'amber', 'sky', 'rose'] as const).map((color) => {
+                    const isSelected = aiAccent === color;
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => {
+                          handleAiAccentChange(color);
+                          setShowColorPickerModal(false);
+                        }}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                          isSelected 
+                            ? 'bg-zinc-50 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700' 
+                            : 'bg-white dark:bg-zinc-900 border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span 
+                            className="w-5 h-5 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm"
+                            style={{ backgroundColor: colorMap[color] }}
+                          />
+                          <span className="text-sm font-semibold capitalize text-zinc-800 dark:text-zinc-200">
+                            {color}
+                          </span>
+                        </div>
+                        {isSelected && (
+                          <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+                            <Check size={12} className="stroke-[3]" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </motion.div>
