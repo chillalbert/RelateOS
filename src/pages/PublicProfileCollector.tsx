@@ -28,6 +28,7 @@ export default function PublicProfileCollector() {
   const [alreadyInOrbit, setAlreadyInOrbit] = React.useState(false);
   const [friendRequestRelationship, setFriendRequestRelationship] = React.useState<string | null>(null);
   const [isCloseFriend, setIsCloseFriend] = React.useState(false);
+  const [existingPersonDocId, setExistingPersonDocId] = React.useState<string | null>(null);
 
   // Pre-flight duplicate orbital check
   React.useEffect(() => {
@@ -46,8 +47,13 @@ export default function PublicProfileCollector() {
         const snap = await getDocs(q);
         if (!snap.empty) {
           setAlreadyInOrbit(true);
+          const firstDoc = snap.docs[0];
+          setExistingPersonDocId(firstDoc.id);
+          setIsCloseFriend(!!firstDoc.data().isCloseFriend);
         } else {
           setAlreadyInOrbit(false);
+          setExistingPersonDocId(null);
+          setIsCloseFriend(false);
         }
       } catch (err) {
         console.error("Error checking pre-flight duplicate status:", err);
@@ -154,6 +160,25 @@ export default function PublicProfileCollector() {
     fetchHostUser();
   }, [username, firebaseUser]);
 
+  // Handler to toggle close friend designation
+  const handleToggleCloseFriend = async () => {
+    const nextVal = !isCloseFriend;
+    setIsCloseFriend(nextVal);
+
+    if (alreadyInOrbit && existingPersonDocId) {
+      try {
+        const personRef = doc(db, 'people', existingPersonDocId);
+        await updateDoc(personRef, {
+          isCloseFriend: nextVal
+        });
+        console.log(`[Close Friend] Updated ${existingPersonDocId} isCloseFriend to ${nextVal}`);
+      } catch (err) {
+        console.error("Failed to update close friend status from invite link:", err);
+        setIsCloseFriend(!nextVal); // rollback
+      }
+    }
+  };
+
   // Handler to add host birthday & save social activity
   const handleGrabData = async () => {
     if (!hostUser || !firebaseUser || !user) return;
@@ -175,7 +200,7 @@ export default function PublicProfileCollector() {
 
       const compiledNotes = `Favorite Sports Teams: ${hostUser.fav_sports_teams || ''}\nFavorite Artists: ${hostUser.fav_artists || ''}\nWeekend Activities: ${hostUser.weekend_activities || ''}\nExtra Details: ${hostUser.anything_extra || ''}`;
 
-      await addDoc(peopleRef, {
+      const docRef = await addDoc(peopleRef, {
         name: hostUser.name,
         nickname: hostUser.name,
         birthday: bDayStr,
@@ -196,6 +221,8 @@ export default function PublicProfileCollector() {
           day_of: true
         }
       });
+
+      setExistingPersonDocId(docRef.id);
 
       // 2. Add a record to 'social_activity' collection:
       const activityRef = collection(db, 'social_activity');
