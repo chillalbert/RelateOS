@@ -63,6 +63,7 @@ export default function Dashboard() {
   const { user, firebaseUser, refreshUser } = useAuth();
   const accent = getAIAccent(user?.aiAccentColor);
   const [people, setPeople] = React.useState<any[]>([]);
+
   const [liveBlockedUids, setLiveBlockedUids] = React.useState<string[]>(user?.blocked_uids || []);
 
   React.useEffect(() => {
@@ -86,6 +87,87 @@ export default function Dashboard() {
   const activePeople = React.useMemo(() => {
     return people.filter(p => !p.host_uid || !blockedUids.includes(p.host_uid));
   }, [people, blockedUids]);
+
+  // --- Check-In Feature States ---
+  const [checkInQueue, setCheckInQueue] = React.useState<any[]>([]);
+  const [queueIndex, setQueueIndex] = React.useState<number>(0);
+  const [showCheckInModal, setShowCheckInModal] = React.useState(false);
+  const [isSubmittingCheckIn, setIsSubmittingCheckIn] = React.useState(false);
+
+  // Helper for today's local date string
+  const getLocalDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayStr = React.useMemo(() => getLocalDateString(), [people]);
+
+  // Derived list of close friends who have not checked in today
+  const closeFriendsToCheckIn = React.useMemo(() => {
+    return activePeople.filter(p => p.isCloseFriend === true && p.lastCheckIn?.date !== todayStr);
+  }, [activePeople, todayStr]);
+
+  const handleStartCheckIn = (clickedFriend: any) => {
+    const unchecked = activePeople.filter(p => p.isCloseFriend === true && p.lastCheckIn?.date !== todayStr);
+    const remaining = unchecked.filter(p => p.id !== clickedFriend.id);
+    const queue = [clickedFriend, ...remaining];
+    setCheckInQueue(queue);
+    setQueueIndex(0);
+    setShowCheckInModal(true);
+  };
+
+  const handleCheckInResponse = async (answer: 'yes' | 'no') => {
+    if (isSubmittingCheckIn || checkInQueue.length === 0) return;
+    const currentFriend = checkInQueue[queueIndex];
+    if (!currentFriend) return;
+
+    const today = getLocalDateString();
+    const checkInItem = { date: today, answer };
+
+    // Optimistic UI update
+    const previousPeople = [...people];
+    setPeople(prev => prev.map(p => {
+      if (p.id === currentFriend.id) {
+        const history = p.checkInHistory ? [...p.checkInHistory] : [];
+        const filteredHistory = history.filter((h: any) => h.date !== today);
+        return {
+          ...p,
+          lastCheckIn: checkInItem,
+          checkInHistory: [...filteredHistory, checkInItem]
+        };
+      }
+      return p;
+    }));
+
+    setIsSubmittingCheckIn(true);
+
+    try {
+      const personRef = doc(db, 'people', currentFriend.id);
+      const updatedHistory = currentFriend.checkInHistory ? [...currentFriend.checkInHistory] : [];
+      const filteredHistory = updatedHistory.filter((h: any) => h.date !== today);
+      filteredHistory.push(checkInItem);
+
+      await updateDoc(personRef, {
+        lastCheckIn: checkInItem,
+        checkInHistory: filteredHistory
+      });
+    } catch (err) {
+      console.error("Failed to save check-in response:", err);
+      setPeople(previousPeople);
+    } finally {
+      setIsSubmittingCheckIn(false);
+      setQueueIndex(prev => prev + 1);
+    }
+  };
+
+  const handleCloseCheckInModal = () => {
+    setShowCheckInModal(false);
+    setCheckInQueue([]);
+    setQueueIndex(0);
+  };
 
   const [analytics, setAnalytics] = React.useState<any>(null);
   const [notifications, setNotifications] = React.useState<any[]>([]);
@@ -655,6 +737,66 @@ export default function Dashboard() {
           </button>
         </div>
       </header>
+
+      {/* Story Rail for Close Friend Daily Check-In */}
+      {closeFriendsToCheckIn.length > 0 && (
+        <motion.section 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-3 pb-4 pt-1 border-b border-zinc-100 dark:border-zinc-800/80"
+        >
+          <div className="flex justify-between items-center px-1">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
+              <Star className="w-3 h-3 text-amber-500" fill="currentColor" />
+              Talked today? Check-in
+            </h3>
+            <span className="text-[10px] font-bold text-zinc-400 bg-zinc-100 dark:bg-zinc-850 px-2 py-0.5 rounded-full">
+              {closeFriendsToCheckIn.length} left
+            </span>
+          </div>
+
+          <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
+            <AnimatePresence mode="popLayout">
+              {closeFriendsToCheckIn.map((friend) => {
+                const displayName = friend.nickname || friend.name.split(' ')[0];
+                const truncatedName = displayName.length > 10 ? displayName.slice(0, 8) + '..' : displayName;
+
+                return (
+                  <motion.div
+                    key={`story-${friend.id}`}
+                    layout
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    className="flex flex-col items-center gap-1.5 cursor-pointer flex-shrink-0 group"
+                    onClick={() => handleStartCheckIn(friend)}
+                  >
+                    {/* Story border ring */}
+                    <div className="p-[3px] bg-gradient-to-tr from-rose-500 via-pink-500 to-amber-400 rounded-full shadow-sm group-hover:scale-105 transition-transform duration-200">
+                      {friend.photo_url ? (
+                        <img 
+                          src={friend.photo_url} 
+                          alt={friend.name} 
+                          className="w-14 h-14 rounded-full object-cover border-2 border-white dark:border-zinc-900"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-full bg-zinc-100 dark:bg-zinc-850 text-zinc-700 dark:text-zinc-350 flex items-center justify-center font-black text-lg border-2 border-white dark:border-zinc-900">
+                          {friend.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-bold text-zinc-750 dark:text-zinc-300">
+                      {truncatedName}
+                    </span>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        </motion.section>
+      )}
 
       <AnimatePresence>
         {showPushBanner && (
@@ -1510,6 +1652,107 @@ export default function Dashboard() {
                   Blocking instantly restricts profile card updates, sync feeds and gift suggestions between devices.
                 </p>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Check-In Multi-Step Modal */}
+      <AnimatePresence>
+        {showCheckInModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-[32px] p-8 shadow-2xl relative overflow-hidden"
+            >
+              {/* Close Button */}
+              <button
+                onClick={handleCloseCheckInModal}
+                className="absolute top-5 right-5 p-1.5 rounded-full bg-zinc-50 dark:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+
+              {queueIndex < checkInQueue.length ? (
+                // Active check-in step
+                <div className="space-y-6 text-center">
+                  <div className="flex flex-col items-center space-y-3">
+                    {/* Ring around avatar */}
+                    <div className="p-[3px] bg-gradient-to-tr from-rose-500 via-pink-500 to-amber-400 rounded-full shadow-lg">
+                      {checkInQueue[queueIndex].photo_url ? (
+                        <img 
+                          src={checkInQueue[queueIndex].photo_url} 
+                          alt={checkInQueue[queueIndex].name} 
+                          className="w-20 h-20 rounded-full object-cover border-4 border-white dark:border-zinc-900"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-20 h-20 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-350 flex items-center justify-center font-black text-2xl border-4 border-white dark:border-zinc-900">
+                          {checkInQueue[queueIndex].name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold text-[10px] uppercase tracking-wider">
+                        Close Friend Check-In
+                      </span>
+                      <h3 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white pt-1">
+                        Talked to {checkInQueue[queueIndex].nickname || checkInQueue[queueIndex].name.split(' ')[0]} today?
+                      </h3>
+                      <p className="text-xs text-zinc-400 font-medium">
+                        Keep your circle updated and nurture your connection history.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="space-y-3 pt-2">
+                    <button
+                      onClick={() => handleCheckInResponse('yes')}
+                      disabled={isSubmittingCheckIn}
+                      className="w-full py-4 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-750 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-rose-500/15 cursor-pointer flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                    >
+                      <Heart className="w-4 h-4 fill-current" />
+                      Yes, we connected
+                    </button>
+                    <button
+                      onClick={() => handleCheckInResponse('no')}
+                      disabled={isSubmittingCheckIn}
+                      className="w-full py-4 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-650 dark:text-zinc-300 font-bold text-xs uppercase tracking-wider rounded-2xl cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      Not today
+                    </button>
+                  </div>
+
+                  {/* Progress indicator */}
+                  <div className="flex justify-center items-center gap-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                    <span>Friend {queueIndex + 1} of {checkInQueue.length}</span>
+                  </div>
+                </div>
+              ) : (
+                // Completion state
+                <div className="space-y-6 text-center py-4">
+                  <div className="w-16 h-16 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto animate-bounce">
+                    <Star className="w-8 h-8 fill-current text-rose-500" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">
+                      All caught up! ✨
+                    </h3>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
+                      Your daily close connections have been updated. Keep up the awesome vibe!
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleCloseCheckInModal}
+                    className="w-full py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl font-black text-xs uppercase tracking-wider shadow-md hover:scale-[1.01] active:scale-95 transition-all cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
             </motion.div>
           </div>
         )}
