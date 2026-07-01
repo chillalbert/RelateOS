@@ -39,6 +39,8 @@ import {
   X
 } from 'lucide-react';
 
+import { getDisplayName } from '../lib/utils';
+
 export default function GroupView() {
   const { groupId } = useParams<{ groupId: string }>();
   const { firebaseUser, user } = useAuth();
@@ -398,7 +400,7 @@ export default function GroupView() {
         text: msgText,
         sender_id: firebaseUser.uid,
         user_id: firebaseUser.uid,
-        sender_name: user?.name || firebaseUser.email || 'Friend',
+        sender_name: getDisplayName(user) || firebaseUser.email || 'Friend',
         sender_picture: user?.profile_picture_url || '',
         created_at: new Date().toISOString()
       });
@@ -418,7 +420,7 @@ export default function GroupView() {
         image_url: storyImageUrl,
         caption: storyCaption.trim(),
         user_id: firebaseUser.uid,
-        user_name: user?.name || firebaseUser.email || 'Player',
+        user_name: getDisplayName(user) || firebaseUser.email || 'Player',
         created_at: new Date().toISOString()
       });
 
@@ -448,7 +450,7 @@ export default function GroupView() {
         desc: eventDesc.trim(),
         creator_id: firebaseUser.uid,
         user_id: firebaseUser.uid,
-        creator_name: user?.name || 'Organizer',
+        creator_name: getDisplayName(user) || 'Organizer',
         created_at: new Date().toISOString()
       });
 
