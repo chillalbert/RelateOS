@@ -27,6 +27,8 @@ interface UserProfile {
   fav_artists?: string;
   weekend_activities?: string;
   anything_extra?: string;
+  nameDisplayPreference?: 'full' | 'first';
+  aiAccentColor?: 'violet' | 'emerald' | 'amber' | 'sky' | 'rose';
   notification_settings?: {
     birthdays: boolean;
     tasks: boolean;
@@ -93,6 +95,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               blocked_uids: [],
               onboarding_completed: false,
               has_completed_onboarding: false,
+              nameDisplayPreference: 'full',
+              aiAccentColor: 'violet',
               notification_settings: {
                 birthdays: true,
                 tasks: true,
