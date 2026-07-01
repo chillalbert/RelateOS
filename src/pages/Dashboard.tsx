@@ -24,7 +24,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import CalendarImportStep from '../components/CalendarImportStep';
-import { getDaysUntil, formatDate, cn, getConnectionScore, getPreciseCountdown, getTurningAge } from '../lib/utils';
+import { getDaysUntil, formatDate, cn, getConnectionScore, getPreciseCountdown, getTurningAge, getDisplayName, getAIAccent } from '../lib/utils';
 import { Gift, MessageSquare, Sparkles as SparklesIcon, Trash2, ShieldAlert, Lock as LockIcon } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { db } from '../lib/firebase';
@@ -61,6 +61,7 @@ const AnimatedNumber = ({ value }: { value: number }) => {
 
 export default function Dashboard() {
   const { user, firebaseUser, refreshUser } = useAuth();
+  const accent = getAIAccent(user?.aiAccentColor);
   const [people, setPeople] = React.useState<any[]>([]);
   const [liveBlockedUids, setLiveBlockedUids] = React.useState<string[]>(user?.blocked_uids || []);
 
@@ -620,18 +621,18 @@ export default function Dashboard() {
           {user?.profile_picture_url ? (
             <img 
               src={user.profile_picture_url} 
-              alt={user.name} 
+              alt={getDisplayName(user)} 
               className="w-12 h-12 rounded-full object-cover border border-zinc-200 dark:border-zinc-850 shadow-inner" 
               referrerPolicy="no-referrer"
             />
           ) : (
             <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center font-black text-lg uppercase shadow-inner">
-              {user?.name?.charAt(0) || 'U'}
+              {getDisplayName(user)?.charAt(0) || 'U'}
             </div>
           )}
           <div>
             <h1 className="text-2xl font-bold tracking-tight leading-tight">RelateOS</h1>
-            <p className="text-zinc-550 dark:text-zinc-400 text-xs font-semibold">Welcome back, {user?.name}</p>
+            <p className="text-zinc-550 dark:text-zinc-400 text-xs font-semibold">Welcome back, {getDisplayName(user)}</p>
           </div>
         </div>
         <div className="flex gap-3">
@@ -1082,7 +1083,7 @@ export default function Dashboard() {
             >
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="text-amber-500" size={20} />
+                  <Sparkles className={accent.text} size={20} />
                   <h3 className="font-black tracking-tight">Gift Brainstorm</h3>
                 </div>
                 <button onClick={() => setBrainstormingPerson(null)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
@@ -1113,7 +1114,7 @@ export default function Dashboard() {
                         <button
                           key={i}
                           onClick={() => saveSuggestion(suggestion)}
-                          className="w-full p-4 text-left bg-zinc-50 dark:bg-zinc-800 hover:bg-emerald-500 hover:text-white rounded-2xl transition-all group"
+                          className={`w-full p-4 text-left bg-zinc-50 dark:bg-zinc-800 hover:${accent.bgSolid} hover:text-white rounded-2xl transition-all group`}
                         >
                           <div className="flex justify-between items-center">
                             <span className="text-sm font-bold">{suggestion}</span>
@@ -1160,7 +1161,7 @@ export default function Dashboard() {
             >
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <SparklesIcon className="text-emerald-500" size={20} />
+                  <SparklesIcon className={accent.text} size={20} />
                   <h3 className="font-black tracking-tight">AI Birthday Message</h3>
                 </div>
                 {!isGenerating && (
@@ -1194,7 +1195,7 @@ export default function Dashboard() {
                             navigator.clipboard.writeText(dashboardAiMessage.shortText);
                             alert("Short text copied!");
                           }}
-                          className="text-[10px] font-bold text-emerald-500 uppercase hover:underline"
+                          className={`text-[10px] font-bold ${accent.text} uppercase hover:underline`}
                         >
                           Copy
                         </button>
@@ -1211,7 +1212,7 @@ export default function Dashboard() {
                             navigator.clipboard.writeText(dashboardAiMessage.cardMessage);
                             alert("Card message copied!");
                           }}
-                          className="text-[10px] font-bold text-emerald-500 uppercase hover:underline"
+                          className={`text-[10px] font-bold ${accent.text} uppercase hover:underline`}
                         >
                           Copy
                         </button>
