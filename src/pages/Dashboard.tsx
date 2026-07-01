@@ -804,6 +804,9 @@ export default function Dashboard() {
                         {person.host_uid && friendStreaks[person.host_uid] > 0 && (
                           <span className="text-xs">🔥 {friendStreaks[person.host_uid]}</span>
                         )}
+                        {person.isCloseFriend && (
+                          <Star size={12} className="text-amber-500 fill-amber-500 flex-shrink-0 inline-block align-middle" />
+                        )}
                       </h3>
                       <p className="text-[10px] font-bold text-zinc-400 uppercase">
                         {person.birthday.split('-')[2]} {new Intl.DateTimeFormat('en-US', { month: 'short' }).format(new Date(2000, Number(person.birthday.split('-')[1]) - 1, 1))}
@@ -887,10 +890,13 @@ export default function Dashboard() {
                       )}
                     </div>
                     <div>
-                      <h3 className="font-bold flex items-center gap-1.5">
+                      <h3 className="font-bold flex items-center gap-1.5 text-zinc-900 dark:text-white">
                         {(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name}
                         {person.host_uid && friendStreaks[person.host_uid] > 0 && (
                           <span className="text-xs">🔥 {friendStreaks[person.host_uid]}</span>
+                        )}
+                        {person.isCloseFriend && (
+                          <Star size={14} className="text-amber-500 fill-amber-500 flex-shrink-0 inline-block align-middle" />
                         )}
                       </h3>
                       <div className="flex items-center gap-2">
@@ -1406,6 +1412,10 @@ export default function Dashboard() {
                         const displayPic = liveProfile?.profile_picture_url || liveProfile?.photo_url;
                         const streak = friendDoc.streak_count || friendStreaks[friendUid] || 0;
 
+                        // Private relationship designation lookup
+                        const personMatch = people.find(p => p.host_uid === friendUid);
+                        const isCloseFriend = personMatch?.isCloseFriend ?? false;
+
                         // Multi-cross blocking checks
                         const blockedByUs = blockedUids.includes(friendUid);
                         const blockedByThem = liveProfile?.blocked_uids?.includes(firebaseUser.uid);
@@ -1456,6 +1466,9 @@ export default function Dashboard() {
                                   <span className="truncate max-w-[120px]">{displayName}</span>
                                   {!isBlocked && streak > 0 && (
                                     <span className="text-[10px] font-extrabold text-orange-500 shrink-0">🔥 {streak}</span>
+                                  )}
+                                  {!isBlocked && isCloseFriend && (
+                                    <Star size={12} className="text-amber-500 fill-amber-500 flex-shrink-0 inline-block align-middle animate-pulse" />
                                   )}
                                 </h5>
                                 <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1">
