@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoadingScreen from '../components/LoadingScreen';
-import { formatDate, getDaysUntil, getConnectionScore, cn, getTurningAge } from '../lib/utils';
+import { formatDate, getDaysUntil, getConnectionScore, cn, getTurningAge, getAIAccent } from '../lib/utils';
 import { generateBirthdayMessage, generateRecoveryPlan } from '../services/geminiService';
 import { db, storage } from '../lib/firebase';
 import confetti from 'canvas-confetti';
@@ -36,6 +36,7 @@ import { useDynamicFriend } from '../hooks/useDynamicFriend';
 export default function PersonProfile() {
   const { id } = useParams();
   const { firebaseUser, user, refreshUser } = useAuth();
+  const accent = getAIAccent(user?.aiAccentColor);
   const navigate = useNavigate();
   const [originalPerson, setOriginalPerson] = React.useState<any>(null);
   const setPerson = setOriginalPerson;
@@ -1020,12 +1021,17 @@ export default function PersonProfile() {
                 >
                   {isGenerating && (
                     <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent"
+                      className={`absolute inset-0 bg-gradient-to-r from-transparent ${
+                        accent.text.includes('violet') ? 'via-violet-500/20' :
+                        accent.text.includes('emerald') ? 'via-emerald-500/20' :
+                        accent.text.includes('amber') ? 'via-amber-500/20' :
+                        accent.text.includes('sky') ? 'via-sky-500/20' : 'via-rose-500/20'
+                      } to-transparent`}
                       animate={{ x: ['-100%', '100%'] }}
                       transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
                     />
                   )}
-                  <Sparkles size={18} className={cn(isGenerating && "animate-pulse text-emerald-400")} />
+                  <Sparkles size={18} className={cn(isGenerating && `animate-pulse ${accent.text}`)} />
                   <span className="relative z-10">{isGenerating ? 'Writing...' : 'AI Message'}</span>
                 </button>
                 <Link 
@@ -1045,14 +1051,14 @@ export default function PersonProfile() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 20 }}
-                  className="p-6 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-3xl space-y-6 shadow-xl shadow-emerald-500/5"
+                  className={`p-6 ${accent.bgLight} border ${accent.border} rounded-3xl space-y-6 shadow-xl`}
                 >
                   <div className="flex justify-between items-center">
-                    <h3 className="font-black text-emerald-700 dark:text-emerald-400 flex items-center gap-2 tracking-tight">
+                    <h3 className={`font-black ${accent.text} flex items-center gap-2 tracking-tight`}>
                       <Sparkles size={18} />
                       AI Crafted Messages
                     </h3>
-                    <button onClick={() => setAiMessage(null)} className="label-micro mb-0 text-emerald-600 hover:underline">Clear</button>
+                    <button onClick={() => setAiMessage(null)} className={`label-micro mb-0 ${accent.text} hover:underline`}>Clear</button>
                   </div>
                   <div className="space-y-6">
                     <div className="space-y-2 group relative">
@@ -1060,9 +1066,9 @@ export default function PersonProfile() {
                         <p className="label-micro">Short Text</p>
                         <button 
                           onClick={() => copyToClipboard(aiMessage.shortText, 'short')}
-                          className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded transition-colors"
+                          className={`p-1 hover:${accent.bgLight} rounded transition-colors`}
                         >
-                          {copied === 'short' ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} className="text-emerald-600" />}
+                          {copied === 'short' ? <Check size={12} className={accent.text} /> : <Copy size={12} className={accent.text} />}
                         </button>
                       </div>
                       <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">"{aiMessage.shortText}"</p>
@@ -1072,9 +1078,9 @@ export default function PersonProfile() {
                         <p className="label-micro">Card Message</p>
                         <button 
                           onClick={() => copyToClipboard(aiMessage.cardMessage, 'card')}
-                          className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded transition-colors"
+                          className={`p-1 hover:${accent.bgLight} rounded transition-colors`}
                         >
-                          {copied === 'card' ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} className="text-emerald-600" />}
+                          {copied === 'card' ? <Check size={12} className={accent.text} /> : <Copy size={12} className={accent.text} />}
                         </button>
                       </div>
                       <p className="text-sm serif-italic text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">"{aiMessage.cardMessage}"</p>
@@ -1375,7 +1381,7 @@ export default function PersonProfile() {
                   displayPerson.gifts.filter((g: any) => g.status === 'idea').map((gift: any) => (
                     <div key={gift.id} className="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex justify-between items-center shadow-sm">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-lg">
+                        <div className={`p-2 rounded-lg ${accent.iconBg} ${accent.iconText}`}>
                           <Sparkles size={16} />
                         </div>
                         <div>
@@ -1458,8 +1464,8 @@ export default function PersonProfile() {
               </div>
 
               {/* Rich AI Profile Notebook */}
-              <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 space-y-2">
-                <h3 className="text-xs font-bold uppercase text-zinc-400 tracking-wider">Rich AI Profile Notebook</h3>
+              <div className={`p-6 bg-white dark:bg-zinc-900 rounded-3xl border ${accent.border} space-y-2 shadow-sm`}>
+                <h3 className={`text-xs font-bold uppercase ${accent.text} tracking-wider`}>Rich AI Profile Notebook</h3>
                 <p className="text-sm font-semibold text-zinc-750 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
                   {displayPerson.ai_notes || displayPerson.notes || "No profile notebook notes yet."}
                 </p>
@@ -1473,7 +1479,7 @@ export default function PersonProfile() {
                     <p className="text-xs text-zinc-400 font-semibold mb-1">Upload shared photos to enrich AI writing insights in real-time.</p>
                   </div>
                   
-                  <label className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all shadow-sm">
+                  <label className={`flex items-center gap-2 px-4 py-2 text-white font-bold text-xs rounded-xl cursor-pointer transition-all shadow-sm ${accent.bgSolid} ${accent.bgSolidHover}`}>
                     <Plus size={14} />
                     <span>Upload Photo</span>
                     <input 
@@ -1487,8 +1493,8 @@ export default function PersonProfile() {
                 </div>
 
                 {isUploadingPhoto && (
-                  <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl flex flex-col items-center justify-center gap-2 border border-dashed border-zinc-200 dark:border-zinc-800 animate-pulse">
-                    <Sparkles className="text-emerald-500 animate-spin" size={20} />
+                  <div className={`p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl flex flex-col items-center justify-center gap-2 border border-dashed border-zinc-200 dark:border-zinc-800 animate-pulse`}>
+                    <Sparkles className={`${accent.text} animate-spin`} size={20} />
                     <p className="text-xs font-bold text-zinc-600 dark:text-zinc-400">Uploading and Analyzing Memory...</p>
                     <p className="text-[10px] text-zinc-400">Gemini AI is examining photo details to enrich milestone options.</p>
                   </div>
