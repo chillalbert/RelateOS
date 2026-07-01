@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Sparkles, Check, User, Heart, Lock, ShieldAlert, 
-  HelpCircle, Copy, Share2, CornerDownRight, ArrowRight, Home
+  HelpCircle, Copy, Share2, CornerDownRight, ArrowRight, Home, Star
 } from 'lucide-react';
 import { triggerSystemNotification } from '../lib/pushManager';
 import { getDisplayName } from '../lib/utils';
@@ -27,6 +27,7 @@ export default function PublicProfileCollector() {
   const [isSendingRequest, setIsSendingRequest] = React.useState(false);
   const [alreadyInOrbit, setAlreadyInOrbit] = React.useState(false);
   const [friendRequestRelationship, setFriendRequestRelationship] = React.useState<string | null>(null);
+  const [isCloseFriend, setIsCloseFriend] = React.useState(false);
 
   // Pre-flight duplicate orbital check
   React.useEffect(() => {
@@ -187,6 +188,7 @@ export default function PublicProfileCollector() {
         photo_url: hostUser.profile_picture_url || '',
         user_id: firebaseUser.uid, // visitor's UID
         host_uid: hostUser.id, 
+        isCloseFriend: isCloseFriend,
         created_at: serverTimestamp(),
         reminder_settings: {
           one_week_before: true,
@@ -566,7 +568,37 @@ export default function PublicProfileCollector() {
               </button>
             </div>
           ) : !hasGrabbed ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
+              {/* Premium Close Friend Toggle Card */}
+              <div className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-2xl shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg transition-colors ${isCloseFriend ? 'bg-amber-500/10 text-amber-500 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>
+                    <Star className="w-4 h-4" fill={isCloseFriend ? "currentColor" : "none"} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-bold text-zinc-900 dark:text-white">Add as close friend</p>
+                    <p className="text-[10px] text-zinc-400 font-semibold uppercase">Enables special indicators & priority updates</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  id="close-friend-toggle"
+                  onClick={() => setIsCloseFriend(!isCloseFriend)}
+                  className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${
+                    isCloseFriend ? 'bg-amber-500' : 'bg-zinc-200 dark:bg-zinc-700'
+                  }`}
+                >
+                  <motion.div 
+                    layout
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    className="bg-white w-5 h-5 rounded-full shadow-md"
+                    style={{
+                      x: isCloseFriend ? 20 : 0
+                    }}
+                  />
+                </button>
+              </div>
+
               <button
                 id="grab-data-btn"
                 onClick={handleGrabData}
