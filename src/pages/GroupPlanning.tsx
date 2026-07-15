@@ -49,7 +49,7 @@ import {
   deleteField,
   arrayRemove
 } from 'firebase/firestore';
-import { cn, getDaysUntil } from '../lib/utils';
+import { cn, getDaysUntil, isBirthdayToday } from '../lib/utils';
 
 export default function GroupPlanning() {
   const { id } = useParams();
@@ -2908,9 +2908,7 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
   const progress = Math.min((totalContributed / targetAmount) * 100, 100);
 
   // Check if it's the birthday
-  const today = new Date().toISOString().split('T')[0].slice(5); // MM-DD
-  const bday = group.person_birthday?.slice(5);
-  const isBirthday = today === bday;
+  const isBirthday = isBirthdayToday(group.person_birthday);
   const isUnlocked = isBirthday || group.isMember;
   const isCrewAdminOrMod = group.admins?.includes(firebaseUser?.uid) || group.mods?.includes(firebaseUser?.uid) || group.created_by === firebaseUser?.uid;
 
