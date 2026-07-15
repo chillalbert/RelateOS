@@ -2,6 +2,9 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { TourProvider, useTour } from './context/TourContext';
+import TourOverlay from './components/TourOverlay';
+import { cn } from './lib/utils';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import AddPerson from './pages/AddPerson';
@@ -127,13 +130,26 @@ const RealtimeNotificationTracker = () => {
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { firebaseUser, user, isLoading } = useAuth();
+  const { isCurrentRouteHighlighted } = useTour();
+
   if (isLoading) return <LoadingScreen />;
   if (!firebaseUser) return <Navigate to="/login" />;
   
-  if (user && user.has_completed_onboarding !== true) {
+  const isCompleted = user?.onboarding_completed === true || user?.has_completed_onboarding === true;
+  if (user && !isCompleted) {
     return <OnboardingFlow />;
   }
-  return <>{children}</>;
+  
+  return (
+    <div 
+      className={cn(
+        "min-h-screen transition-all duration-500",
+        isCurrentRouteHighlighted && "ring-8 ring-emerald-500 scale-[0.98] rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.3)] bg-emerald-500/5 select-none pointer-events-none"
+      )}
+    >
+      {children}
+    </div>
+  );
 };
 
 const ThemeHandler = ({ children }: { children: React.ReactNode }) => {
@@ -163,30 +179,33 @@ export default function App() {
         <ThemeHandler>
           <NotificationManager />
           <Router>
-            <RealtimeNotificationTracker />
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/surprise/:roomId" element={<SurpriseReveal />} />
-              <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-              <Route path="/add" element={<PrivateRoute><AddPerson /></PrivateRoute>} />
-              <Route path="/vaults" element={<PrivateRoute><Vaults /></PrivateRoute>} />
-              <Route path="/calendar" element={<PrivateRoute><BirthdayCalendar /></PrivateRoute>} />
-              <Route path="/person/:id" element={<PrivateRoute><PersonProfile /></PrivateRoute>} />
-              <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
-              <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
-              <Route path="/coach" element={<PrivateRoute><AICoach /></PrivateRoute>} />
-              <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
-              <Route path="/groups" element={<PrivateRoute><GroupsDirectory /></PrivateRoute>} />
-              <Route path="/groups/:groupId" element={<PrivateRoute><GroupView /></PrivateRoute>} />
-              <Route path="/spark" element={<PrivateRoute><SparkHome /></PrivateRoute>} />
-              <Route path="/spark/:groupId" element={<PrivateRoute><SparkGameRoom /></PrivateRoute>} />
-              <Route path="/rooms" element={<PrivateRoute><Groups /></PrivateRoute>} />
-              <Route path="/rooms/create" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
-              <Route path="/rooms/:id" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
-              <Route path="/u/:username" element={<PublicProfileCollector />} />
-              {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
+            <TourProvider>
+              <RealtimeNotificationTracker />
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/surprise/:roomId" element={<SurpriseReveal />} />
+                <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+                <Route path="/add" element={<PrivateRoute><AddPerson /></PrivateRoute>} />
+                <Route path="/vaults" element={<PrivateRoute><Vaults /></PrivateRoute>} />
+                <Route path="/calendar" element={<PrivateRoute><BirthdayCalendar /></PrivateRoute>} />
+                <Route path="/person/:id" element={<PrivateRoute><PersonProfile /></PrivateRoute>} />
+                <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
+                <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+                <Route path="/coach" element={<PrivateRoute><AICoach /></PrivateRoute>} />
+                <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
+                <Route path="/groups" element={<PrivateRoute><GroupsDirectory /></PrivateRoute>} />
+                <Route path="/groups/:groupId" element={<PrivateRoute><GroupView /></PrivateRoute>} />
+                <Route path="/spark" element={<PrivateRoute><SparkHome /></PrivateRoute>} />
+                <Route path="/spark/:groupId" element={<PrivateRoute><SparkGameRoom /></PrivateRoute>} />
+                <Route path="/rooms" element={<PrivateRoute><Groups /></PrivateRoute>} />
+                <Route path="/rooms/create" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
+                <Route path="/rooms/:id" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
+                <Route path="/u/:username" element={<PublicProfileCollector />} />
+                {/* Fallback */}
+                <Route path="*" element={<Navigate to="/" />} />
+              </Routes>
+              <TourOverlay />
+            </TourProvider>
           </Router>
         </ThemeHandler>
       </AuthProvider>
