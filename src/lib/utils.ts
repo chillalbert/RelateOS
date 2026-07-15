@@ -205,3 +205,24 @@ export function getAIAccent(color?: 'violet' | 'emerald' | 'amber' | 'sky' | 'ro
   }
 }
 
+export function isBirthdayToday(birthday: string | undefined | null): boolean {
+  if (!birthday) return false;
+  const parts = birthday.split('-');
+  if (parts.length < 2) return false;
+  
+  const today = new Date();
+  const currentMonth = today.getMonth() + 1; // 1-indexed
+  const currentDate = today.getDate(); // 1-indexed
+
+  if (parts.length === 3) {
+    const month = Number(parts[1]);
+    const day = Number(parts[2]);
+    return currentMonth === month && currentDate === day;
+  } else {
+    // MM-DD format or similar
+    const month = Number(parts[0]);
+    const day = Number(parts[1]);
+    return currentMonth === month && currentDate === day;
+  }
+}
+
