@@ -1,9 +1,80 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Calendar, Check, Loader2, ChevronRight } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+
+const loadGsiScript = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if ((window as any).google?.accounts?.oauth2) {
+      resolve();
+      return;
+    }
+    
+    const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if (existingScript) {
+      const interval = setInterval(() => {
+        if ((window as any).google?.accounts?.oauth2) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 100);
+      setTimeout(() => {
+        clearInterval(interval);
+        reject(new Error('Google Identity Services script load timeout.'));
+      }, 10000);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if ((window as any).google?.accounts?.oauth2) {
+        resolve();
+      } else {
+        reject(new Error('Google Identity Services failed to initialize.'));
+      }
+    };
+    script.onerror = () => {
+      reject(new Error('Failed to load Google Identity Services script.'));
+    };
+    document.head.appendChild(script);
+  });
+};
+
+const getGoogleAccessToken = async (): Promise<string> => {
+  await loadGsiScript();
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '777157828577-ofrlgg4tq9egusgmi2j1lhu04m572a43.apps.googleusercontent.com';
+  if (!clientId) {
+    throw new Error('Google OAuth Client ID is not configured. Please define VITE_GOOGLE_CLIENT_ID in your settings or environment variables.');
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      const client = (window as any).google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/contacts.readonly',
+        callback: (response: any) => {
+          if (response.error) {
+            reject(new Error(`OAuth error: ${response.error_description || response.error}`));
+          } else if (response.access_token) {
+            resolve(response.access_token);
+          } else {
+            reject(new Error('No access token returned from Google.'));
+          }
+        },
+        error_callback: (err: any) => {
+          reject(new Error(err.message || 'OAuth client initialization or authorization error.'));
+        }
+      });
+      client.requestAccessToken();
+    } catch (err: any) {
+      reject(err);
+    }
+  });
+};
 
 interface CalendarImportStepProps {
   onComplete: () => void;
@@ -81,10 +152,10 @@ function parseIcsText(text: string) {
 }
 
 export default function CalendarImportStep({ onComplete, firebaseUserId }: CalendarImportStepProps) {
-  const { signInWithGoogle } = useAuth();
   const [state, setState] = React.useState<'default' | 'loading' | 'success'>('default');
   const [count, setCount] = React.useState(0);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [googleToken, setGoogleToken] = React.useState<string | null>(null);
 
   // Stable ref so the useEffect doesn't re-run due to onComplete identity changing
   const onCompleteRef = React.useRef(onComplete);
@@ -154,9 +225,10 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
     setErrorMessage(null);
     setState('loading');
     try {
-      let token = localStorage.getItem('gcal_token');
+      let token = googleToken;
       if (!token) {
-        token = await signInWithGoogle();
+        token = await getGoogleAccessToken();
+        setGoogleToken(token);
       }
       if (!token) {
         throw new Error("Failed to get Google authorization token.");
@@ -179,21 +251,48 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
       let { calRes, peopleRes } = await fetchApis(token);
 
       if (calRes.status === 401 || peopleRes.status === 401) {
-        localStorage.removeItem('gcal_token');
-        token = await signInWithGoogle();
+        setGoogleToken(null);
+        token = await getGoogleAccessToken();
+        setGoogleToken(token);
         if (!token) {
           throw new Error("Google API unauthorized and authentication failed.");
         }
         const retryResult = await fetchApis(token);
         calRes = retryResult.calRes;
         peopleRes = retryResult.peopleRes;
+
+        if (calRes.status === 401 || peopleRes.status === 401) {
+          throw new Error("Google authorization has expired or been revoked. Please reconnect and authorize again.");
+        }
       }
 
       if (!calRes.ok) {
-        throw new Error(`Google Calendar API error: ${calRes.statusText}`);
+        let details = "";
+        try {
+          const errText = await calRes.text();
+          try {
+            const errObj = JSON.parse(errText);
+            details = errObj.error?.message || errObj.message || errText;
+          } catch (_) {
+            details = errText;
+          }
+        } catch (_) {}
+        const errMsg = `Google Calendar API error: ${calRes.status} ${calRes.statusText} ${details}`.trim();
+        throw new Error(errMsg);
       }
       if (!peopleRes.ok) {
-        throw new Error(`Google People API error: ${peopleRes.statusText}`);
+        let details = "";
+        try {
+          const errText = await peopleRes.text();
+          try {
+            const errObj = JSON.parse(errText);
+            details = errObj.error?.message || errObj.message || errText;
+          } catch (_) {
+            details = errText;
+          }
+        } catch (_) {}
+        const errMsg = `Google People API error: ${peopleRes.status} ${peopleRes.statusText} ${details}`.trim();
+        throw new Error(errMsg);
       }
 
       const calData = await calRes.json();
@@ -321,7 +420,7 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
       await saveContactsToFirestore(finalList);
 
     } catch (err: any) {
-      console.error(err);
+      console.error("Google Calendar API error:", err?.message || JSON.stringify(err) || String(err));
       setErrorMessage(err.message || "An error occurred while importing from Google.");
       setState('default');
     }
