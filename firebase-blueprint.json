@@ -28,6 +28,7 @@
         "birthday": { "type": "string", "format": "date" },
         "personality": { "type": "string" },
         "appearance": { "type": "string", "enum": ["light", "dark"] },
+        "hasSeenTour": { "type": "boolean" },
         "streak": { "type": "number" },
         "notification_settings": {
           "type": "object",
