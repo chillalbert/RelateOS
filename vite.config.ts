@@ -11,6 +11,7 @@ export default defineConfig(({mode}) => {
       'process.env.APP_URL': JSON.stringify(env.APP_URL || process.env.APP_URL || ''),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || process.env.GEMINI_API_KEY || ''),
       'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || process.env.GEMINI_API_KEY || ''),
+      'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(env.VITE_GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || ''),
       'process.env.NODE_ENV': JSON.stringify(mode),
     },
     resolve: {
