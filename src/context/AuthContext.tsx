@@ -20,6 +20,7 @@ interface UserProfile {
   profile_picture_url?: string;
   onboarding_completed?: boolean;
   has_completed_onboarding?: boolean;
+  hasSeenTour?: boolean;
   custom_handle?: string;
   handle?: string;
   is_private?: boolean;
@@ -89,7 +90,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               id: fUser.uid,
               email: fUser.email || '',
               name: fUser.displayName || 'User',
-              appearance: 'light',
               streak: 0,
               notification_time: '09:00',
               blocked_uids: [],
