@@ -76,7 +76,6 @@ export default function Login() {
           email: formData.email,
           name: formData.name,
           profile_picture_url: finalProfilePic,
-          appearance: 'light',
           notification_time: '09:00',
           notification_settings: {
             birthdays: true,
