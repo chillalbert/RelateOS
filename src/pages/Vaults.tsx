@@ -6,7 +6,7 @@ import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { Shield, Lock, ChevronRight, Gift, Clock, Calendar } from 'lucide-react';
 import Navigation from '../components/Navigation';
-import { cn } from '../lib/utils';
+import { cn, isBirthdayToday } from '../lib/utils';
 
 export default function Vaults() {
   const { firebaseUser, user } = useAuth();
@@ -48,12 +48,7 @@ export default function Vaults() {
   }, [firebaseUser, user?.email]);
 
   const isUnlocked = (birthday: string) => {
-    if (!birthday) return false;
-    const today = new Date();
-    const bday = new Date(birthday);
-    
-    // Check if today matches MM-DD
-    return today.getMonth() === bday.getMonth() && today.getDate() === bday.getDate();
+    return isBirthdayToday(birthday);
   };
 
   const getStatus = (birthday: string) => {
