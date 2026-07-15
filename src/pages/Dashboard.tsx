@@ -63,7 +63,6 @@ export default function Dashboard() {
   const { user, firebaseUser, refreshUser } = useAuth();
   const accent = getAIAccent(user?.aiAccentColor);
   const [people, setPeople] = React.useState<any[]>([]);
-
   const [liveBlockedUids, setLiveBlockedUids] = React.useState<string[]>(user?.blocked_uids || []);
 
   React.useEffect(() => {
@@ -876,7 +875,10 @@ export default function Dashboard() {
       )}
 
       {/* Quick Stats */}
-      <section className="grid grid-cols-2 gap-4">
+      <section 
+        id="quick-stats-section" 
+        className="grid grid-cols-2 gap-4"
+      >
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -899,7 +901,10 @@ export default function Dashboard() {
       </section>
 
       {/* Birthdays This Month */}
-      <section className="space-y-4">
+      <section 
+        id="birthdays-month-section" 
+        className="space-y-4"
+      >
         <div className="flex justify-between items-end px-1">
           <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
             <Calendar size={16} />
@@ -992,7 +997,10 @@ export default function Dashboard() {
       </section>
 
       {/* Countdown Dashboard (Lightweight Project Manager) */}
-      <section className="space-y-4">
+      <section 
+        id="countdown-dashboard-section" 
+        className="space-y-4"
+      >
         <div className="flex justify-between items-center px-1">
           <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
             <Clock size={16} />
@@ -1156,7 +1164,10 @@ export default function Dashboard() {
       </section>
 
       {/* Priority Intelligence Section */}
-      <section className="p-6 card-premium space-y-4 bg-zinc-50/50 dark:bg-zinc-900/50">
+      <section 
+        id="priority-intelligence-section" 
+        className="p-6 card-premium space-y-4 bg-zinc-50/50 dark:bg-zinc-900/50"
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Star className="text-amber-500" size={18} fill="currentColor" />
@@ -1208,6 +1219,8 @@ export default function Dashboard() {
         </div>
         <p className="text-[10px] text-zinc-400 text-center pt-2">Based on memories, interactions & how much you show up</p>
       </section>
+
+
 
       {/* Navigation Bar */}
       <Navigation />
