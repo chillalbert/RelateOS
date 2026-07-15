@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
+import Navigation from '../components/Navigation';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
 import { callCoachModel } from '../services/geminiService';
@@ -592,7 +593,7 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
       )}
 
       {/* Input Bar */}
-      <div className={`p-4 border-t sticky bottom-0 ${
+      <div className={`p-4 pb-28 border-t sticky bottom-0 ${
         isPrivateMode 
           ? 'bg-zinc-950 border-zinc-850' 
           : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-900'
@@ -621,6 +622,7 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
           </button>
         </form>
       </div>
+      <Navigation />
     </div>
   );
 }
