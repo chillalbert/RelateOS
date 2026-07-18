@@ -49,7 +49,7 @@ import {
   deleteField,
   arrayRemove
 } from 'firebase/firestore';
-import { cn, getDaysUntil, isBirthdayToday } from '../lib/utils';
+import { cn, getDaysUntil, isBirthdayToday, formatTime as utilsFormatTime } from '../lib/utils';
 
 export default function GroupPlanning() {
   const { id } = useParams();
@@ -419,6 +419,52 @@ export default function GroupPlanning() {
     }
   };
 
+  const createActivityNotification = async (activityType: 'message' | 'surprise' | 'contribution') => {
+    if (!id || !firebaseUser || !group) return;
+    const members = group.members || [];
+    const otherMembers = members.filter((uid: string) => uid !== firebaseUser.uid);
+    if (otherMembers.length === 0) return;
+
+    const notifRef = collection(db, 'notifications');
+    const roomName = group.name || group.title || (group.person_name ? `${group.person_name}'s Birthday` : 'Workspace Room');
+    const authorName = user?.name || 'Someone';
+
+    let title = '';
+    let message = '';
+
+    if (activityType === 'message') {
+      title = `New Room Message 💬`;
+      message = `${authorName} sent a message in ${roomName}`;
+    } else if (activityType === 'surprise') {
+      title = `New Surprise Idea! 🎁`;
+      message = `${authorName} added a surprise/note in ${roomName}`;
+    } else if (activityType === 'contribution') {
+      title = `New Pool Contribution 💰`;
+      message = `${authorName} contributed to the gift pool in ${roomName}`;
+    } else {
+      title = `New Room Activity ✨`;
+      message = `${authorName} made an update in ${roomName}`;
+    }
+
+    try {
+      const promises = otherMembers.map((memberUid: string) => {
+        return addDoc(notifRef, {
+          user_id: memberUid,
+          title,
+          message,
+          type: 'group',
+          is_read: false,
+          isRead: false,
+          link: `/rooms/${id}`,
+          created_at: serverTimestamp()
+        });
+      });
+      await Promise.all(promises);
+    } catch (err) {
+      console.error("Error creating in-app notification:", err);
+    }
+  };
+
   const handleSendChatMessage = async () => {
     const trimmedText = newMessageText.trim();
     if (!id || !trimmedText || !firebaseUser) return;
@@ -433,6 +479,7 @@ export default function GroupPlanning() {
       };
       await addDoc(chatRef, userMsgData);
       setNewMessageText('');
+      await createActivityNotification('message');
 
       // Check if includes '@Spark' (case insensitive)
       if (trimmedText.toLowerCase().includes('@spark')) {
@@ -517,6 +564,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
           content: cloudinaryUrl,
           created_at: serverTimestamp()
         });
+        await createActivityNotification('surprise');
         
         setNewSurprise({ type: 'message', content: '' });
         setSelectedImageFile(null);
@@ -541,6 +589,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
         content: newSurprise.content,
         created_at: serverTimestamp()
       });
+      await createActivityNotification('surprise');
 
       // Trigger C — Card Message Added push:
       if (newSurprise.type === 'message') {
@@ -583,6 +632,7 @@ Keep responses short, friendly, and use emojis. Max 3 sentences.`;
         amount: amt,
         created_at: serverTimestamp()
       });
+      await createActivityNotification('contribution');
 
       // Trigger B — Target Achievement / Gift Decision Confirmed push:
       if (totalContributed + amt >= targetAmount) {
@@ -1420,6 +1470,7 @@ Return strictly as a JSON array (no markdown code fence blocks, just the array i
         amount: Number(contributionAmount),
         created_at: serverTimestamp()
       });
+      await createActivityNotification('contribution');
       setIsContributing(false);
     } catch (err) {
       console.error("Error posting party contribution:", err);
@@ -1683,16 +1734,7 @@ Write a warm, nostalgic, and fun 3-4 sentence memory summary of this party that 
     };
 
     const formatTime = (timeStr: string) => {
-      if (!timeStr) return '';
-      try {
-        const [hours, minutes] = timeStr.split(':');
-        const h = parseInt(hours, 10);
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        const hor = h % 12 || 12;
-        return `${hor}:${minutes} ${ampm}`;
-      } catch (e) {
-        return timeStr;
-      }
+      return utilsFormatTime(timeStr, user?.timeFormatPreference || '12h');
     };
 
     const handleAddDatePoll = async (e: React.FormEvent) => {
