@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Bell, Shield, Moon, LogOut, ChevronRight, Sparkles, X, Calendar, Check, Lock, Trash2, AlertTriangle, Globe, Palette } from 'lucide-react';
+import { ArrowLeft, User, Bell, Shield, Moon, LogOut, ChevronRight, Sparkles, X, Calendar, Check, Lock, Trash2, AlertTriangle, Globe, Palette, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Navigation from '../components/Navigation';
 import CalendarImportStep from '../components/CalendarImportStep';
@@ -88,6 +88,7 @@ export default function Settings() {
   
   const [anythingExtra, setAnythingExtra] = React.useState(user?.anything_extra || '');
   const [nameDisplayPref, setNameDisplayPref] = React.useState<'full' | 'first'>(user?.nameDisplayPreference || 'full');
+  const [timeFormatPref, setTimeFormatPref] = React.useState<'12h' | '24h'>(user?.timeFormatPreference || '12h');
   const [aiAccent, setAiAccent] = React.useState<'violet' | 'emerald' | 'amber' | 'sky' | 'rose'>(user?.aiAccentColor || 'violet');
   const [showColorPickerModal, setShowColorPickerModal] = React.useState(false);
   const [blockedUsers, setBlockedUsers] = React.useState<any[]>([]);
@@ -144,6 +145,7 @@ export default function Settings() {
       if (user.birthday_day !== undefined) setEditedBirthDay(user.birthday_day);
       if (user.anything_extra && !anythingExtra) setAnythingExtra(user.anything_extra);
       if (user.nameDisplayPreference !== undefined) setNameDisplayPref(user.nameDisplayPreference);
+      if (user.timeFormatPreference !== undefined) setTimeFormatPref(user.timeFormatPreference);
       if (user.aiAccentColor !== undefined) setAiAccent(user.aiAccentColor);
     }
   }, [user]);
@@ -487,6 +489,11 @@ export default function Settings() {
           onClick: handleNamePrefToggle 
         },
         { 
+          icon: <Clock size={20} />, 
+          label: 'Time Format Preference', 
+          isTimeFormat: true,
+        },
+        { 
           icon: <Palette size={20} />, 
           label: 'AI Accent Color', 
           value: aiAccent.charAt(0).toUpperCase() + aiAccent.slice(1), 
@@ -534,54 +541,122 @@ export default function Settings() {
           <div key={section.title} className="space-y-3">
             <h3 className="label-micro px-2">{section.title}</h3>
             <div className="card-premium overflow-hidden">
-              {section.items.map((item, i) => (
-                <button 
-                  key={item.label}
-                  onClick={item.onClick}
-                  className={`w-full flex items-center justify-between p-5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${
-                    i !== section.items.length - 1 ? 'border-b border-[var(--line)]' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="text-zinc-400">{item.icon}</div>
-                    <span className="text-sm font-medium">{item.label}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {('isToggle' in item && item.isToggle) ? (
-                      <div className="flex items-center">
-                        <div 
-                          className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${
-                            item.toggleState ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'
+              {section.items.map((item, i) => {
+                if ('isTimeFormat' in item && item.isTimeFormat) {
+                  return (
+                    <div 
+                      key={item.label}
+                      className={`w-full flex flex-col sm:flex-row sm:items-center justify-between p-5 gap-3 ${
+                        i !== section.items.length - 1 ? 'border-b border-[var(--line)]' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="text-zinc-400">{item.icon}</div>
+                        <span className="text-sm font-medium">{item.label}</span>
+                      </div>
+                      <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl shrink-0">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (timeFormatPref !== '12h') {
+                              setTimeFormatPref('12h');
+                              if (firebaseUser) {
+                                try {
+                                  const userRef = doc(db, 'users', firebaseUser.uid);
+                                  await setDoc(userRef, { timeFormatPreference: '12h' }, { merge: true });
+                                  await refreshUser();
+                                } catch (err) {
+                                  console.error(err);
+                                }
+                              }
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            timeFormatPref === '12h'
+                              ? 'bg-white dark:bg-zinc-700 text-zinc-950 dark:text-white shadow-sm'
+                              : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
                           }`}
                         >
-                          <motion.div 
-                            layout
-                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                            className="bg-white w-5 h-5 rounded-full shadow-md"
-                            style={{
-                              x: item.toggleState ? 20 : 0
-                            }}
-                          />
+                          12-hour (2:30 PM)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (timeFormatPref !== '24h') {
+                              setTimeFormatPref('24h');
+                              if (firebaseUser) {
+                                try {
+                                  const userRef = doc(db, 'users', firebaseUser.uid);
+                                  await setDoc(userRef, { timeFormatPreference: '24h' }, { merge: true });
+                                  await refreshUser();
+                                } catch (err) {
+                                  console.error(err);
+                                }
+                              }
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            timeFormatPref === '24h'
+                              ? 'bg-white dark:bg-zinc-700 text-zinc-950 dark:text-white shadow-sm'
+                              : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                          }`}
+                        >
+                          24-hour (14:30)
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <button 
+                    key={item.label}
+                    onClick={item.onClick}
+                    className={`w-full flex items-center justify-between p-5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${
+                      i !== section.items.length - 1 ? 'border-b border-[var(--line)]' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="text-zinc-400">{item.icon}</div>
+                      <span className="text-sm font-medium">{item.label}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {('isToggle' in item && item.isToggle) ? (
+                        <div className="flex items-center">
+                          <div 
+                            className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${
+                              item.toggleState ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'
+                            }`}
+                          >
+                            <motion.div 
+                              layout
+                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                              className="bg-white w-5 h-5 rounded-full shadow-md"
+                              style={{
+                                x: item.toggleState ? 20 : 0
+                              }}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    ) : ('isColorPicker' in item && item.isColorPicker) ? (
-                      <div className="flex items-center gap-2">
-                        <span 
-                          className="w-3.5 h-3.5 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm" 
-                          style={{ backgroundColor: colorMap[item.colorValue as keyof typeof colorMap] }} 
-                        />
-                        <span className="text-xs text-zinc-400">{item.value}</span>
-                        <ChevronRight size={16} className="text-zinc-300" />
-                      </div>
-                    ) : (
-                      <>
-                        <span className="text-xs text-zinc-400">{item.value}</span>
-                        <ChevronRight size={16} className="text-zinc-300" />
-                      </>
-                    )}
-                  </div>
-                </button>
-              ))}
+                      ) : ('isColorPicker' in item && item.isColorPicker) ? (
+                        <div className="flex items-center gap-2">
+                          <span 
+                            className="w-3.5 h-3.5 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm" 
+                            style={{ backgroundColor: colorMap[item.colorValue as keyof typeof colorMap] }} 
+                          />
+                          <span className="text-xs text-zinc-400">{item.value}</span>
+                          <ChevronRight size={16} className="text-zinc-300" />
+                        </div>
+                      ) : (
+                        <>
+                          <span className="text-xs text-zinc-400">{item.value}</span>
+                          <ChevronRight size={16} className="text-zinc-300" />
+                        </>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
@@ -598,7 +673,7 @@ export default function Settings() {
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Custom Handle URL</label>
               <div className="flex items-center bg-zinc-50 dark:bg-zinc-800/80 rounded-xl p-0.5 border border-zinc-100 dark:border-zinc-800">
-                <span className="pl-3 text-zinc-400 text-xs font-semibold font-mono">relateosbday.netlify.app/u/</span>
+                <span className="pl-3 text-zinc-400 text-xs font-semibold font-mono">https://relateosbday.netlify.app/u/</span>
                 <input
                   type="text"
                   className="flex-1 p-2.5 pl-0 bg-transparent border-none text-xs font-bold text-zinc-950 dark:text-white outline-none focus:ring-0"
