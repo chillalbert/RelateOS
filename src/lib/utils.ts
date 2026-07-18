@@ -226,3 +226,68 @@ export function isBirthdayToday(birthday: string | undefined | null): boolean {
   }
 }
 
+export function formatTime(timeStr: string | undefined | null, preference: '12h' | '24h' = '12h'): string {
+  if (!timeStr) return '';
+  try {
+    let hoursStr = '';
+    let minutesStr = '';
+    
+    if (timeStr.includes(':')) {
+      const parts = timeStr.split(':');
+      hoursStr = parts[0];
+      minutesStr = parts[1];
+      if (minutesStr.includes(' ')) {
+        minutesStr = minutesStr.split(' ')[0];
+      }
+      if (minutesStr.length > 2) {
+        minutesStr = minutesStr.slice(0, 2);
+      }
+    } else {
+      return timeStr;
+    }
+    
+    const h = parseInt(hoursStr, 10);
+    const m = parseInt(minutesStr, 10);
+    if (isNaN(h) || isNaN(m)) return timeStr;
+    
+    const formattedMinutes = String(m).padStart(2, '0');
+    
+    if (preference === '24h') {
+      const formattedHours = String(h).padStart(2, '0');
+      return `${formattedHours}:${formattedMinutes}`;
+    } else {
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const hor = h % 12 || 12;
+      return `${hor}:${formattedMinutes} ${ampm}`;
+    }
+  } catch (e) {
+    return timeStr;
+  }
+}
+
+export function formatDateTime(dateInput: any, preference: '12h' | '24h' = '12h'): string {
+  if (!dateInput) return '';
+  try {
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    
+    const datePart = d.toLocaleDateString();
+    
+    const h = d.getHours();
+    const m = d.getMinutes();
+    const formattedMinutes = String(m).padStart(2, '0');
+    
+    if (preference === '24h') {
+      const formattedHours = String(h).padStart(2, '0');
+      return `${datePart} ${formattedHours}:${formattedMinutes}`;
+    } else {
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const hor = h % 12 || 12;
+      return `${datePart} ${hor}:${formattedMinutes} ${ampm}`;
+    }
+  } catch (e) {
+    return '';
+  }
+}
+
+
