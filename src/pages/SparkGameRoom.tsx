@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { formatTime } from '../lib/utils';
 import { db } from '../lib/firebase';
 import { 
   doc, 
@@ -80,6 +81,13 @@ export default function SparkGameRoom() {
 
   const todayString = new Date().toISOString().split('T')[0];
   const activeRoundId = group?.current_round_id || todayString;
+
+  // Reset local answer states when active round or questions change
+  useEffect(() => {
+    setEasyAnswer('');
+    setMediumAnswer('');
+    setDeepAnswer('');
+  }, [activeRoundId, todayRound?.id, JSON.stringify(todayRound?.questions)]);
 
   const isCurrentUserSubject = firebaseUser && todayRound && todayRound.subject_id === firebaseUser.uid;
   const realSubjectName = todayRound?.subject_id ? (membersProfiles[todayRound.subject_id]?.name || '') : '';
@@ -414,7 +422,41 @@ Return EXACTLY a raw JSON object string with these precise keys (no markdown for
       ];
 
       const resText = await callCoachModel(contents, { responseMimeType: "application/json" });
-      const qObj = JSON.parse(resText || `{"easy": "What is ${subjectName}'s favorite weekend breakfast?", "medium": "If ${subjectName} could change one career choice, what would it be?", "deep": "What is a major life dream of ${subjectName} that you admire?"}`);
+      
+      // Sanitization
+      let cleanedText = (resText || '').trim();
+      // Remove any markdown code fence block if present
+      if (cleanedText.startsWith('```json')) {
+        cleanedText = cleanedText.substring(7);
+      } else if (cleanedText.startsWith('```')) {
+        cleanedText = cleanedText.substring(3);
+      }
+      if (cleanedText.endsWith('```')) {
+        cleanedText = cleanedText.substring(0, cleanedText.length - 3);
+      }
+      cleanedText = cleanedText.trim();
+
+      // Clean up any other characters or non-JSON wrapper lines
+      const firstBrace = cleanedText.indexOf('{');
+      const lastBrace = cleanedText.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        cleanedText = cleanedText.substring(firstBrace, lastBrace + 1);
+      }
+
+      let qObj;
+      try {
+        qObj = JSON.parse(cleanedText);
+        if (!qObj.easy || !qObj.medium || !qObj.deep) {
+          throw new Error("Missing required question keys in parsed JSON object");
+        }
+      } catch (parseError) {
+        console.warn("[SparkEngine] Sanitized JSON parse failed, utilizing fallback questions:", parseError, "Raw string was:", resText);
+        qObj = {
+          easy: `What is ${subjectName}'s favorite weekend breakfast?`,
+          medium: `If ${subjectName} could change one career choice, what would it be?`,
+          deep: `What is a major life dream of ${subjectName} that you admire?`
+        };
+      }
 
       await setDoc(roundDocRef, {
         subject_id: chosenSubjectId,
@@ -707,10 +749,15 @@ Return EXACTLY a raw JSON object string with these precise keys (no markdown for
             </div>
           </div>
 
-          {currentPhase !== 'Complete' && gameConfig.minutesLeft > 0 && (
+          {currentPhase !== 'Complete' && (gameConfig.minutesLeft > 0 || (gameConfig.secondsLeft !== undefined && gameConfig.secondsLeft > 0)) && (
             <div className="flex items-center gap-1.5 px-3 py-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-150 rounded-xl text-xs font-black font-mono tracking-tight text-zinc-500">
               <Clock size={12} className="text-zinc-450" />
-              <span>{gameConfig.minutesLeft}m left</span>
+              <span>
+                {gameConfig.secondsLeft !== undefined && gameConfig.secondsLeft < 60 
+                  ? `${gameConfig.secondsLeft}s left` 
+                  : `${gameConfig.minutesLeft}m left`
+                }
+              </span>
             </div>
           )}
         </div>
@@ -734,13 +781,16 @@ Return EXACTLY a raw JSON object string with these precise keys (no markdown for
               <div className="space-y-2">
                 <h2 className="text-xl font-black">Silent Anticipation...</h2>
                 <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-                  Spark triggers at <span className="font-bold dark:text-white p-1 bg-zinc-800 rounded-lg">{group?.trigger_time}</span>. 
+                  Spark triggers at <span className="font-bold dark:text-white p-1 bg-zinc-800 rounded-lg">{formatTime(group?.trigger_time, user?.timeFormatPreference || '12h')}</span>. 
                   All group members get AI questions and answers lock in anonymously!
                 </p>
               </div>
 
               <div id="countdown-banner-widget" className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 font-mono font-bold text-sm tracking-widest inline-block text-zinc-500 border border-zinc-100">
-                DAILY RELEASE COUNTDOWN: {gameConfig.minutesLeft} MINS
+                DAILY RELEASE COUNTDOWN: {gameConfig.secondsLeft !== undefined && gameConfig.secondsLeft < 60 
+                  ? `${gameConfig.secondsLeft} SECS` 
+                  : `${gameConfig.minutesLeft} MINS`
+                }
               </div>
             </motion.div>
           )}
@@ -768,7 +818,12 @@ Return EXACTLY a raw JSON object string with these precise keys (no markdown for
                   </div>
                   <div>
                     <h3 className="font-extrabold text-md">Answers Locked In! 🤐</h3>
-                    <p className="text-xs text-zinc-400">Your answers are secure. Guessing phase starts in {gameConfig.minutesLeft} minutes.</p>
+                    <p className="text-xs text-zinc-400">
+                      Your answers are secure. Guessing phase starts in {gameConfig.secondsLeft !== undefined && gameConfig.secondsLeft < 60 
+                        ? `${gameConfig.secondsLeft} seconds` 
+                        : `${gameConfig.minutesLeft} minutes`
+                      }.
+                    </p>
                   </div>
 
                   <div className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-100 text-left space-y-3.5 text-xs">
