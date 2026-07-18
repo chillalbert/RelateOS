@@ -296,8 +296,8 @@ export default function OnboardingFlow() {
     }
   };
 
-  const handleAddSportTag = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ',') {
+  const handleAddSportTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.keyCode === 13 || e.key === ',') {
       e.preventDefault();
       const tag = sportsInput.trim().replace(/,/g, '');
       if (tag && !sportsTeams.includes(tag)) {
@@ -312,7 +312,7 @@ export default function OnboardingFlow() {
   };
 
   const handleNextStep = async () => {
-    if (step === 1) {
+    if (step === 2) {
       if (!name.trim()) return;
       if (!customHandle.trim()) {
         setHandleError('Please provide a custom username handle!');
@@ -323,9 +323,9 @@ export default function OnboardingFlow() {
         await checkHandleUniqueness(customHandle);
         return;
       }
-      setStep(2);
-    } else if (step === 2) {
       setStep(3);
+    } else if (step === 3) {
+      setStep(4);
     }
   };
 
@@ -359,7 +359,7 @@ export default function OnboardingFlow() {
         is_private: isPrivate,
       });
       await refreshUser();
-      setStep(4);
+      setStep(5);
     } catch (err) {
       console.error('Saving intermediate profile failed:', err);
     } finally {
@@ -704,10 +704,10 @@ export default function OnboardingFlow() {
         {/* Step indicators */}
         <div className="flex items-center justify-between px-2">
           <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 flex items-center gap-1.5">
-            <Sparkles size={12} className="animate-pulse" /> Step {step} of 6
+            <Sparkles size={12} className="animate-pulse" /> Step {step} of 7
           </span>
           <div className="flex items-center gap-1.5">
-            {[1, 2, 3, 4, 5, 6].map((s) => (
+            {[1, 2, 3, 4, 5, 6, 7].map((s) => (
               <div 
                 key={s} 
                 className={`h-1.5 rounded-full transition-all duration-350 ${
@@ -722,6 +722,44 @@ export default function OnboardingFlow() {
           {step === 1 && (
             <motion.div
               key="step-1"
+              initial={{ opacity: 0, x: 15 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -15 }}
+              className="space-y-6 text-center"
+            >
+              <div className="space-y-4 py-4 flex flex-col items-center">
+                <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-3xl flex items-center justify-center shadow-sm">
+                  <Sparkles size={40} className="animate-pulse" />
+                </div>
+                
+                <div className="space-y-2 mt-2">
+                  <h2 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">Welcome to RelateOS 🪐</h2>
+                  <p className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">Your Relationship Intelligence Hub</p>
+                </div>
+              </div>
+
+              <div className="bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800 p-6 rounded-2xl text-left space-y-4">
+                <p className="text-sm text-zinc-650 dark:text-zinc-350 leading-relaxed font-medium">
+                  Welcome to RelateOS! Here's the deal: the stuff you're about to fill in (your birthday, favorite teams, what you're into) helps RelateOS actually be useful instead of just another app that reminds you it's someone's birthday and leaves you scrambling.
+                </p>
+                <p className="text-sm text-zinc-650 dark:text-zinc-350 leading-relaxed font-medium">
+                  Every friend you add gets their own profile page too, kind of like a running notebook for that relationship. You can jot down notes, log memories, track gift ideas, and RelateOS uses all of it to suggest things like what to get them or what to say when their birthday rolls around. The more you fill in, the better it gets at actually helping.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/15 cursor-pointer"
+              >
+                Let's go <ArrowRight size={14} />
+              </button>
+            </motion.div>
+          )}
+
+          {step === 2 && (
+            <motion.div
+              key="step-2"
               initial={{ opacity: 0, x: 15 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -15 }}
@@ -842,12 +880,12 @@ export default function OnboardingFlow() {
 
                 <div className="space-y-1">
                   <label className="text-[10px] uppercase font-black tracking-wider text-zinc-400 ml-0.5">Custom Handle / URL Link</label>
-                  <div className="flex items-center bg-zinc-50 dark:bg-zinc-800 rounded-2xl p-0.5 border border-zinc-150 dark:border-zinc-800">
-                    <span className="pl-3 text-zinc-400 text-xs font-bold font-mono">relateos.app/u/</span>
+                  <div className="flex items-center bg-zinc-50 dark:bg-zinc-800 rounded-2xl p-0.5 border border-zinc-150 dark:border-zinc-800 min-w-0">
+                    <span className="pl-3 text-zinc-400 text-xs font-bold font-mono truncate min-w-0 shrink">https://relateosbday.netlify.app/u/</span>
                     <input
                       type="text"
                       required
-                      className="flex-1 p-3 pl-0 bg-transparent border-none text-xs font-bold text-zinc-950 dark:text-white outline-none focus:ring-0"
+                      className="flex-1 min-w-[50px] p-3 pl-1 bg-transparent border-none text-xs font-bold text-zinc-950 dark:text-white outline-none focus:ring-0"
                       placeholder="smayan"
                       value={customHandle}
                       onChange={(e) => {
@@ -861,7 +899,7 @@ export default function OnboardingFlow() {
                       type="button"
                       disabled={handleChecking || !customHandle.trim()}
                       onClick={() => checkHandleUniqueness(customHandle)}
-                      className="px-3 py-1.5 mr-1 bg-zinc-250 dark:bg-zinc-700 text-[10px] font-black uppercase rounded-lg text-zinc-650 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-650 transition-colors cursor-pointer"
+                      className="px-3 py-1.5 mr-1 bg-zinc-250 dark:bg-zinc-700 text-[10px] font-black uppercase rounded-lg text-zinc-650 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-650 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                     >
                       {handleChecking ? 'Checking...' : 'Verify'}
                     </button>
@@ -871,20 +909,30 @@ export default function OnboardingFlow() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                disabled={!name.trim() || !customHandle.trim() || handleChecking || !!handleError}
-                onClick={handleNextStep}
-                className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/15 cursor-pointer"
-              >
-                Continue to Vibes <ArrowRight size={14} />
-              </button>
+              {/* Action buttons */}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="px-5 py-4 bg-zinc-50 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-250 border border-zinc-200 dark:border-zinc-750 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center cursor-pointer"
+                >
+                  <ArrowLeft size={14} />
+                </button>
+                <button
+                  type="button"
+                  disabled={!name.trim() || !customHandle.trim() || handleChecking || !!handleError}
+                  onClick={handleNextStep}
+                  className="flex-1 py-4 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/15 cursor-pointer"
+                >
+                  Continue to Vibes <ArrowRight size={14} />
+                </button>
+              </div>
             </motion.div>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <motion.div
-              key="step-2"
+              key="step-3"
               initial={{ opacity: 0, x: 15 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -15 }}
@@ -902,6 +950,7 @@ export default function OnboardingFlow() {
                   </label>
                   <input
                     type="text"
+                    enterKeyHint="done"
                     className="w-full p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none text-xs font-semibold text-zinc-950 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none border border-zinc-150 dark:border-zinc-800"
                     placeholder="e.g. Lakers, Real Madrid, Warriors"
                     value={sportsInput}
@@ -969,7 +1018,7 @@ export default function OnboardingFlow() {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setStep(1)}
+                  onClick={() => setStep(2)}
                   className="px-5 py-4 bg-zinc-50 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-250 border border-zinc-200 dark:border-zinc-750 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center cursor-pointer"
                 >
                   <ArrowLeft size={14} />
@@ -985,9 +1034,9 @@ export default function OnboardingFlow() {
             </motion.div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <motion.div
-              key="step-3"
+              key="step-4"
               initial={{ opacity: 0, x: 15 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -15 }}
@@ -1087,7 +1136,7 @@ export default function OnboardingFlow() {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setStep(2)}
+                  onClick={() => setStep(3)}
                   className="px-5 py-4 bg-zinc-50 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-250 border border-zinc-200 dark:border-zinc-750 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center cursor-pointer"
                 >
                   <ArrowLeft size={14} />
@@ -1104,9 +1153,9 @@ export default function OnboardingFlow() {
             </motion.div>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <motion.div
-              key="step-4"
+              key="step-5"
               initial={{ opacity: 0, x: 15 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -15 }}
@@ -1175,14 +1224,14 @@ export default function OnboardingFlow() {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setStep(3)}
+                  onClick={() => setStep(4)}
                   className="px-5 py-4 bg-zinc-50 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-250 border border-zinc-200 dark:border-zinc-750 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center cursor-pointer"
                 >
                   <ArrowLeft size={14} />
                 </button>
                 <button
                   type="button"
-                  onClick={() => setStep(5)}
+                  onClick={() => setStep(6)}
                   className="flex-1 py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/15 cursor-pointer"
                 >
                   Continue to Import <ArrowRight size={14} />
@@ -1191,9 +1240,9 @@ export default function OnboardingFlow() {
             </motion.div>
           )}
 
-          {step === 5 && (
+          {step === 6 && (
             <motion.div
-              key="step-5"
+              key="step-6"
               initial={{ opacity: 0, x: 15 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -15 }}
@@ -1248,14 +1297,14 @@ export default function OnboardingFlow() {
                   <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={() => setStep(4)}
+                      onClick={() => setStep(5)}
                       className="px-5 py-4 bg-zinc-50 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-250 border border-zinc-200 dark:border-zinc-750 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center cursor-pointer"
                     >
                       <ArrowLeft size={14} />
                     </button>
                     <button
                       type="button"
-                      onClick={() => setStep(6)}
+                      onClick={() => setStep(7)}
                       className="flex-1 py-4 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-250 text-zinc-500 dark:text-zinc-300 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
                     >
                       Skip For Now <ChevronRight size={14} />
@@ -1287,7 +1336,7 @@ export default function OnboardingFlow() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setStep(6)}
+                    onClick={() => setStep(7)}
                     className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-wider hover:opacity-90 transition-opacity cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
                   >
                     Continue <ArrowRight size={14} />
@@ -1297,9 +1346,9 @@ export default function OnboardingFlow() {
             </motion.div>
           )}
 
-          {step === 6 && (
+          {step === 7 && (
             <motion.div
-              key="step-6"
+              key="step-7"
               initial={{ opacity: 0, x: 15 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -15 }}
@@ -1350,7 +1399,7 @@ export default function OnboardingFlow() {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setStep(5)}
+                  onClick={() => setStep(6)}
                   className="px-5 py-4 bg-zinc-50 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-250 border border-zinc-200 dark:border-zinc-750 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center cursor-pointer"
                 >
                   <ArrowLeft size={14} />
