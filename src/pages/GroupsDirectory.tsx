@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
+import { formatTime } from '../lib/utils';
 import { 
   Users, 
   Plus, 
@@ -376,7 +377,7 @@ export default function GroupsDirectory() {
                     <div className="flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400 mb-4 font-medium">
                       <span className="flex items-center gap-1">
                         <Clock size={13} className="text-zinc-400" />
-                        <span>Daily trigger: {group.trigger_time || "12:00"}</span>
+                        <span>Daily trigger: {formatTime(group.trigger_time || "12:00", user?.timeFormatPreference || '12h')}</span>
                       </span>
                       <span className="flex items-center gap-1">
                         <Trophy size={13} className="text-amber-500" />
