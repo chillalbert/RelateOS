@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, query, where, onSnapshot, doc, getDocs } from 'firebase/firestore';
+import { formatTime } from '../lib/utils';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { 
@@ -19,7 +20,7 @@ import Navigation from '../components/Navigation';
 
 // Dynamically compute the active game state of a group
 export function computeGameState(triggerTime: string) {
-  if (!triggerTime) return { phase: 'Waiting for trigger', text: 'Waiting for trigger', minutesLeft: 0 };
+  if (!triggerTime) return { phase: 'Waiting for trigger', text: 'Waiting for trigger', minutesLeft: 0, secondsLeft: 0 };
 
   const now = new Date();
   const [hours, minutes] = triggerTime.split(':').map(Number);
@@ -32,48 +33,58 @@ export function computeGameState(triggerTime: string) {
 
   if (diffMins < 0) {
     // Before trigger time today
-    const tomorrow = new Date(triggerDate);
-    tomorrow.setDate(tomorrow.getDate() + 1);
     const msUntil = triggerDate.getTime() - now.getTime();
     const minsUntil = Math.floor(msUntil / 60000);
+    const secsUntil = Math.floor(msUntil / 1000);
     return { 
       phase: 'Waiting for trigger', 
       text: 'Triggering Today', 
-      minutesLeft: minsUntil 
+      minutesLeft: minsUntil,
+      secondsLeft: secsUntil
     };
   } else if (diffMins >= 0 && diffMins < 60) {
     // Answering phase: 1 hour from trigger
+    const msUntil = (triggerDate.getTime() + 60 * 60 * 1000) - now.getTime();
+    const secsUntil = Math.floor(msUntil / 1000);
     return { 
       phase: 'Answering now', 
       text: 'Phase 1: Answering Room', 
-      minutesLeft: 60 - diffMins 
+      minutesLeft: 60 - diffMins,
+      secondsLeft: secsUntil
     };
   } else if (diffMins >= 60 && diffMins < 75) {
     // Reveal phase: 15 mins following Answering
+    const msUntil = (triggerDate.getTime() + 75 * 60 * 1000) - now.getTime();
+    const secsUntil = Math.floor(msUntil / 1000);
     return { 
       phase: 'Reveal in progress', 
       text: 'Phase 2: Reveal & Sync', 
-      minutesLeft: 75 - diffMins 
+      minutesLeft: 75 - diffMins,
+      secondsLeft: secsUntil
     };
   } else if (diffMins >= 75 && diffMins < 105) {
     // Guessing phase: 30 mins
+    const msUntil = (triggerDate.getTime() + 105 * 60 * 1000) - now.getTime();
+    const secsUntil = Math.floor(msUntil / 1000);
     return { 
       phase: 'Guessing phase', 
       text: 'Phase 3: Guessing Clues', 
-      minutesLeft: 105 - diffMins 
+      minutesLeft: 105 - diffMins,
+      secondsLeft: secsUntil
     };
   } else {
     // Complete
     return { 
       phase: 'Complete', 
       text: 'Game Complete', 
-      minutesLeft: 0 
+      minutesLeft: 0,
+      secondsLeft: 0
     };
   }
 }
 
 export default function SparkHome() {
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, user } = useAuth();
   const [groups, setGroups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -205,7 +216,7 @@ export default function SparkHome() {
                           </h4>
                           <span className="inline-flex items-center gap-1.5 text-xs text-zinc-400 font-bold">
                             <Clock size={13} />
-                            <span>Daily schedule: {group.trigger_time}</span>
+                            <span>Daily schedule: {formatTime(group.trigger_time, user?.timeFormatPreference || '12h')}</span>
                           </span>
                         </div>
                         <div>
