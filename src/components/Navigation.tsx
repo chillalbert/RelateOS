@@ -14,10 +14,38 @@ import {
   Gift
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useAuth } from '../context/AuthContext';
+import { db } from '../lib/firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 export default function Navigation() {
   const location = useLocation();
   const path = location.pathname;
+
+  const { firebaseUser } = useAuth();
+  const [unreadCount, setUnreadCount] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!firebaseUser) {
+      setUnreadCount(0);
+      return;
+    }
+
+    const notifRef = collection(db, 'notifications');
+    const q = query(
+      notifRef,
+      where('user_id', '==', firebaseUser.uid),
+      where('is_read', '==', false)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setUnreadCount(snapshot.size);
+    }, (err) => {
+      console.warn("Error listening to unread notifications:", err);
+    });
+
+    return () => unsubscribe();
+  }, [firebaseUser]);
 
   const [pendingCount, setPendingCount] = React.useState(typeof window !== 'undefined' ? (window as any).__pendingCount || 0 : 0);
 
