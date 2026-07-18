@@ -22,7 +22,8 @@ import {
   Heart,
   Copy,
   Check,
-  Star
+  Star,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoadingScreen from '../components/LoadingScreen';
@@ -824,6 +825,38 @@ export default function PersonProfile() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
+      {/* Dismissible Hint/Explanation Card */}
+      {!user?.hasSeenPersonProfileHint && (
+        <div className="p-6 pb-0 max-w-2xl mx-auto">
+          <div className={`p-5 bg-white dark:bg-zinc-900 border ${accent.border} rounded-3xl relative flex flex-col sm:flex-row items-start gap-4 shadow-sm`}>
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${accent.bgLight} ${accent.text}`}>
+              <Sparkles size={18} />
+            </div>
+            <div className="flex-1 min-w-0 pr-6 space-y-1">
+              <h3 className="font-extrabold text-sm text-zinc-900 dark:text-white">Welcome to the Friend Vibe Locker!</h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                This page is your dedicated command center for this friend. Use it to track birthday countdowns, brainstorm and save gift ideas, log shared memories or reflections, and build a deep connection history.
+              </p>
+            </div>
+            <button
+              onClick={async () => {
+                if (!firebaseUser) return;
+                try {
+                  const userRef = doc(db, 'users', firebaseUser.uid);
+                  await updateDoc(userRef, { hasSeenPersonProfileHint: true });
+                  await refreshUser();
+                } catch (err) {
+                  console.error("Error dismissing profile hint:", err);
+                }
+              }}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Hero Header */}
       <div className="bg-white dark:bg-zinc-900 border-b border-[var(--line)] pt-[var(--sat)]">
         <div className="p-6 flex items-center justify-between">
