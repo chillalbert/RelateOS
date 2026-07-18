@@ -480,6 +480,22 @@ export default function Dashboard() {
     fetchDashboardData();
   }, [firebaseUser]);
 
+  React.useEffect(() => {
+    if (!firebaseUser) {
+      setNotifications([]);
+      return;
+    }
+    const notifRef = collection(db, 'notifications');
+    const q = query(notifRef, where('user_id', '==', firebaseUser.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setNotifications(docs);
+    }, (err) => {
+      console.warn("Error listening to notifications in dashboard:", err);
+    });
+    return () => unsubscribe();
+  }, [firebaseUser]);
+
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   const toggleTask = async (personId: string, taskId: string, completed: boolean) => {
@@ -703,7 +719,7 @@ export default function Dashboard() {
             <img 
               src={user.profile_picture_url} 
               alt={getDisplayName(user)} 
-              className="w-12 h-12 rounded-full object-cover border border-zinc-200 dark:border-zinc-850 shadow-inner" 
+              className="w-12 h-12 rounded-full object-cover border border-zinc-200 dark:border-zinc-800 shadow-inner" 
               referrerPolicy="no-referrer"
             />
           ) : (
@@ -713,7 +729,7 @@ export default function Dashboard() {
           )}
           <div>
             <h1 className="text-2xl font-bold tracking-tight leading-tight">RelateOS</h1>
-            <p className="text-zinc-550 dark:text-zinc-400 text-xs font-semibold">Welcome back, {getDisplayName(user)}</p>
+            <p className="text-zinc-500 dark:text-zinc-400 text-xs font-semibold">Welcome back, {getDisplayName(user)}</p>
           </div>
         </div>
         <div className="flex gap-3">
@@ -749,7 +765,7 @@ export default function Dashboard() {
               <Star className="w-3 h-3 text-amber-500" fill="currentColor" />
               Talked today? Check-in
             </h3>
-            <span className="text-[10px] font-bold text-zinc-400 bg-zinc-100 dark:bg-zinc-850 px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-bold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">
               {closeFriendsToCheckIn.length} left
             </span>
           </div>
@@ -781,7 +797,7 @@ export default function Dashboard() {
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className="w-14 h-14 rounded-full bg-zinc-100 dark:bg-zinc-850 text-zinc-700 dark:text-zinc-350 flex items-center justify-center font-black text-lg border-2 border-white dark:border-zinc-900">
+                        <div className="w-14 h-14 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center font-black text-lg border-2 border-white dark:border-zinc-900">
                           {friend.name.charAt(0).toUpperCase()}
                         </div>
                       )}
@@ -1464,7 +1480,7 @@ export default function Dashboard() {
               className="relative w-full max-w-sm h-full bg-white dark:bg-zinc-900 shadow-2xl p-6 flex flex-col z-10"
             >
               {/* Header */}
-              <div className="flex justify-between items-center pb-4 border-b border-zinc-150 dark:border-zinc-805">
+              <div className="flex justify-between items-center pb-4 border-b border-zinc-200 dark:border-zinc-800">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2.5 bg-gradient-to-tr from-emerald-500 to-teal-500 text-white rounded-2xl shadow-md shadow-emerald-500/10">
                     <Users size={18} />
@@ -1476,7 +1492,7 @@ export default function Dashboard() {
                 </div>
                 <button 
                   onClick={() => setShowFriendsDrawer(false)}
-                  className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-full transition-colors cursor-pointer text-zinc-500 hover:text-zinc-800 dark:hover:text-white"
+                  className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors cursor-pointer text-zinc-500 hover:text-zinc-800 dark:hover:text-white"
                 >
                   <X size={20} />
                 </button>
@@ -1489,7 +1505,7 @@ export default function Dashboard() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between px-1">
                       <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-505 animate-pulse" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                         Pending Invitations ({friendRequests.length})
                       </h4>
                     </div>
@@ -1548,7 +1564,7 @@ export default function Dashboard() {
                       Syncing database...
                     </div>
                   ) : friends.length === 0 ? (
-                    <div className="p-8 text-center bg-zinc-50 dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-150 dark:border-zinc-800 space-y-2">
+                    <div className="p-8 text-center bg-zinc-50 dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800 space-y-2">
                       <p className="text-zinc-400 text-xs font-medium">No active connections found.</p>
                       <p className="text-[10px] text-zinc-500 leading-relaxed">
                         Share your landing URL with other users to sync birthdays and unlock streak alerts!
@@ -1584,21 +1600,21 @@ export default function Dashboard() {
                               "p-3 rounded-2xl border transition-all flex items-center justify-between gap-3",
                               isBlocked 
                                 ? "bg-zinc-50/50 dark:bg-zinc-950/30 border-red-200/40 dark:border-red-900/10 opacity-70" 
-                                : "bg-white dark:bg-zinc-850 border-zinc-100 dark:border-zinc-800/80 hover:border-zinc-200 dark:hover:border-zinc-700 shadow-sm"
+                                : "bg-white dark:bg-zinc-800 border-zinc-100 dark:border-zinc-800/80 hover:border-zinc-200 dark:hover:border-zinc-700 shadow-sm"
                             )}
                           >
                             <div className="flex items-center gap-3">
                               {/* Beautiful high-energy circular badge avatar */}
                               <div className="relative">
                                 {isBlocked ? (
-                                  <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-850 flex items-center justify-center text-zinc-500 overflow-hidden shrink-0 border border-red-500/20">
+                                  <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 overflow-hidden shrink-0 border border-red-500/20">
                                     <ShieldAlert size={18} className="text-red-500" />
                                   </div>
                                 ) : displayPic ? (
                                   <img 
                                     src={displayPic} 
                                     alt={displayName} 
-                                    className="w-10 h-10 rounded-full object-cover border border-zinc-150 dark:border-zinc-700 shadow-sm"
+                                    className="w-10 h-10 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-sm"
                                     referrerPolicy="no-referrer"
                                   />
                                 ) : (
@@ -1678,7 +1694,7 @@ export default function Dashboard() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-[32px] p-8 shadow-2xl relative overflow-hidden"
+              className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[32px] p-8 shadow-2xl relative overflow-hidden"
             >
               {/* Close Button */}
               <button
@@ -1702,7 +1718,7 @@ export default function Dashboard() {
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className="w-20 h-20 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-350 flex items-center justify-center font-black text-2xl border-4 border-white dark:border-zinc-900">
+                        <div className="w-20 h-20 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center font-black text-2xl border-4 border-white dark:border-zinc-900">
                           {checkInQueue[queueIndex].name.charAt(0).toUpperCase()}
                         </div>
                       )}
