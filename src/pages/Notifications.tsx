@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Navigation from '../components/Navigation';
-import { formatDate, getDisplayName } from '../lib/utils';
+import { formatDate, getDisplayName, formatDateTime } from '../lib/utils';
 import { db } from '../lib/firebase';
 import { 
   collection, query, where, getDocs, doc, updateDoc, deleteDoc, 
@@ -119,10 +119,21 @@ export default function Notifications() {
     };
   }, [firebaseUser]);
 
+  React.useEffect(() => {
+    if (notifications.length > 0) {
+      const unreadNotifs = notifications.filter(n => !n.is_read || n.isRead === false);
+      if (unreadNotifs.length > 0) {
+        unreadNotifs.forEach(n => {
+          markAsRead(n.id);
+        });
+      }
+    }
+  }, [notifications]);
+
   const markAsRead = async (id: string) => {
     try {
       const notifRef = doc(db, 'notifications', id);
-      await updateDoc(notifRef, { is_read: true });
+      await updateDoc(notifRef, { is_read: true, isRead: true });
     } catch (err) {
       console.error(err);
     }
@@ -469,7 +480,7 @@ export default function Notifications() {
                               {notif.title}
                             </h3>
                             <span className="text-[9px] text-zinc-400 whitespace-nowrap font-bold uppercase tracking-wider">
-                              {new Date(notif.created_at).toLocaleDateString()}
+                              {formatDateTime(notif.created_at, user?.timeFormatPreference || '12h')}
                             </span>
                           </div>
                           <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
