@@ -21,6 +21,8 @@ interface UserProfile {
   onboarding_completed?: boolean;
   has_completed_onboarding?: boolean;
   hasSeenTour?: boolean;
+  hasSeenPersonProfileHint?: boolean;
+  timeFormatPreference?: '12h' | '24h';
   custom_handle?: string;
   handle?: string;
   is_private?: boolean;
