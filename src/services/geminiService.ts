@@ -301,6 +301,89 @@ Review your response and ensure no em dashes!
   }
 }
 
+export function parseCoachResponse(rawInput: string): { reply: string; action: any } {
+  if (!rawInput || typeof rawInput !== 'string') {
+    return { reply: "I'm listening! How can I help you today?", action: null };
+  }
+
+  const trimmed = rawInput.trim();
+
+  const extractValidObj = (obj: any) => {
+    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+      if (typeof obj.reply === 'string' && obj.reply.trim() !== '') {
+        return { reply: obj.reply.trim(), action: obj.action || null };
+      }
+      if (typeof obj.text === 'string' && obj.text.trim() !== '') {
+        return { reply: obj.text.trim(), action: obj.action || null };
+      }
+    }
+    return null;
+  };
+
+  // 1. Direct JSON parse
+  try {
+    const direct = extractValidObj(JSON.parse(trimmed));
+    if (direct) return direct;
+  } catch {
+    // Continue
+  }
+
+  // 2. Strip markdown code fences
+  let cleaned = trimmed;
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.substring(7);
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.substring(3);
+  }
+  if (cleaned.endsWith('```')) {
+    cleaned = cleaned.substring(0, cleaned.length - 3);
+  }
+  cleaned = cleaned.trim();
+
+  try {
+    const parsedCleaned = extractValidObj(JSON.parse(cleaned));
+    if (parsedCleaned) return parsedCleaned;
+  } catch {
+    // Continue
+  }
+
+  // 3. Extract outermost {...} block
+  const jsonBlockMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (jsonBlockMatch) {
+    try {
+      const parsedBlock = extractValidObj(JSON.parse(jsonBlockMatch[0]));
+      if (parsedBlock) return parsedBlock;
+    } catch {
+      // Continue
+    }
+  }
+
+  // 4. Regex extraction for "reply" field specifically if JSON has syntax errors
+  const replyRegex = /"reply"\s*:\s*"([\s\S]*?)"\s*(?:,\s*"action"|\})/i;
+  const matchReply = cleaned.match(replyRegex);
+  if (matchReply && matchReply[1]) {
+    const extractedReply = matchReply[1].replace(/\\"/g, '"').replace(/\\n/g, '\n').trim();
+    if (extractedReply) {
+      return { reply: extractedReply, action: null };
+    }
+  }
+
+  // 5. Fallback: treat the entire raw output as the reply text
+  let fallbackText = cleaned;
+  if (fallbackText.startsWith('{') && fallbackText.endsWith('}')) {
+    fallbackText = fallbackText
+      .replace(/^\{\s*"reply"\s*:\s*"/i, '')
+      .replace(/"\s*,\s*"action"[\s\S]*\}$/i, '')
+      .replace(/"\s*\}$/i, '')
+      .trim();
+  }
+
+  return {
+    reply: fallbackText || "I'm listening! Tell me more.",
+    action: null
+  };
+}
+
 export async function callCoachModel(contents: any[], config?: any) {
   let apiKey = '';
   apiKey = cleanKey(await initializeGeminiKey());
