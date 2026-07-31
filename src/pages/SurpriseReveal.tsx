@@ -213,7 +213,7 @@ export default function SurpriseReveal() {
             <div className="p-8 text-center space-y-6">
               <div className="space-y-2">
                 <h3 className="text-2xl font-black text-white tracking-tight">
-                  Your friends built something for you 🎁
+                  Your friends built something for you
                 </h3>
                 <p className="text-zinc-400 text-sm leading-relaxed">
                   Create your free account to unlock it on your birthday.
@@ -271,10 +271,12 @@ export default function SurpriseReveal() {
           animate={{ y: 0, opacity: 1 }}
           className="text-center space-y-4"
         >
-          <div className="text-5xl">🎉</div>
+          <div className="flex justify-center">
+            <Sparkles size={48} className="text-emerald-400 mx-auto" />
+          </div>
           <div className="space-y-2">
             <h1 className="text-4xl font-black text-white tracking-tight">
-              Happy Birthday! 🎂
+              Happy Birthday!
             </h1>
             <p className="text-zinc-400 text-base">
               Your friends built this just for you
@@ -314,7 +316,7 @@ export default function SurpriseReveal() {
                 <DollarSign size={24} />
               </div>
               <div>
-                <h4 className="font-extrabold text-white text-base">Gift Pool 💰</h4>
+                <h4 className="font-extrabold text-white text-base">Gift Pool</h4>
                 <p className="text-xs text-zinc-400 font-medium">Contributed by your friends for your perfect gift</p>
               </div>
             </div>
