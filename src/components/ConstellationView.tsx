@@ -80,18 +80,18 @@ export default function ConstellationView({
     }`}>
       {/* Background ambient stars */}
       <div className={`absolute inset-0 pointer-events-none ${isLight ? 'opacity-30' : 'opacity-40'}`}>
-        <div className={`absolute top-1/4 left-1/6 w-1 h-1 rounded-full animate-ping ${isLight ? 'bg-zinc-700' : 'bg-white'}`} />
-        <div className="absolute top-1/3 right-1/4 w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-        <div className="absolute bottom-1/4 left-1/3 w-1 h-1 bg-teal-500 rounded-full animate-pulse" />
-        <div className={`absolute bottom-1/3 right-1/6 w-1 h-1 rounded-full animate-ping ${isLight ? 'bg-zinc-700' : 'bg-white'}`} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className={`absolute top-1/4 left-1/6 w-1 h-1 rounded-full ${isLight ? 'bg-zinc-700' : 'bg-white'}`} />
+        <div className="absolute top-1/3 right-1/4 w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+        <div className="absolute bottom-1/4 left-1/3 w-1 h-1 bg-teal-500 rounded-full" />
+        <div className={`absolute bottom-1/3 right-1/6 w-1 h-1 rounded-full ${isLight ? 'bg-zinc-700' : 'bg-white'}`} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-500/5 rounded-full pointer-events-none" />
       </div>
 
       {/* Top Header Badge */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.4 }}
         className="pt-2 flex flex-col items-center gap-1.5 z-20 text-center"
       >
         <div className={`inline-flex items-center gap-2 px-3.5 py-1 rounded-full border text-xs font-semibold tracking-wide shadow-sm ${
@@ -115,13 +115,13 @@ export default function ConstellationView({
               ? { scale: 0.8, opacity: 0 }
               : { scale: 1, opacity: 1 }
           }
-          transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
           style={{ transformOrigin: `${originX} ${originY}` }}
-          className="w-full h-full flex items-center justify-center"
+          className="w-full h-full flex items-center justify-center will-change-transform"
         >
           <svg
             viewBox="0 0 600 360"
-            className="w-full h-full max-h-[400px] drop-shadow-[0_0_30px_rgba(16,185,129,0.25)]"
+            className="w-full h-full max-h-[400px]"
           >
             <defs>
               <linearGradient id="activeLine" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -132,10 +132,6 @@ export default function ConstellationView({
                 <stop offset="0%" stopColor={isLight ? '#a1a1aa' : '#3f3f46'} stopOpacity={isLight ? '0.6' : '0.4'} />
                 <stop offset="100%" stopColor={isLight ? '#e4e4e7' : '#27272a'} stopOpacity={isLight ? '0.4' : '0.2'} />
               </linearGradient>
-              <filter id="starGlow" x="-30%" y="-30%" width="160%" height="160%">
-                <feGaussianBlur stdDeviation="5" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-              </filter>
             </defs>
 
             {/* Connecting Lines */}
@@ -147,7 +143,7 @@ export default function ConstellationView({
                 (completedStepIndices.includes(endIdx) || activeStepIndex === endIdx);
 
               return (
-                <motion.line
+                <line
                   key={`line-${i}`}
                   x1={start.x}
                   y1={start.y}
@@ -156,9 +152,7 @@ export default function ConstellationView({
                   stroke={isConnected ? 'url(#activeLine)' : 'url(#dimLine)'}
                   strokeWidth={isConnected ? 2 : 1}
                   strokeDasharray={isConnected ? '0' : '4 3'}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.5, delay: i * 0.05 }}
+                  className="transition-opacity duration-300"
                 />
               );
             })}
@@ -174,23 +168,32 @@ export default function ConstellationView({
                   onClick={() => onSelectNode(node.id)}
                   className="cursor-pointer group"
                 >
-                  {/* Pulsing Active Outer Ring */}
+                  {/* Active Star Soft Outer Glow Ring */}
                   {isActive && (
-                    <motion.circle
-                      cx={node.x}
-                      cy={node.y}
-                      r="16"
-                      fill="none"
-                      stroke="#10b981"
-                      strokeWidth="1.5"
-                      initial={{ scale: 0.8, opacity: 0.3 }}
-                      animate={{ scale: [1, 1.5, 1], opacity: [0.6, 0.2, 0.6] }}
-                      transition={{
-                        duration: 1.6,
-                        repeat: Infinity,
-                        ease: 'easeInOut',
-                      }}
-                    />
+                    <>
+                      <circle
+                        cx={node.x}
+                        cy={node.y}
+                        r="14"
+                        fill="#10b981"
+                        fillOpacity="0.2"
+                      />
+                      <motion.circle
+                        cx={node.x}
+                        cy={node.y}
+                        r="18"
+                        fill="none"
+                        stroke="#10b981"
+                        strokeWidth="1.5"
+                        initial={{ scale: 0.8, opacity: 0.5 }}
+                        animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0.2, 0.6] }}
+                        transition={{
+                          duration: 2.0,
+                          repeat: Infinity,
+                          ease: 'easeInOut',
+                        }}
+                      />
+                    </>
                   )}
 
                   {/* Star Core */}
@@ -199,7 +202,6 @@ export default function ConstellationView({
                     cy={node.y}
                     r={isActive ? 7 : isCompleted ? 5 : 4}
                     fill={isActive ? '#34d399' : isCompleted ? '#10b981' : isLight ? '#a1a1aa' : '#52525b'}
-                    filter={isActive ? 'url(#starGlow)' : undefined}
                     className="transition-all duration-300"
                   />
 
