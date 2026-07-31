@@ -3,18 +3,17 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   Home,
   Calendar, 
-  Users, 
   Plus, 
   BarChart3, 
   Shield,
-  MessageSquare,
   Brain,
-  Bell,
-  Zap,
-  Gift
+  Gift,
+  Trophy,
+  Settings
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, isFeatureLocked } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
+import { useGamification } from '../context/GamificationContext';
 import { db } from '../lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
@@ -22,7 +21,8 @@ export default function Navigation() {
   const location = useLocation();
   const path = location.pathname;
 
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, user } = useAuth();
+  const { config } = useGamification();
   const [unreadCount, setUnreadCount] = React.useState(0);
 
   React.useEffect(() => {
@@ -72,69 +72,92 @@ export default function Navigation() {
   };
 
   return (
-    <nav className="fixed bottom-6 left-2 right-2 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 rounded-full p-2 flex justify-around items-center shadow-2xl z-50 max-w-2xl mx-auto mb-[var(--sab)] text-xs md:text-sm">
+    <nav className="fixed bottom-3 left-1 right-1 sm:left-2 sm:right-2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 rounded-full px-1 sm:px-2 py-1.5 flex justify-around items-center shadow-2xl z-50 max-w-2xl mx-auto mb-[var(--sab)] text-xs">
+      {/* Left side */}
       <Link 
         to="/" 
-        className={cn("p-2 transition-colors", isActive('/') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
-        title="Home"
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="Home Dashboard"
       >
-        <Home size={22} />
+        <Home size={17} />
+        <span className="text-[8px] sm:text-[9px] mt-0.5 tracking-tighter truncate max-w-full">Home</span>
       </Link>
       <Link 
         to="/calendar" 
-        className={cn("p-2 transition-colors", isActive('/calendar') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
-        title="Calendar"
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/calendar') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="Birthday Calendar"
       >
-        <Calendar size={22} />
-      </Link>
-      <Link 
-        to="/groups" 
-        className={cn("p-2 transition-colors", isActive('/groups') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
-        title="Circles"
-      >
-        <Users size={22} />
+        <Calendar size={17} />
+        <span className="text-[8px] sm:text-[9px] mt-0.5 tracking-tighter truncate max-w-full">Calendar</span>
       </Link>
       <Link 
         to="/rooms" 
-        className={cn("p-2 transition-colors", isActive('/rooms') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
-        title="Secret Planning Rooms"
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/rooms') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="Party Planning Rooms"
       >
-        <Gift size={22} />
+        <Gift size={17} />
+        <span className="text-[8px] sm:text-[9px] mt-0.5 tracking-tighter truncate max-w-full">
+          {isFeatureLocked('rooms', user?.unlockedFeatures, config?.unlockSequence) ? '???' : 'Party'}
+        </span>
       </Link>
+      <Link 
+        to="/leaderboard" 
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/leaderboard') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="Leaderboard & Ranks"
+      >
+        <Trophy size={17} />
+        <span className="text-[8px] sm:text-[9px] mt-0.5 tracking-tighter truncate max-w-full">
+          {isFeatureLocked('leaderboard', user?.unlockedFeatures, config?.unlockSequence) ? '???' : 'Leaderboard'}
+        </span>
+      </Link>
+
+      {/* Center + Action Button */}
       <Link 
         to="/add" 
-        className="p-3 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-full -mt-8 shadow-xl hover:scale-105 transition-transform"
-        title="Add"
+        className="flex flex-col items-center justify-center p-2.5 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-full -mt-6 shadow-xl hover:scale-105 transition-transform flex-shrink-0 mx-0.5"
+        title="Add Friend or Import"
       >
-        <Plus size={24} />
+        <Plus size={18} />
       </Link>
-      <Link 
-        to="/spark" 
-        className={cn("p-2 transition-colors", isActive('/spark') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
-        title="Spark"
-      >
-        <Zap size={22} />
-      </Link>
+
+      {/* Right side */}
       <Link 
         to="/vaults" 
-        className={cn("p-2 transition-colors", isActive('/vaults') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
-        title="Vaults"
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/vaults') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="Memory Vaults"
       >
-        <Shield size={22} />
+        <Shield size={17} />
+        <span className="text-[8px] sm:text-[9px] mt-0.5 tracking-tighter truncate max-w-full">
+          {isFeatureLocked('vaults', user?.unlockedFeatures, config?.unlockSequence) ? '???' : 'Vaults'}
+        </span>
       </Link>
       <Link 
         to="/analytics" 
-        className={cn("p-2 transition-colors", isActive('/analytics') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
-        title="Analytics"
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/analytics') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="Friendship Analytics"
       >
-        <BarChart3 size={22} />
+        <BarChart3 size={17} />
+        <span className="text-[8px] sm:text-[9px] mt-0.5 tracking-tighter truncate max-w-full">
+          {isFeatureLocked('analytics', user?.unlockedFeatures, config?.unlockSequence) ? '???' : 'Stats'}
+        </span>
       </Link>
       <Link 
         to="/coach" 
-        className={cn("p-2 transition-colors", isActive('/coach') ? "text-emerald-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
-        title="AI Coach"
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/coach') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="AI Relationship Coach"
       >
-        <Brain size={22} />
+        <Brain size={17} />
+        <span className="text-[8px] sm:text-[9px] mt-0.5 tracking-tighter truncate max-w-full">
+          {isFeatureLocked('coach', user?.unlockedFeatures, config?.unlockSequence) ? '???' : 'Coach'}
+        </span>
+      </Link>
+      <Link 
+        to="/settings" 
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/settings') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        title="Settings"
+      >
+        <Settings size={17} />
+        <span className="text-[8px] sm:text-[9px] mt-0.5 tracking-tighter truncate max-w-full">Settings</span>
       </Link>
     </nav>
   );
