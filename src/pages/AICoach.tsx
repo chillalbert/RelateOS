@@ -17,6 +17,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
+import AuraHeaderBadge from '../components/AuraHeaderBadge';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
 import { callCoachModel } from '../services/geminiService';
@@ -134,6 +135,7 @@ Look at the contacts and their upcoming birthdays and events in the next 7 days.
 3. Ends with asking which one they want to focus on or if they want to talk about something else
 
 Keep it under 4 sentences. Sound like a friend texting them.
+You can absolutely help with mental health issues and problems however other than navigating relationships and helping with stuff inside RelateOS and stuff like that, you should not be coding websites or brainstorming features.
 Do NOT use bullet points or lists in this opening message.
 Return plain text only, no JSON.
 `;
@@ -354,14 +356,15 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
               interests: '',
               nickname: '',
               photo_url: '',
-              created_at: serverTimestamp()
+              created_at: serverTimestamp(),
+              updated_at: serverTimestamp()
             });
 
             // Append confirmation directly to chat
             const confirmMsg: Message = {
               id: 'msg-auto-created-' + Date.now(),
               sender: 'assistant',
-              text: `Added ${contactData.name} to your contacts! 🎉`
+              text: `Added ${contactData.name} to your contacts!`
             };
             setMessages(prev => [...prev, confirmMsg]);
           } catch (createErr) {
@@ -402,47 +405,51 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
   }
 
   return (
-    <div className={`flex flex-col h-screen transition-all duration-500 ${isPrivateMode ? 'bg-zinc-950/95 dark:bg-zinc-950' : 'bg-zinc-50 dark:bg-zinc-950'}`}>
+    <div className={`flex flex-col h-[100dvh] max-h-[100dvh] overflow-hidden transition-all duration-500 ${isPrivateMode ? 'bg-zinc-950/95 dark:bg-zinc-950' : 'bg-zinc-50 dark:bg-zinc-950'}`}>
       {/* Header */}
-      <header className={`sticky top-0 z-40 backdrop-blur-xl border-b flex justify-between items-center px-4 py-4 ${
+      <header className={`sticky top-0 z-40 backdrop-blur-xl border-b flex justify-between items-center px-3 sm:px-4 py-3 sm:py-4 shrink-0 ${
         isPrivateMode 
           ? 'bg-zinc-900/60 border-zinc-800 text-zinc-200' 
           : 'bg-white/80 dark:bg-zinc-900/80 border-zinc-200 dark:border-zinc-900 text-zinc-900 dark:text-white'
       }`}>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 pr-2">
           <button 
             type="button"
             title="Back"
             onClick={() => navigate(-1)} 
-            className="p-2 -ml-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            className="p-1.5 sm:p-2 -ml-1 sm:-ml-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={18} />
           </button>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <Brain className={`${accent.text} w-5 h-5 animate-pulse`} />
-              <h1 className="text-lg font-black tracking-tight">AI Coach</h1>
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <Brain className={`${accent.text} w-4 h-4 sm:w-5 sm:h-5 animate-pulse shrink-0`} />
+              <h1 className="text-base sm:text-lg font-black tracking-tight truncate">AI Coach</h1>
+            </div>
+            <p className="text-[9px] sm:text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate">
+              Conversations not stored on our servers
+            </p>
           </div>
-          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-7">
-            Conversations not stored on our servers
-          </p>
-        </div>
         </div>
 
-        {isPrivateMode && (
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className={`flex items-center gap-1.5 bg-zinc-800/80 border border-zinc-700/50 px-3 py-1 rounded-full text-xs font-bold ${accent.text}`}
-          >
-            <Lock size={12} />
-            <span>Private mode</span>
-          </motion.div>
-        )}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <AuraHeaderBadge />
+          {isPrivateMode && (
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className={`flex items-center gap-1 bg-zinc-800/80 border border-zinc-700/50 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold ${accent.text}`}
+            >
+              <Lock size={11} />
+              <span className="hidden sm:inline">Private mode</span>
+              <span className="sm:hidden">Private</span>
+            </motion.div>
+          )}
+        </div>
       </header>
 
       {/* Chat Area */}
-      <div className={`flex-1 overflow-y-auto px-4 py-6 space-y-6 ${isPrivateMode ? 'brightness-90 transition-all' : ''}`}>
+      <div className={`flex-1 overflow-y-auto min-h-0 px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6 ${isPrivateMode ? 'brightness-90 transition-all' : ''}`}>
         <AnimatePresence initial={false}>
           {messages.map((msg, idx) => (
             <motion.div 
@@ -451,10 +458,10 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
               animate={{ y: 0, opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className={`flex flex-col max-w-[85%] ${msg.sender === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'}`}
+              className={`flex flex-col max-w-[90%] sm:max-w-[85%] ${msg.sender === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'}`}
             >
               {/* Main message text */}
-              <div className={`p-4 text-sm leading-relaxed ${
+              <div className={`p-3.5 sm:p-4 text-xs sm:text-sm leading-relaxed break-words max-w-full ${
                 msg.sender === 'user' 
                   ? `${accent.bgSolid} text-white rounded-[20px] rounded-tr-sm` 
                   : 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100 border border-zinc-100 dark:border-zinc-800 rounded-[20px] rounded-tl-sm shadow-sm'
@@ -464,24 +471,24 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
 
               {/* Action content cards */}
               {msg.action && (
-                <div className="mt-3 w-full space-y-3">
+                <div className="mt-2.5 sm:mt-3 w-full max-w-full space-y-3">
                   {/* GENERATE MESSAGE CARD */}
                   {msg.action.type === 'generateMessage' && msg.action.messageData && (
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 shadow-md space-y-4 max-w-sm">
-                      <div className="flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-850 pb-2">
-                        <MessageSquare className={`${accent.text} w-4 h-4`} />
-                        <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Suggested for {msg.action.messageData.recipientName || 'Friend'}</span>
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 shadow-md space-y-3 sm:space-y-4 w-full max-w-full sm:max-w-sm">
+                      <div className="flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-2">
+                        <MessageSquare className={`${accent.text} w-4 h-4 shrink-0`} />
+                        <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider truncate">Suggested for {msg.action.messageData.recipientName || 'Friend'}</span>
                       </div>
                       
                       {msg.action.messageData.shortText && (
                         <div className="space-y-1 bg-zinc-50 dark:bg-zinc-950 p-3 rounded-2xl relative group">
                           <p className="text-[10px] font-bold text-zinc-400 tracking-wider">SHORT TEXT</p>
-                          <p className="text-sm text-zinc-700 dark:text-zinc-300 pr-8">{msg.action.messageData.shortText}</p>
+                          <p className="text-sm text-zinc-700 dark:text-zinc-300 pr-8 break-words">{msg.action.messageData.shortText}</p>
                           <button 
                             type="button"
                             title="Copy short text"
                             onClick={() => copyToClipboard(msg.action.messageData.shortText, msg.id + '-short')}
-                            className="absolute right-2 top-2 p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+                            className="absolute right-2 top-2 p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                           >
                             {copiedIndex === msg.id + '-short' ? <Check size={14} className={accent.text} /> : <Copy size={14} />}
                           </button>
@@ -491,12 +498,12 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
                       {msg.action.messageData.cardMessage && (
                         <div className="space-y-1 bg-zinc-50 dark:bg-zinc-950 p-3 rounded-2xl relative group">
                           <p className="text-[10px] font-bold text-zinc-400 tracking-wider">CARD MESSAGE</p>
-                          <p className="text-sm text-zinc-700 dark:text-zinc-300 pr-8">{msg.action.messageData.cardMessage}</p>
+                          <p className="text-sm text-zinc-700 dark:text-zinc-300 pr-8 break-words">{msg.action.messageData.cardMessage}</p>
                           <button 
                             type="button"
                             title="Copy card message"
                             onClick={() => copyToClipboard(msg.action.messageData.cardMessage, msg.id + '-card')}
-                            className="absolute right-2 top-2 p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+                            className="absolute right-2 top-2 p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                           >
                             {copiedIndex === msg.id + '-card' ? <Check size={14} className={accent.text} /> : <Copy size={14} />}
                           </button>
@@ -507,17 +514,17 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
 
                   {/* GIFT IDEAS SUGGESTIONS */}
                   {msg.action.type === 'giftSuggestions' && msg.action.giftData && (
-                    <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-1 max-w-sm">
+                    <div className="grid gap-2.5 sm:gap-3 w-full max-w-full sm:max-w-sm">
                       {msg.action.giftData.map((gift: any, gIdx: number) => (
-                        <div key={gIdx} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                        <div key={gIdx} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3.5 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
                           <div className="flex justify-between items-start gap-2">
-                            <h4 className="text-sm font-extrabold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                              <Gift className={`${accent.text} w-4 h-4`} />
-                              {gift.title}
+                            <h4 className="text-xs sm:text-sm font-extrabold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                              <Gift className={`${accent.text} w-4 h-4 shrink-0`} />
+                              <span className="break-words">{gift.title}</span>
                             </h4>
-                            <span className={`text-xs font-black ${accent.text}`}>{gift.price}</span>
+                            <span className={`text-xs font-black shrink-0 ${accent.text}`}>{gift.price}</span>
                           </div>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-relaxed">{gift.reason}</p>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-relaxed break-words">{gift.reason}</p>
                           {gift.searchUrl && (
                             <a 
                               href={gift.searchUrl} 
@@ -536,12 +543,12 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
 
                   {/* PROFILE SUMMARY */}
                   {msg.action.type === 'profileSummary' && msg.action.summaryData && (
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 shadow-md max-w-sm space-y-2">
-                      <p className="text-xs font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-                        <Sparkles className={`${accent.text} w-4 h-4 animate-spin`} />
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 shadow-md w-full max-w-full sm:max-w-sm space-y-2">
+                      <p className="text-xs font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 truncate">
+                        <Sparkles className={`${accent.text} w-4 h-4 animate-spin shrink-0`} />
                         Summary profile: {msg.action.summaryData.name}
                       </p>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                      <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap break-words">
                         {msg.action.summaryData.summaryText}
                       </p>
                     </div>
@@ -558,7 +565,7 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
             animate={{ opacity: 1, y: 0 }}
             className="flex max-w-[85%] mr-auto items-start"
           >
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-[20px] rounded-tl-sm shadow-sm flex items-center gap-1.5">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-3.5 sm:p-4 rounded-[20px] rounded-tl-sm shadow-sm flex items-center gap-1.5">
               <span className={`w-2 h-2 ${accent.bgSolid} rounded-full animate-bounce`} style={{ animationDelay: '0ms' }} />
               <span className={`w-2 h-2 ${accent.bgSolid} rounded-full animate-bounce`} style={{ animationDelay: '150ms' }} />
               <span className={`w-2 h-2 ${accent.bgSolid} rounded-full animate-bounce`} style={{ animationDelay: '300ms' }} />
@@ -567,9 +574,9 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
         )}
       </div>
 
-      {/* Suggestion Options (only show after opening message is generated when conversation starts, or generally) */}
+      {/* Suggestion Options */}
       {messages.length === 1 && suggestions.length > 0 && !isAiThinking && (
-        <div className="px-4 py-2 border-t border-zinc-100 dark:border-zinc-900 flex gap-2 overflow-x-auto scrollbar-none">
+        <div className="px-3 sm:px-4 py-2 border-t border-zinc-100 dark:border-zinc-900 flex gap-2 overflow-x-auto scrollbar-none shrink-0">
           {suggestions.map((sug, sIdx) => {
             let label = sug;
             if (sug !== "Something else" && sug !== "How do I show up for someone?") {
@@ -582,9 +589,9 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
                   setInputText(label);
                   handleSendMessage(label);
                 }}
-                className={`whitespace-nowrap px-3.5 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors flex items-center gap-1 bg-white dark:bg-zinc-900 hover:${accent.text}`}
+                className={`whitespace-nowrap px-3.5 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors flex items-center gap-1 bg-white dark:bg-zinc-900 hover:${accent.text} shrink-0 cursor-pointer`}
               >
-                {sug === "Something else" ? <Sparkles size={11} className="text-zinc-400" /> : <Brain size={11} className={accent.text} />}
+                {sug === "Something else" ? <Sparkles size={11} className="text-zinc-400 shrink-0" /> : <Brain size={11} className={`${accent.text} shrink-0`} />}
                 {label}
               </button>
             );
@@ -593,9 +600,9 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
       )}
 
       {/* Input Bar */}
-      <div className={`p-4 pb-28 border-t sticky bottom-0 ${
+      <div className={`p-3 sm:p-4 pb-20 sm:pb-24 border-t shrink-0 z-30 ${
         isPrivateMode 
-          ? 'bg-zinc-950 border-zinc-850' 
+          ? 'bg-zinc-950 border-zinc-800' 
           : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-900'
       }`}>
         <form 
@@ -607,16 +614,16 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
         >
           <input 
             type="text" 
-            placeholder={isPrivateMode ? "Type chat privately (not saved)..." : "Ask or tell your coach something new..."}
+            placeholder={isPrivateMode ? "Type chat privately..." : "Ask or tell your coach something new..."}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             disabled={isAiThinking}
-            className={`flex-1 bg-zinc-100 dark:bg-zinc-800 border-none rounded-full px-5 py-3 text-sm focus:ring-2 ${accent.focusRing} text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none`}
+            className={`flex-1 bg-zinc-100 dark:bg-zinc-800 border-none rounded-full px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm focus:ring-2 ${accent.focusRing} text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none min-w-0`}
           />
           <button 
             type="submit" 
             disabled={isAiThinking || !inputText.trim()}
-            className={`p-3 text-white rounded-full transition-colors disabled:opacity-50 flex items-center justify-center shrink-0 ${accent.bgSolid} ${accent.bgSolidHover} disabled:hover:${accent.bgSolid}`}
+            className={`p-2.5 sm:p-3 text-white rounded-full transition-colors disabled:opacity-50 flex items-center justify-center shrink-0 ${accent.bgSolid} ${accent.bgSolidHover} disabled:hover:${accent.bgSolid} cursor-pointer`}
           >
             <Send size={18} />
           </button>
