@@ -4,7 +4,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Calendar as CalendarIcon, Sparkles, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 import { getDaysUntil, cn } from '../lib/utils';
+import { HealthScoreCompactBadge } from '../components/HealthScoreBadge';
 import Navigation from '../components/Navigation';
+import AuraHeaderBadge from '../components/AuraHeaderBadge';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 
@@ -58,11 +60,14 @@ export default function BirthdayCalendar() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-32">
       <header className="p-6 pt-[calc(1.5rem+var(--sat))] bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2">
-            <ArrowLeft size={24} />
-          </button>
-          <h1 className="text-xl font-black tracking-tight">Birthday Calendar</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)} className="p-2 -ml-2">
+              <ArrowLeft size={24} />
+            </button>
+            <h1 className="text-xl font-black tracking-tight">Birthday Calendar</h1>
+          </div>
+          <AuraHeaderBadge />
         </div>
       </header>
 
@@ -109,9 +114,12 @@ export default function BirthdayCalendar() {
                           <Star size={12} className="text-amber-500 fill-amber-500 flex-shrink-0 inline-block align-middle" />
                         )}
                       </h3>
-                      <p className="text-[10px] font-bold text-zinc-400 uppercase">
-                        {bdayDate.getDate()}{['st', 'nd', 'rd'][((bdayDate.getDate() + 90) % 100 - 10) % 10 - 1] || 'th'} • {person.category}
-                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase">
+                          {bdayDate.getDate()}{['st', 'nd', 'rd'][((bdayDate.getDate() + 90) % 100 - 10) % 10 - 1] || 'th'} • {person.category}
+                        </p>
+                        <HealthScoreCompactBadge input={{ person, memories: person.memories, gifts: person.gifts }} />
+                      </div>
                     </div>
 
                     <div className="text-right">
