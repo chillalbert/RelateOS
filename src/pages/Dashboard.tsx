@@ -1,30 +1,37 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useGamification } from '../context/GamificationContext';
 import { 
-  Calendar, 
-  Users, 
-  BarChart3, 
-  Settings, 
-  Plus, 
-  Bell, 
-  Search,
-  Heart,
-  Clock,
-  ChevronRight,
-  Star,
-  CheckCircle2,
-  AlertCircle,
-  Circle,
-  Sparkles,
-  Lightbulb,
-  X,
-  Cake
+ Calendar, 
+ Users, 
+ BarChart3, 
+ Settings, 
+ Plus, 
+ Bell, 
+ Search,
+ Heart,
+ Clock,
+ ChevronRight,
+ Star,
+ CheckCircle2,
+ AlertCircle,
+ Circle,
+ Sparkles,
+ Lightbulb,
+ X,
+ Cake, UserPlus, Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import Navigation from '../components/Navigation';
+import AuraHeaderBadge from '../components/AuraHeaderBadge';
 import CalendarImportStep from '../components/CalendarImportStep';
+import HelpTip from '../components/HelpTip';
+import EmptyState from '../components/EmptyState';
+import StreakCalendarView from '../components/StreakCalendarView';
 import { getDaysUntil, formatDate, cn, getConnectionScore, getPreciseCountdown, getTurningAge, getDisplayName, getAIAccent } from '../lib/utils';
+import { calculateRelationshipHealthScore } from '../lib/healthScore';
+import { HealthScoreCompactBadge } from '../components/HealthScoreBadge';
 import { Gift, MessageSquare, Sparkles as SparklesIcon, Trash2, ShieldAlert, Lock as LockIcon } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { db } from '../lib/firebase';
@@ -33,1759 +40,1923 @@ import { generateGiftSuggestions, generateBirthdayMessage } from '../services/ge
 import { subscribeUserToPush } from '../lib/pushManager';
 
 const AnimatedNumber = ({ value }: { value: number }) => {
-  const [displayValue, setDisplayValue] = React.useState(0);
+ const [displayValue, setDisplayValue] = React.useState(0);
 
-  React.useEffect(() => {
-    let start = 0;
-    const end = value;
-    if (start === end) return;
+ React.useEffect(() => {
+ let start = 0;
+ const end = value;
+ if (start === end) return;
 
-    const duration = 1000;
-    const increment = end / (duration / 16);
-    
-    const timer = setInterval(() => {
-      start += increment;
-      if (start >= end) {
-        setDisplayValue(end);
-        clearInterval(timer);
-      } else {
-        setDisplayValue(Math.floor(start));
-      }
-    }, 16);
+ const duration = 1000;
+ const increment = end / (duration / 16);
+ 
+ const timer = setInterval(() => {
+ start += increment;
+ if (start >= end) {
+ setDisplayValue(end);
+ clearInterval(timer);
+ } else {
+ setDisplayValue(Math.floor(start));
+ }
+ }, 16);
 
-    return () => clearInterval(timer);
-  }, [value]);
+ return () => clearInterval(timer);
+ }, [value]);
 
-  return <span>{displayValue}</span>;
+ return <span>{displayValue}</span>;
 };
 
 export default function Dashboard() {
-  const { user, firebaseUser, refreshUser } = useAuth();
-  const accent = getAIAccent(user?.aiAccentColor);
-  const [people, setPeople] = React.useState<any[]>([]);
-  const [liveBlockedUids, setLiveBlockedUids] = React.useState<string[]>(user?.blocked_uids || []);
-
-  React.useEffect(() => {
-    if (!firebaseUser) {
-      setLiveBlockedUids([]);
-      return;
-    }
-    const userRef = doc(db, 'users', firebaseUser.uid);
-    const unsub = onSnapshot(userRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        setLiveBlockedUids(data?.blocked_uids || []);
-      }
-    }, (err) => {
-      console.error("Error listening to user profile block list:", err);
-    });
-    return () => unsub();
-  }, [firebaseUser]);
-
-  const blockedUids = React.useMemo(() => liveBlockedUids, [liveBlockedUids]);
-  const activePeople = React.useMemo(() => {
-    return people.filter(p => !p.host_uid || !blockedUids.includes(p.host_uid));
-  }, [people, blockedUids]);
-
-  // --- Check-In Feature States ---
-  const [checkInQueue, setCheckInQueue] = React.useState<any[]>([]);
-  const [queueIndex, setQueueIndex] = React.useState<number>(0);
-  const [showCheckInModal, setShowCheckInModal] = React.useState(false);
-  const [isSubmittingCheckIn, setIsSubmittingCheckIn] = React.useState(false);
-
-  // Helper for today's local date string
-  const getLocalDateString = () => {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const todayStr = React.useMemo(() => getLocalDateString(), [people]);
-
-  // Derived list of close friends who have not checked in today
-  const closeFriendsToCheckIn = React.useMemo(() => {
-    return activePeople.filter(p => p.isCloseFriend === true && p.lastCheckIn?.date !== todayStr);
-  }, [activePeople, todayStr]);
-
-  const handleStartCheckIn = (clickedFriend: any) => {
-    const unchecked = activePeople.filter(p => p.isCloseFriend === true && p.lastCheckIn?.date !== todayStr);
-    const remaining = unchecked.filter(p => p.id !== clickedFriend.id);
-    const queue = [clickedFriend, ...remaining];
-    setCheckInQueue(queue);
-    setQueueIndex(0);
-    setShowCheckInModal(true);
-  };
-
-  const handleCheckInResponse = async (answer: 'yes' | 'no') => {
-    if (isSubmittingCheckIn || checkInQueue.length === 0) return;
-    const currentFriend = checkInQueue[queueIndex];
-    if (!currentFriend) return;
-
-    const today = getLocalDateString();
-    const checkInItem = { date: today, answer };
-
-    // Optimistic UI update
-    const previousPeople = [...people];
-    setPeople(prev => prev.map(p => {
-      if (p.id === currentFriend.id) {
-        const history = p.checkInHistory ? [...p.checkInHistory] : [];
-        const filteredHistory = history.filter((h: any) => h.date !== today);
-        return {
-          ...p,
-          lastCheckIn: checkInItem,
-          checkInHistory: [...filteredHistory, checkInItem]
-        };
-      }
-      return p;
-    }));
-
-    setIsSubmittingCheckIn(true);
-
-    try {
-      const personRef = doc(db, 'people', currentFriend.id);
-      const updatedHistory = currentFriend.checkInHistory ? [...currentFriend.checkInHistory] : [];
-      const filteredHistory = updatedHistory.filter((h: any) => h.date !== today);
-      filteredHistory.push(checkInItem);
-
-      await updateDoc(personRef, {
-        lastCheckIn: checkInItem,
-        checkInHistory: filteredHistory
-      });
-    } catch (err) {
-      console.error("Failed to save check-in response:", err);
-      setPeople(previousPeople);
-    } finally {
-      setIsSubmittingCheckIn(false);
-      setQueueIndex(prev => prev + 1);
-    }
-  };
-
-  const handleCloseCheckInModal = () => {
-    setShowCheckInModal(false);
-    setCheckInQueue([]);
-    setQueueIndex(0);
-  };
-
-  const [analytics, setAnalytics] = React.useState<any>(null);
-  const [notifications, setNotifications] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [brainstormingPerson, setBrainstormingPerson] = React.useState<any>(null);
-  const [aiSuggestions, setAiSuggestions] = React.useState<string[]>([]);
-  const [isGenerating, setIsGenerating] = React.useState(false);
-  const [generatingMessagePerson, setGeneratingMessagePerson] = React.useState<any>(null);
-  const [dashboardAiMessage, setDashboardAiMessage] = React.useState<any>(null);
-  const [countdown, setCountdown] = React.useState<any>(null);
-  const [showPushBanner, setShowPushBanner] = React.useState(false);
-  const [friendStreaks, setFriendStreaks] = React.useState<Record<string, number>>({});
-  const [syncedProfiles, setSyncedProfiles] = React.useState<Record<string, any>>({});
-  const [hasPendingFriendRequest, setHasPendingFriendRequest] = React.useState(false);
-  const [showFriendsDrawer, setShowFriendsDrawer] = React.useState(false);
-  const [friends, setFriends] = React.useState<any[]>([]);
-  const [friendsLoading, setFriendsLoading] = React.useState(true);
-  const [friendProfiles, setFriendProfiles] = React.useState<Record<string, any>>({});
-  const [friendRequests, setFriendRequests] = React.useState<any[]>([]);
-
-  // 1. Real-time accepted friends listener (querying members array where status is accepted)
-  React.useEffect(() => {
-    if (!firebaseUser) {
-      setFriends([]);
-      setFriendsLoading(false);
-      return;
-    }
-    const frRef = collection(db, 'friend_requests');
-    const q = query(
-      frRef,
-      where('status', '==', 'accepted'),
-      where('members', 'array-contains', firebaseUser.uid)
-    );
-    const unsub = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setFriends(docs);
-      setFriendsLoading(false);
-    }, (err) => {
-      console.error("Friends list listener error:", err);
-      setFriendsLoading(false);
-    });
-    return () => unsub();
-  }, [firebaseUser]);
-
-  // 2. Real-time pending requests listener
-  React.useEffect(() => {
-    if (!firebaseUser) {
-      setFriendRequests([]);
-      return;
-    }
-    const frRef = collection(db, 'friend_requests');
-    const q = query(
-      frRef, 
-      where('receiver_uid', '==', firebaseUser.uid), 
-      where('status', '==', 'pending')
-    );
-    const unsub = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setFriendRequests(docs);
-    }, (err) => {
-      console.error("Pending requests listener error:", err);
-    });
-    return () => unsub();
-  }, [firebaseUser]);
-
-  // 3. Real-time profile listen for each friend to fetch their up-to-date name, photo_url, and blocked_uids
-  React.useEffect(() => {
-    if (friends.length === 0 || !firebaseUser) {
-      setFriendProfiles({});
-      return;
-    }
-    const activeListeners: (() => void)[] = [];
-    friends.forEach((frDoc) => {
-      const friendUid = frDoc.sender_uid === firebaseUser.uid 
-        ? frDoc.receiver_uid 
-        : frDoc.sender_uid;
-      if (friendUid) {
-        const userRef = doc(db, 'users', friendUid);
-        const unsub = onSnapshot(userRef, (snap) => {
-          if (snap.exists()) {
-            setFriendProfiles((prev) => ({
-              ...prev,
-              [friendUid]: { id: snap.id, ...snap.data() }
-            }));
-          }
-        }, (err) => {
-          console.error(`Error listening to friend profile ${friendUid}:`, err);
-        });
-        activeListeners.push(unsub);
-      }
-    });
-    return () => {
-      activeListeners.forEach(unsub => unsub());
-    };
-  }, [friends, firebaseUser]);
-
-  React.useEffect(() => {
-    if (!firebaseUser) {
-      setHasPendingFriendRequest(false);
-      return;
-    }
-    const frRef = collection(db, 'friend_requests');
-    const qFRUnresolved = query(frRef, where('receiver_uid', '==', firebaseUser.uid), where('status', '==', 'pending'));
-    const unsubFR = onSnapshot(qFRUnresolved, (snap) => {
-      setHasPendingFriendRequest(!snap.empty);
-    });
-    return () => {
-      unsubFR();
-    };
-  }, [firebaseUser]);
-
-  React.useEffect(() => {
-    if (!firebaseUser) return;
-    const frRef = collection(db, 'friend_requests');
-    const q1 = query(frRef, where('sender_uid', '==', firebaseUser.uid), where('status', '==', 'accepted'));
-    const q2 = query(frRef, where('receiver_uid', '==', firebaseUser.uid), where('status', '==', 'accepted'));
-
-    const handleSnaps = (snap1: any, snap2: any) => {
-      const streaks: Record<string, number> = {};
-      const addFromDoc = (d: any) => {
-        const data = d.data();
-        const otherAnd = data.sender_uid === firebaseUser.uid ? data.receiver_uid : data.sender_uid;
-        if (data.streak_count !== undefined) {
-          streaks[otherAnd] = data.streak_count;
-        }
-      };
-      
-      snap1.docs.forEach(addFromDoc);
-      snap2.docs.forEach(addFromDoc);
-      setFriendStreaks(streaks);
-    };
-
-    const unsub1 = onSnapshot(q1, (snap1) => {
-      getDocs(q2).then((snap2) => handleSnaps(snap1, snap2)).catch(() => {});
-    });
-
-    const unsub2 = onSnapshot(q2, (snap2) => {
-      getDocs(q1).then((snap1) => handleSnaps(snap1, snap2)).catch(() => {});
-    });
-
-    return () => {
-      unsub1();
-      unsub2();
-    };
-  }, [firebaseUser]);
-
-  React.useEffect(() => {
-    const activeListeners: (() => void)[] = [];
-    
-    activePeople.forEach((p) => {
-      if (p.host_uid) {
-        const userRef = doc(db, 'users', p.host_uid);
-        const unsub = onSnapshot(userRef, (snap) => {
-          if (snap.exists()) {
-            const uData = snap.data();
-            setSyncedProfiles((prev) => ({
-              ...prev,
-              [p.host_uid]: {
-                name: uData.name || p.name,
-                photo_url: uData.profile_picture_url || p.photo_url,
-                fav_sports_teams: uData.fav_sports_teams,
-                fav_artists: uData.fav_artists,
-                anything_extra: uData.anything_extra
-              }
-            }));
-          }
-        });
-        activeListeners.push(unsub);
-      }
-    });
-
-    return () => {
-      activeListeners.forEach((unsub) => unsub());
-    };
-  }, [activePeople]);
-
-  React.useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        setShowPushBanner(true);
-      }
-    }
-  }, []);
-
-  const handleEnablePush = async () => {
-    if (firebaseUser) {
-      const success = await subscribeUserToPush(firebaseUser.uid);
-      if (success) {
-        setShowPushBanner(false);
-      }
-    }
-  };
-
-  React.useEffect(() => {
-    if (user?.birthday) {
-      const timer = setInterval(() => {
-        setCountdown(getPreciseCountdown(user.birthday));
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [user?.birthday]);
-
-  const handleGenerateDashboardMessage = async (person: any) => {
-    setGeneratingMessagePerson(person);
-    setIsGenerating(true);
-    try {
-      const memories = person.memories?.map((m: any) => m.content) || [];
-      if (person.notes) memories.unshift(person.notes);
-      
-      const giftHistory = person.gifts?.filter((g: any) => g.status === 'given').map((g: any) => g.name) || [];
-      const message = await generateBirthdayMessage({
-        name: person.name,
-        age: (person.birthday && !person.birthYearUnknown) ? new Date().getFullYear() - new Date(person.birthday).getFullYear() : 'Unknown',
-        relationship: person.category,
-        interests: person.interests || 'No specific interests mentioned',
-        notes: person.notes || 'No specific notes mentioned'
-      });
-      setDashboardAiMessage(message);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleBrainstorm = async (person: any) => {
-    setBrainstormingPerson(person);
-    setIsGenerating(true);
-    try {
-      const suggestions = await generateGiftSuggestions({
-        interests: person.notes || 'general interests',
-        budget: 50,
-        relationship: person.category,
-        giftHistory: person.gifts?.filter((g: any) => g.status === 'given').map((g: any) => g.name)
-      });
-      setAiSuggestions(suggestions);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const saveSuggestion = async (suggestion: string) => {
-    if (!brainstormingPerson) return;
-    try {
-      const giftsRef = collection(db, 'people', brainstormingPerson.id, 'gifts');
-      await addDoc(giftsRef, {
-        name: suggestion,
-        status: 'idea',
-        created_at: serverTimestamp()
-      });
-      setBrainstormingPerson(null);
-      setAiSuggestions([]);
-      fetchDashboardData(); // Refresh
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchDashboardData = async () => {
-    if (!firebaseUser) return;
-    try {
-      // Fetch People
-      const peopleRef = collection(db, 'people');
-      const q = query(peopleRef, where('user_id', '==', firebaseUser.uid));
-      const querySnapshot = await getDocs(q);
-      const peopleData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-      // Fetch Notifications
-      const notifRef = collection(db, 'notifications');
-      const nq = query(notifRef, where('user_id', '==', firebaseUser.uid));
-      const nSnapshot = await getDocs(nq);
-      const notifData = nSnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as any))
-        .sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0))
-        .slice(0, 10);
-
-      // Fetch tasks and gifts for each person
-      const peopleWithDetails = await Promise.all(peopleData.map(async (p: any) => {
-        const tasksRef = collection(db, 'people', p.id, 'tasks');
-        const tSnapshot = await getDocs(tasksRef);
-        const tasks = tSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        const giftsRef = collection(db, 'people', p.id, 'gifts');
-        const gSnapshot = await getDocs(giftsRef);
-        const gifts = gSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        return { ...p, tasks, gifts };
-      }));
-
-      setPeople(peopleWithDetails);
-      setNotifications(notifData);
-      
-      // Calculate simple analytics
-      setAnalytics({
-        totalPeople: peopleData.length,
-      });
-    } catch (err: any) {
-      if (err.code === 'permission-denied') {
-        console.error("Firestore Permission Denied: Please check your Security Rules in the Firebase Console.");
-      } else {
-        console.error("Dashboard fetch error:", err);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  React.useEffect(() => {
-    fetchDashboardData();
-  }, [firebaseUser]);
-
-  React.useEffect(() => {
-    if (!firebaseUser) {
-      setNotifications([]);
-      return;
-    }
-    const notifRef = collection(db, 'notifications');
-    const q = query(notifRef, where('user_id', '==', firebaseUser.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setNotifications(docs);
-    }, (err) => {
-      console.warn("Error listening to notifications in dashboard:", err);
-    });
-    return () => unsubscribe();
-  }, [firebaseUser]);
-
-  const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  const toggleTask = async (personId: string, taskId: string, completed: boolean) => {
-    try {
-      const taskRef = doc(db, 'people', personId, 'tasks', taskId);
-      // Use setDoc with merge to avoid "No document to update" if the document was somehow missing
-      await setDoc(taskRef, { completed: !completed }, { merge: true });
-      fetchDashboardData(); // Refresh
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const upcoming = [...activePeople]
-    .sort((a, b) => getDaysUntil(a.birthday) - getDaysUntil(b.birthday))
-    .slice(0, 5);
-
-  const priorityPeople = [...activePeople]
-    .sort((a, b) => b.importance - a.importance)
-    .slice(0, 3);
-
-  const currentMonth = new Date().getMonth();
-  const birthdaysThisMonth = activePeople.filter(p => {
-    const [y, m, d] = p.birthday.split('-').map(Number);
-    return (m - 1) === currentMonth;
-  }).sort((a, b) => {
-    const dayA = Number(a.birthday.split('-')[2]);
-    const dayB = Number(b.birthday.split('-')[2]);
-    return dayA - dayB;
-  });
-
-  const handleWishBirthday = async (personId: string, personName: string) => {
-    if (!firebaseUser || !user) return;
-    try {
-      confetti({
-        particleCount: 100,
-        spread: 60,
-        origin: { y: 0.8 },
-        colors: ['#10b981', '#3b82f6', '#f59e0b']
-      });
-
-      const userRef = doc(db, 'users', firebaseUser.uid);
-      const newStreak = (user.streak || 0) + 1;
-      await updateDoc(userRef, { streak: newStreak });
-
-      const personRef = doc(db, 'people', personId);
-      const currentYear = new Date().getFullYear();
-      await updateDoc(personRef, {
-        friendshipScore: increment(15),
-        lastWishedYear: currentYear,
-        lastWishedDate: new Date().toISOString()
-      });
-      
-      // Log it as a memory
-      const memoriesRef = collection(db, 'people', personId, 'memories');
-      await addDoc(memoriesRef, {
-        year: new Date().getFullYear(),
-        type: 'milestone',
-        content: `Wished a Happy Birthday! Streak increased to ${newStreak}.`,
-        created_at: serverTimestamp()
-      });
-
-      // Mark card task as done if it exists
-      const person = upcoming.find(p => p.id === personId);
-      const cardTask = person?.tasks?.find((t: any) => t.title === 'Card Message');
-      if (cardTask && !cardTask.completed) {
-        await toggleTask(personId, cardTask.id, false);
-      }
-
-      await refreshUser();
-      alert(`Happy Birthday wished to ${personName}! Your connection streak is now ${newStreak} 🔥`);
-      fetchDashboardData(); // Refresh UI State
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleToggleBlockFriend = async (friendUid: string, isCurrentlyBlocked: boolean) => {
-    if (!firebaseUser) return;
-    try {
-      const userDocRef = doc(db, 'users', firebaseUser.uid);
-      if (isCurrentlyBlocked) {
-        await updateDoc(userDocRef, {
-          blocked_uids: arrayRemove(friendUid)
-        });
-      } else {
-        await updateDoc(userDocRef, {
-          blocked_uids: arrayUnion(friendUid)
-        });
-      }
-      if (refreshUser) {
-        await refreshUser();
-      }
-    } catch (err) {
-      console.error("Error toggling block:", err);
-      alert("Failed to update status.");
-    }
-  };
-
-  const handleDrawerAcceptRequest = async (reqId: string, senderUid: string, senderName: string) => {
-    if (!firebaseUser) return;
-    try {
-      const frDoc = doc(db, 'friend_requests', reqId);
-      await updateDoc(frDoc, { 
-        status: 'accepted',
-        streak_count: 0,
-        last_interaction_date: null,
-        members: [senderUid, firebaseUser.uid]
-      });
-      
-      const peopleRef = collection(db, 'people');
-      const pq = query(peopleRef, where('user_id', '==', firebaseUser.uid), where('host_uid', '==', senderUid));
-      const psnap = await getDocs(pq);
-      
-      if (psnap.empty) {
-        const userRef = collection(db, 'users');
-        let bMonth = 1;
-        let bDay = 1;
-        let bPhotoUrl = '';
-        try {
-          const uSnap = await getDocs(query(userRef, where('name', '==', senderName)));
-          if (!uSnap.empty) {
-            const uData = uSnap.docs[0].data();
-            bMonth = uData.birthday_month || 1;
-            bDay = uData.birthday_day || 1;
-            bPhotoUrl = uData.profile_picture_url || '';
-          }
-        } catch (e) {
-          console.warn(e);
-        }
-
-        const formattedMonth = String(bMonth).padStart(2, '0');
-        const formattedDay = String(bDay).padStart(2, '0');
-        const bDayStr = `2000-${formattedMonth}-${formattedDay}`;
-
-        await addDoc(peopleRef, {
-          name: senderName,
-          nickname: senderName,
-          birthday: bDayStr,
-          birthYearUnknown: true,
-          category: 'friend',
-          notes: `Accepted friend request 🤝`,
-          user_id: firebaseUser.uid,
-          photo_url: bPhotoUrl,
-          host_uid: senderUid,
-          created_at: serverTimestamp()
-        });
-      }
-      alert("Friend request accepted! 🤝");
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDrawerDeclineRequest = async (reqId: string) => {
-    try {
-      const frDoc = doc(db, 'friend_requests', reqId);
-      await updateDoc(frDoc, { status: 'declined' });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDrawerDeleteRequest = async (reqId: string, senderName: string) => {
-    if (!window.confirm(`Are you sure you want to delete the friend request from ${senderName}?`)) return;
-    try {
-      await deleteDoc(doc(db, 'friend_requests', reqId));
-      alert("Friend request deleted.");
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDeletePerson = async (personId: string, personName: string) => {
-    if (!window.confirm(`Are you sure you want to delete ${personName}?`)) return;
-    try {
-      // Delete from both "people" and "contacts" collections for ultimate safety and compliance
-      await deleteDoc(doc(db, 'people', personId));
-      await deleteDoc(doc(db, 'contacts', personId));
-
-      // Filter local state array immediately to cleanly remove from UI without reload
-      setPeople(prev => prev.filter(p => p.id !== personId));
-
-      alert(`${personName} has been removed from your contacts.`);
-    } catch (err) {
-      console.error("Error deleting person:", err);
-      alert("Failed to delete person.");
-    }
-  };
-
-  const [showBirthdayOnboarding, setShowBirthdayOnboarding] = React.useState(false);
-  const [showCalendarImport, setShowCalendarImport] = React.useState(false);
-
-  React.useEffect(() => {
-    if (user && !user.birthday) {
-      setShowBirthdayOnboarding(true);
-    }
-  }, [user]);
-
-  const handleSaveBirthday = async (bday: string) => {
-    if (!firebaseUser) return;
-    try {
-      const userRef = doc(db, 'users', firebaseUser.uid);
-      await setDoc(userRef, { birthday: bday }, { merge: true });
-      setShowBirthdayOnboarding(false);
-      await refreshUser();
-      setShowCalendarImport(true);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
-
-  return (
-    <div className="pb-24 pt-[calc(1.5rem+var(--sat))] px-4 max-w-2xl mx-auto space-y-8">
-      {/* Header */}
-      <header className="flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          {user?.profile_picture_url ? (
-            <img 
-              src={user.profile_picture_url} 
-              alt={getDisplayName(user)} 
-              className="w-12 h-12 rounded-full object-cover border border-zinc-200 dark:border-zinc-800 shadow-inner" 
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center font-black text-lg uppercase shadow-inner">
-              {getDisplayName(user)?.charAt(0) || 'U'}
-            </div>
-          )}
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight leading-tight">RelateOS</h1>
-            <p className="text-zinc-500 dark:text-zinc-400 text-xs font-semibold">Welcome back, {getDisplayName(user)}</p>
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <Link to="/settings" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800" title="Settings">
-            <Settings size={20} />
-          </Link>
-          <Link to="/notifications" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 relative">
-            <Bell size={20} />
-            {(unreadCount > 0 || hasPendingFriendRequest) && (
-              <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white dark:border-zinc-900 rounded-full animate-pulse" />
-            )}
-          </Link>
-          <button 
-            onClick={() => setShowFriendsDrawer(true)}
-            className="px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-emerald-500/10 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
-            title="Friends List"
-          >
-            <Users size={14} />
-            <span>Friends</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Story Rail for Close Friend Daily Check-In */}
-      {closeFriendsToCheckIn.length > 0 && (
-        <motion.section 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-3 pb-4 pt-1 border-b border-zinc-100 dark:border-zinc-800/80"
-        >
-          <div className="flex justify-between items-center px-1">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
-              <Star className="w-3 h-3 text-amber-500" fill="currentColor" />
-              Talked today? Check-in
-            </h3>
-            <span className="text-[10px] font-bold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">
-              {closeFriendsToCheckIn.length} left
-            </span>
-          </div>
-
-          <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
-            <AnimatePresence mode="popLayout">
-              {closeFriendsToCheckIn.map((friend) => {
-                const displayName = friend.nickname || friend.name.split(' ')[0];
-                const truncatedName = displayName.length > 10 ? displayName.slice(0, 8) + '..' : displayName;
-
-                return (
-                  <motion.div
-                    key={`story-${friend.id}`}
-                    layout
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.5 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    className="flex flex-col items-center gap-1.5 cursor-pointer flex-shrink-0 group"
-                    onClick={() => handleStartCheckIn(friend)}
-                  >
-                    {/* Story border ring */}
-                    <div className="p-[3px] bg-gradient-to-tr from-rose-500 via-pink-500 to-amber-400 rounded-full shadow-sm group-hover:scale-105 transition-transform duration-200">
-                      {friend.photo_url ? (
-                        <img 
-                          src={friend.photo_url} 
-                          alt={friend.name} 
-                          className="w-14 h-14 rounded-full object-cover border-2 border-white dark:border-zinc-900"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <div className="w-14 h-14 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center font-black text-lg border-2 border-white dark:border-zinc-900">
-                          {friend.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-[11px] font-bold text-zinc-750 dark:text-zinc-300">
-                      {truncatedName}
-                    </span>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        </motion.section>
-      )}
-
-      <AnimatePresence>
-        {showPushBanner && (
-          <motion.div
-            initial={{ opacity: 0, height: 0, y: -20 }}
-            animate={{ opacity: 1, height: 'auto', y: 0 }}
-            exit={{ opacity: 0, height: 0, y: -20 }}
-            className="overflow-hidden"
-          >
-            <div className="p-5 bg-emerald-500/10 border border-emerald-500/20 rounded-3xl flex items-start gap-4 relative shadow-sm">
-              <span className="text-2xl mt-0.5 select-none">🔔</span>
-              <div className="flex-1 space-y-3">
-                <p className="text-xs font-semibold leading-relaxed text-emerald-850 dark:text-emerald-305">
-                  Turn on home screen pings to catch group countdowns, live poll votes, and crew chat instantly.
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleEnablePush}
-                    className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm"
-                  >
-                    Enable Alerts
-                  </button>
-                  <button
-                    onClick={() => setShowPushBanner(false)}
-                    className="py-1.5 px-2.5 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 text-[10px] font-bold cursor-pointer"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* User Birthday Countdown */}
-      {countdown && (
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="p-8 bg-zinc-900 text-white rounded-[40px] space-y-6 shadow-2xl shadow-zinc-900/20 relative overflow-hidden group"
-        >
-          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Sparkles size={120} />
-          </div>
-          <div className="relative z-10 space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="label-micro text-zinc-400 mb-0">Your Birthday Countdown</span>
-            </div>
-            <div className="flex justify-between items-end">
-              <div className="flex gap-4">
-                <div className="text-center">
-                  <p className="text-4xl font-black tracking-tighter">{countdown.days}</p>
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Days</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-4xl font-black tracking-tighter">{countdown.hours}</p>
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Hrs</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-4xl font-black tracking-tighter">{countdown.minutes}</p>
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Min</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-4xl font-black tracking-tighter text-emerald-500">{countdown.seconds}</p>
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Sec</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-bold text-zinc-400">Turning</p>
-                <p className="text-2xl font-black text-emerald-500">{user?.birthday ? getTurningAge(user.birthday) : '?'}</p>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Quick Stats */}
-      <section 
-        id="quick-stats-section" 
-        className="grid grid-cols-2 gap-4"
-      >
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="p-6 rounded-2xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 space-y-1 shadow-xl shadow-zinc-900/10 dark:shadow-white/5"
-        >
-          <p className="label-micro text-zinc-400 dark:text-zinc-500">Friends Tracked</p>
-          <p className="text-4xl font-black tracking-tighter"><AnimatedNumber value={analytics?.totalPeople || 0} /></p>
-        </motion.div>
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="p-6 rounded-2xl bg-emerald-500 text-white space-y-1 shadow-xl shadow-emerald-500/20"
-        >
-          <p className="label-micro text-emerald-100">Connection Streak</p>
-          <p className="text-4xl font-black tracking-tighter">
-            <AnimatedNumber value={user?.streak || 0} /> 🔥
-          </p>
-        </motion.div>
-      </section>
-
-      {/* Birthdays This Month */}
-      <section 
-        id="birthdays-month-section" 
-        className="space-y-4"
-      >
-        <div className="flex justify-between items-end px-1">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
-            <Calendar size={16} />
-            Birthdays This Month
-          </h2>
-        </div>
-        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4">
-          {birthdaysThisMonth.length > 0 ? birthdaysThisMonth.map((person, i) => {
-            const daysLeft = getDaysUntil(person.birthday);
-            const isUrgent = daysLeft <= 1;
-            const isSoon = daysLeft <= 7;
-            const isSafe = daysLeft > 14;
-
-            return (
-              <motion.div
-                key={`month-${person.id}`}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.05 }}
-                className="flex-shrink-0 w-40"
-              >
-                <div className={cn(
-                  "p-5 rounded-[32px] border-2 flex flex-col items-center text-center space-y-3 transition-all",
-                  isUrgent ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50" :
-                  isSoon ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50" :
-                  isSafe ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50" :
-                  "bg-white dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800"
-                )}>
-                  <Link to={`/person/${person.id}`} className="space-y-2">
-                    <div className="w-14 h-14 rounded-2xl bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xl font-black overflow-hidden mx-auto border-2 border-white dark:border-zinc-900 shadow-sm">
-                      {((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url) ? (
-                        <img 
-                          src={(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url} 
-                          alt={person.name} 
-                          className="w-full h-full object-cover" 
-                        />
-                      ) : (
-                        ((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name)[0]
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold truncate w-32 flex items-center justify-center gap-1 text-zinc-900 dark:text-white">
-                        {((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name).split(' ')[0]}
-                        {person.host_uid && friendStreaks[person.host_uid] > 0 && (
-                          <span className="text-xs">🔥 {friendStreaks[person.host_uid]}</span>
-                        )}
-                        {person.isCloseFriend && (
-                          <Star size={12} className="text-amber-500 fill-amber-500 flex-shrink-0 inline-block align-middle" />
-                        )}
-                      </h3>
-                      <p className="text-[10px] font-bold text-zinc-400 uppercase">
-                        {person.birthday.split('-')[2]} {new Intl.DateTimeFormat('en-US', { month: 'short' }).format(new Date(2000, Number(person.birthday.split('-')[1]) - 1, 1))}
-                      </p>
-                      <p className="text-[10px] font-black text-emerald-500 uppercase mt-0.5">
-                        {person.birthYearUnknown ? "🎂" : `Turning ${getTurningAge(person.birthday)}`}
-                      </p>
-                    </div>
-                  </Link>
-                  
-                  <div className="space-y-1">
-                    <p className={cn(
-                      "text-xs font-black",
-                      isUrgent ? "text-red-500" : isSoon ? "text-amber-600" : isSafe ? "text-emerald-600" : "text-zinc-500"
-                    )}>
-                      {daysLeft === 0 ? "Today! 🎂" : daysLeft === 1 ? "Tomorrow! 🎂" : `In ${daysLeft} days 🎂`}
-                    </p>
-                  </div>
-
-                  <button 
-                    onClick={() => handleGenerateDashboardMessage(person)}
-                    className={cn(
-                      "w-full py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-1",
-                      isUrgent ? "bg-red-500 text-white" : 
-                      isSoon ? "bg-amber-500 text-white" :
-                      "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900"
-                    )}
-                  >
-                    <SparklesIcon size={10} />
-                    AI Message
-                  </button>
-                </div>
-              </motion.div>
-            );
-          }) : (
-            <div className="w-full p-8 text-center bg-zinc-50 dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800">
-              <p className="text-zinc-500 text-sm">No birthdays this month.</p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Countdown Dashboard (Lightweight Project Manager) */}
-      <section 
-        id="countdown-dashboard-section" 
-        className="space-y-4"
-      >
-        <div className="flex justify-between items-center px-1">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
-            <Clock size={16} />
-            Countdown Dashboard
-          </h2>
-        </div>
-        <div className="space-y-4">
-          {upcoming.filter(p => getDaysUntil(p.birthday) <= 45).map((person) => {
-            const daysLeft = getDaysUntil(person.birthday);
-            const tasks = person.tasks || [];
-            const completedTasks = tasks.filter((t: any) => t.completed).length;
-            const totalTasks = tasks.length || 3; // Default tasks if none created
-            const progress = (completedTasks / totalTasks) * 100;
-            
-            // Deadlines
-            const giftDeadlineDays = daysLeft - 14;
-            const cardDeadlineDays = daysLeft - 3;
-
-            return (
-              <motion.div 
-                key={`plan-${person.id}`}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-6 card-premium space-y-6"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-lg font-bold overflow-hidden">
-                      {((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url) ? (
-                        <img 
-                          src={(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url} 
-                          alt={person.name} 
-                          className="w-full h-full object-cover" 
-                        />
-                      ) : (
-                        ((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name)[0]
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="font-bold flex items-center gap-1.5 text-zinc-900 dark:text-white">
-                        {(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name}
-                        {person.host_uid && friendStreaks[person.host_uid] > 0 && (
-                          <span className="text-xs">🔥 {friendStreaks[person.host_uid]}</span>
-                        )}
-                        {person.isCloseFriend && (
-                          <Star size={14} className="text-amber-500 fill-amber-500 flex-shrink-0 inline-block align-middle" />
-                        )}
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-zinc-400 uppercase font-bold"><AnimatedNumber value={daysLeft} /> days remaining</span>
-                        <div className="w-1 h-1 bg-zinc-300 rounded-full" />
-                        <span className="text-[10px] text-emerald-500 font-bold uppercase">{Math.round(progress)}% Ready</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => handleDeletePerson(person.id, person.name)}
-                      className="p-2 text-zinc-400 hover:text-red-500 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                      title="Delete Contact"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                    <Link to={`/person/${person.id}`} className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
-                      <ChevronRight size={20} />
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="h-1.5 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
-                    className="h-full bg-emerald-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 gap-3">
-                  {daysLeft === 0 && person.lastWishedYear !== new Date().getFullYear() && (
-                    <button
-                      onClick={() => handleWishBirthday(person.id, person.name)}
-                      className="flex items-center justify-center gap-2 p-3 bg-emerald-500 text-white rounded-2xl font-bold text-xs shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all"
-                    >
-                      <Heart size={14} fill="currentColor" />
-                      Wish Happy Birthday!
-                    </button>
-                  )}
-                  {/* Gift Deadline */}
-                  <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "p-2 rounded-xl",
-                        tasks.find((t: any) => t.title === 'Gift Decision')?.completed ? "bg-emerald-100 text-emerald-600" : "bg-zinc-100 text-zinc-400"
-                      )}>
-                        <Gift size={14} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold">Gift Decision</p>
-                        <p className={cn(
-                          "text-[10px] font-medium",
-                          giftDeadlineDays < 0 && !tasks.find((t: any) => t.title === 'Gift Decision')?.completed ? "text-red-500" : "text-zinc-400"
-                        )}>
-                          {tasks.find((t: any) => t.title === 'Gift Decision')?.completed 
-                            ? 'Completed' 
-                            : giftDeadlineDays < 0 ? 'Overdue' : `Deadline: ${giftDeadlineDays} days`}
-                        </p>
-                      </div>
-                    </div>
-                    {!tasks.find((t: any) => t.title === 'Gift Decision')?.completed && (
-                      <button 
-                        onClick={() => {
-                          const t = tasks.find((t: any) => t.title === 'Gift Decision');
-                          if (t) toggleTask(person.id, t.id, false);
-                        }}
-                        className="text-[10px] font-bold text-emerald-500 uppercase hover:underline"
-                      >
-                        Mark Done
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Card Reminder */}
-                  <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "p-2 rounded-xl",
-                        tasks.find((t: any) => t.title === 'Card Message')?.completed ? "bg-emerald-100 text-emerald-600" : "bg-zinc-100 text-zinc-400"
-                      )}>
-                        <MessageSquare size={14} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold">Card Message</p>
-                        <p className={cn(
-                          "text-[10px] font-medium",
-                          cardDeadlineDays < 0 && !tasks.find((t: any) => t.title === 'Card Message')?.completed ? "text-red-500" : "text-zinc-400"
-                        )}>
-                          {tasks.find((t: any) => t.title === 'Card Message')?.completed 
-                            ? 'Completed' 
-                            : cardDeadlineDays < 0 ? 'Overdue' : `Reminder: ${cardDeadlineDays} days`}
-                        </p>
-                      </div>
-                    </div>
-                    {!tasks.find((t: any) => t.title === 'Card Message')?.completed && (
-                      <button 
-                        onClick={() => {
-                          const t = tasks.find((t: any) => t.title === 'Card Message');
-                          if (t) toggleTask(person.id, t.id, false);
-                        }}
-                        className="text-[10px] font-bold text-emerald-500 uppercase hover:underline"
-                      >
-                        Mark Done
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Priority Intelligence Section */}
-      <section 
-        id="priority-intelligence-section" 
-        className="p-6 card-premium space-y-4 bg-zinc-50/50 dark:bg-zinc-900/50"
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Star className="text-amber-500" size={18} fill="currentColor" />
-            <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400">Priority Intelligence</h2>
-          </div>
-          <span className="label-micro">Algo v1.2</span>
-        </div>
-        <div className="space-y-6">
-          {priorityPeople.map((person) => {
-            const score = getConnectionScore(person);
-            return (
-              <div key={person.id} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold overflow-hidden">
-                      {((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url) ? (
-                        <img 
-                          src={(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url} 
-                          alt={person.name} 
-                          className="w-full h-full object-cover" 
-                        />
-                      ) : (
-                        ((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name)[0]
-                      )}
-                    </div>
-                    <span className="text-sm font-bold flex items-center gap-1.5">
-                      {(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name}
-                      {person.host_uid && friendStreaks[person.host_uid] > 0 && (
-                        <span className="text-xs">🔥 {friendStreaks[person.host_uid]}</span>
-                      )}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-black text-emerald-500 uppercase tracking-wider">{score}% Vibe</span>
-                </div>
-                <div className="h-2 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${score}%` }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    className={cn(
-                      "h-full rounded-full",
-                      score > 80 ? "bg-emerald-500" : score > 50 ? "bg-amber-500" : "bg-zinc-400"
-                    )}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <p className="text-[10px] text-zinc-400 text-center pt-2">Based on memories, interactions & how much you show up</p>
-      </section>
-
-
-
-      {/* Navigation Bar */}
-      <Navigation />
-
-      {/* Brainstorm Modal */}
-      <AnimatePresence>
-        {brainstormingPerson && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setBrainstormingPerson(null)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-sm bg-white dark:bg-zinc-900 rounded-[32px] p-8 space-y-6 shadow-2xl"
-            >
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <Sparkles className={accent.text} size={20} />
-                  <h3 className="font-black tracking-tight">Gift Brainstorm</h3>
-                </div>
-                <button onClick={() => setBrainstormingPerson(null)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-xs font-bold text-zinc-400 uppercase">Subject</p>
-                <p className="text-lg font-black">{brainstormingPerson.name}</p>
-              </div>
-
-              <div className="space-y-4">
-                {isGenerating ? (
-                  <div className="space-y-3">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="h-16 bg-zinc-100 dark:bg-zinc-800 rounded-2xl animate-pulse" />
-                    ))}
-                    <p className="text-center text-xs text-zinc-400 font-bold uppercase animate-bounce">AI is thinking...</p>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-xs text-zinc-500 leading-relaxed">
-                      Based on your notes and relationship, here are some ideas. Tap one to save it to their registry.
-                    </p>
-                    <div className="space-y-2">
-                      {aiSuggestions.map((suggestion, i) => (
-                        <button
-                          key={i}
-                          onClick={() => saveSuggestion(suggestion)}
-                          className={`w-full p-4 text-left bg-zinc-50 dark:bg-zinc-800 hover:${accent.bgSolid} hover:text-white rounded-2xl transition-all group`}
-                        >
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-bold">{suggestion}</span>
-                            <Plus size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                    <button 
-                      onClick={() => handleBrainstorm(brainstormingPerson)}
-                      className="w-full py-3 text-xs font-bold text-zinc-400 uppercase hover:text-zinc-600 dark:hover:text-zinc-200"
-                    >
-                      Regenerate Ideas
-                    </button>
-                  </>
-                )}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* AI Message Dashboard Modal */}
-      <AnimatePresence>
-        {generatingMessagePerson && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => {
-                if (!isGenerating) {
-                  setGeneratingMessagePerson(null);
-                  setDashboardAiMessage(null);
-                }
-              }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-sm bg-white dark:bg-zinc-900 rounded-[32px] p-8 space-y-6 shadow-2xl"
-            >
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <SparklesIcon className={accent.text} size={20} />
-                  <h3 className="font-black tracking-tight">AI Birthday Message</h3>
-                </div>
-                {!isGenerating && (
-                  <button onClick={() => {
-                    setGeneratingMessagePerson(null);
-                    setDashboardAiMessage(null);
-                  }} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
-                    <X size={20} />
-                  </button>
-                )}
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-xs font-bold text-zinc-400 uppercase">For</p>
-                <p className="text-lg font-black">{generatingMessagePerson.name}</p>
-              </div>
-
-              <div className="space-y-4">
-                {isGenerating ? (
-                  <div className="space-y-3">
-                    <div className="h-24 bg-zinc-100 dark:bg-zinc-800 rounded-2xl animate-pulse" />
-                    <p className="text-center text-xs text-zinc-400 font-bold uppercase animate-bounce">AI is writing a personal message...</p>
-                  </div>
-                ) : dashboardAiMessage ? (
-                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-hide">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <p className="text-[10px] font-bold text-zinc-400 uppercase">Short Text (SMS Style)</p>
-                        <button 
-                          onClick={() => {
-                            navigator.clipboard.writeText(dashboardAiMessage.shortText);
-                            alert("Short text copied!");
-                          }}
-                          className={`text-[10px] font-bold ${accent.text} uppercase hover:underline`}
-                        >
-                          Copy
-                        </button>
-                      </div>
-                      <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-sm italic whitespace-pre-wrap">
-                        "{dashboardAiMessage.shortText}"
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <p className="text-[10px] font-bold text-zinc-400 uppercase">Card Message</p>
-                        <button 
-                          onClick={() => {
-                            navigator.clipboard.writeText(dashboardAiMessage.cardMessage);
-                            alert("Card message copied!");
-                          }}
-                          className={`text-[10px] font-bold ${accent.text} uppercase hover:underline`}
-                        >
-                          Copy
-                        </button>
-                      </div>
-                      <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-sm italic whitespace-pre-wrap">
-                        "{dashboardAiMessage.cardMessage}"
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-zinc-500">Something went wrong. Please try again.</p>
-                )}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Birthday Onboarding Modal */}
-      <AnimatePresence>
-        {showBirthdayOnboarding && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-md"
-            />
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-[40px] p-10 text-center space-y-8 shadow-2xl"
-            >
-              <div className="w-20 h-20 bg-emerald-500 text-white rounded-3xl flex items-center justify-center mx-auto rotate-12 shadow-xl shadow-emerald-500/20">
-                <Cake size={40} />
-              </div>
-              
-              <div className="space-y-2">
-                <h2 className="text-2xl font-black tracking-tight">When's the big day?</h2>
-                <p className="text-zinc-500 font-medium">We need your birthday to unlock your secret lockers and show your countdown!</p>
-              </div>
-
-              <div className="space-y-4">
-                <input 
-                  type="date"
-                  min="2026-01-01"
-                  className="w-full p-5 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border-none text-center font-bold text-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-                  onBlur={(e) => {
-                    if (e.target.value) handleSaveBirthday(e.target.value);
-                  }}
-                />
-                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">You can change this later in settings</p>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Calendar Import Modal Onboarding */}
-      <AnimatePresence>
-        {showCalendarImport && (
-          <CalendarImportStep 
-            onComplete={() => setShowCalendarImport(false)} 
-            firebaseUserId={firebaseUser?.uid || ''} 
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Friends & Block Drawer (Objective 1) */}
-      <AnimatePresence>
-        {showFriendsDrawer && (
-          <div className="fixed inset-0 z-[120] flex justify-end">
-            {/* Backdrop Overlay */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowFriendsDrawer(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            {/* Slide-out Sidebar */}
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="relative w-full max-w-sm h-full bg-white dark:bg-zinc-900 shadow-2xl p-6 flex flex-col z-10"
-            >
-              {/* Header */}
-              <div className="flex justify-between items-center pb-4 border-b border-zinc-200 dark:border-zinc-800">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2.5 bg-gradient-to-tr from-emerald-500 to-teal-500 text-white rounded-2xl shadow-md shadow-emerald-500/10">
-                    <Users size={18} />
-                  </div>
-                  <div>
-                    <h3 className="font-black text-base tracking-tight leading-none text-zinc-900 dark:text-white">Friends & Crew</h3>
-                    <p className="text-[10px] uppercase tracking-wider font-extrabold text-zinc-400 mt-1">Real-time Synchronization</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowFriendsDrawer(false)}
-                  className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors cursor-pointer text-zinc-500 hover:text-zinc-800 dark:hover:text-white"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Scrollable Contents */}
-              <div className="flex-1 overflow-y-auto py-4 space-y-6 scrollbar-hide">
-                {/* 1. Pending Requests Section inside the Drawer (Objective 2 Integration) */}
-                {friendRequests.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between px-1">
-                      <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                        Pending Invitations ({friendRequests.length})
-                      </h4>
-                    </div>
-                    <div className="space-y-2">
-                      {friendRequests.map((req) => {
-                        const senderName = req.sender_name || 'Anonymous User';
-                        return (
-                          <div 
-                            key={req.id} 
-                            className="p-4 rounded-3xl border border-amber-100 dark:border-amber-500/10 bg-amber-500/5 dark:bg-amber-500/5 flex flex-col gap-3 transition-all"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-xs">
-                                  {senderName.charAt(0).toUpperCase()}
-                                </div>
-                                <span className="text-xs font-black text-zinc-900 dark:text-zinc-100">{senderName}</span>
-                              </div>
-                              <button
-                                onClick={() => handleDrawerDeleteRequest(req.id, senderName)}
-                                className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
-                                title="Delete/Reject Request"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleDrawerAcceptRequest(req.id, req.sender_uid, senderName)}
-                                className="flex-1 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-extrabold uppercase tracking-wider rounded-xl cursor-pointer"
-                              >
-                                Accept
-                              </button>
-                              <button
-                                onClick={() => handleDrawerDeclineRequest(req.id)}
-                                className="flex-1 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-300 text-[9px] font-extrabold uppercase tracking-wider rounded-xl cursor-pointer"
-                              >
-                                Decline
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. Active Crew / Friends List */}
-                <div className="space-y-3">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 px-1">
-                    Your Connections ({friends.length})
-                  </h4>
-
-                  {friendsLoading ? (
-                    <div className="p-8 text-center text-zinc-400 font-bold text-xs uppercase animate-pulse">
-                      Syncing database...
-                    </div>
-                  ) : friends.length === 0 ? (
-                    <div className="p-8 text-center bg-zinc-50 dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800 space-y-2">
-                      <p className="text-zinc-400 text-xs font-medium">No active connections found.</p>
-                      <p className="text-[10px] text-zinc-500 leading-relaxed">
-                        Share your landing URL with other users to sync birthdays and unlock streak alerts!
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {friends.map((friendDoc) => {
-                        const friendUid = friendDoc.sender_uid === firebaseUser.uid 
-                          ? friendDoc.receiver_uid 
-                          : friendDoc.sender_uid;
-
-                        // Retrieve live updated profile metadata
-                        const liveProfile = friendProfiles[friendUid];
-                        const displayName = liveProfile?.name || (friendDoc.sender_uid === firebaseUser.uid ? friendDoc.receiver_name : friendDoc.sender_name) || "Friend";
-                        const displayPic = liveProfile?.profile_picture_url || liveProfile?.photo_url;
-                        const streak = friendDoc.streak_count || friendStreaks[friendUid] || 0;
-
-                        // Private relationship designation lookup
-                        const personMatch = people.find(p => p.host_uid === friendUid);
-                        const isCloseFriend = personMatch?.isCloseFriend ?? false;
-
-                        // Multi-cross blocking checks
-                        const blockedByUs = blockedUids.includes(friendUid);
-                        const blockedByThem = liveProfile?.blocked_uids?.includes(firebaseUser.uid);
-                        const isMutuallyBlocked = blockedByUs && blockedByThem;
-                        const isBlocked = blockedByUs || blockedByThem;
-
-                        return (
-                          <div 
-                            key={friendDoc.id}
-                            className={cn(
-                              "p-3 rounded-2xl border transition-all flex items-center justify-between gap-3",
-                              isBlocked 
-                                ? "bg-zinc-50/50 dark:bg-zinc-950/30 border-red-200/40 dark:border-red-900/10 opacity-70" 
-                                : "bg-white dark:bg-zinc-800 border-zinc-100 dark:border-zinc-800/80 hover:border-zinc-200 dark:hover:border-zinc-700 shadow-sm"
-                            )}
-                          >
-                            <div className="flex items-center gap-3">
-                              {/* Beautiful high-energy circular badge avatar */}
-                              <div className="relative">
-                                {isBlocked ? (
-                                  <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 overflow-hidden shrink-0 border border-red-500/20">
-                                    <ShieldAlert size={18} className="text-red-500" />
-                                  </div>
-                                ) : displayPic ? (
-                                  <img 
-                                    src={displayPic} 
-                                    alt={displayName} 
-                                    className="w-10 h-10 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-sm"
-                                    referrerPolicy="no-referrer"
-                                  />
-                                ) : (
-                                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
-                                    {displayName.charAt(0)}
-                                  </div>
-                                )}
-                                
-                                {/* Pulsing streak/live indicator */}
-                                {!isBlocked && (
-                                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-zinc-900 rounded-full animate-pulse" />
-                                )}
-                              </div>
-
-                              <div className="min-w-0">
-                                <h5 className={cn(
-                                  "text-xs font-black leading-tight flex items-center gap-1.5 truncate",
-                                  isBlocked ? "text-zinc-400 line-through" : "text-zinc-900 dark:text-zinc-100"
-                                )}>
-                                  <span className="truncate max-w-[120px]">{displayName}</span>
-                                  {!isBlocked && streak > 0 && (
-                                    <span className="text-[10px] font-extrabold text-orange-500 shrink-0">🔥 {streak}</span>
-                                  )}
-                                  {!isBlocked && isCloseFriend && (
-                                    <Star size={12} className="text-amber-500 fill-amber-500 flex-shrink-0 inline-block align-middle animate-pulse" />
-                                  )}
-                                </h5>
-                                <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1">
-                                  {isMutuallyBlocked 
-                                    ? "Mutually Locked 🛑" 
-                                    : blockedByUs 
-                                      ? "Blocked by you" 
-                                      : blockedByThem 
-                                        ? "Restricted connection" 
-                                        : "Active Sync"}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Easy-to-use Block/Unblock toggle button */}
-                            <button
-                              onClick={() => handleToggleBlockFriend(friendUid, blockedByUs)}
-                              className={cn(
-                                "px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-widest rounded-xl transition-all cursor-pointer",
-                                blockedByUs 
-                                  ? "bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white"
-                                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20"
-                              )}
-                              title={blockedByUs ? "Unblock Crew Member" : "Block Crew Member"}
-                            >
-                              {blockedByUs ? "Blocked" : "Block"}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Empty background space warning */}
-              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 text-center">
-                <p className="text-[9px] text-zinc-400 leading-normal">
-                  Blocking instantly restricts profile card updates, sync feeds and gift suggestions between devices.
-                </p>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Check-In Multi-Step Modal */}
-      <AnimatePresence>
-        {showCheckInModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[32px] p-8 shadow-2xl relative overflow-hidden"
-            >
-              {/* Close Button */}
-              <button
-                onClick={handleCloseCheckInModal}
-                className="absolute top-5 right-5 p-1.5 rounded-full bg-zinc-50 dark:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-
-              {queueIndex < checkInQueue.length ? (
-                // Active check-in step
-                <div className="space-y-6 text-center">
-                  <div className="flex flex-col items-center space-y-3">
-                    {/* Ring around avatar */}
-                    <div className="p-[3px] bg-gradient-to-tr from-rose-500 via-pink-500 to-amber-400 rounded-full shadow-lg">
-                      {checkInQueue[queueIndex].photo_url ? (
-                        <img 
-                          src={checkInQueue[queueIndex].photo_url} 
-                          alt={checkInQueue[queueIndex].name} 
-                          className="w-20 h-20 rounded-full object-cover border-4 border-white dark:border-zinc-900"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <div className="w-20 h-20 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center font-black text-2xl border-4 border-white dark:border-zinc-900">
-                          {checkInQueue[queueIndex].name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold text-[10px] uppercase tracking-wider">
-                        Close Friend Check-In
-                      </span>
-                      <h3 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white pt-1">
-                        Talked to {checkInQueue[queueIndex].nickname || checkInQueue[queueIndex].name.split(' ')[0]} today?
-                      </h3>
-                      <p className="text-xs text-zinc-400 font-medium">
-                        Keep your circle updated and nurture your connection history.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="space-y-3 pt-2">
-                    <button
-                      onClick={() => handleCheckInResponse('yes')}
-                      disabled={isSubmittingCheckIn}
-                      className="w-full py-4 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-750 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-rose-500/15 cursor-pointer flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-                    >
-                      <Heart className="w-4 h-4 fill-current" />
-                      Yes, we connected
-                    </button>
-                    <button
-                      onClick={() => handleCheckInResponse('no')}
-                      disabled={isSubmittingCheckIn}
-                      className="w-full py-4 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-650 dark:text-zinc-300 font-bold text-xs uppercase tracking-wider rounded-2xl cursor-pointer transition-all disabled:opacity-50"
-                    >
-                      Not today
-                    </button>
-                  </div>
-
-                  {/* Progress indicator */}
-                  <div className="flex justify-center items-center gap-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                    <span>Friend {queueIndex + 1} of {checkInQueue.length}</span>
-                  </div>
-                </div>
-              ) : (
-                // Completion state
-                <div className="space-y-6 text-center py-4">
-                  <div className="w-16 h-16 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto animate-bounce">
-                    <Star className="w-8 h-8 fill-current text-rose-500" />
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">
-                      All caught up! ✨
-                    </h3>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
-                      Your daily close connections have been updated. Keep up the awesome vibe!
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleCloseCheckInModal}
-                    className="w-full py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl font-black text-xs uppercase tracking-wider shadow-md hover:scale-[1.01] active:scale-95 transition-all cursor-pointer"
-                  >
-                    Close
-                  </button>
-                </div>
-              )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+ const { user, firebaseUser, refreshUser } = useAuth();
+ const { recordDailyAction, config: gamificationConfig } = useGamification();
+ const accent = getAIAccent(user?.aiAccentColor);
+ const [people, setPeople] = React.useState<any[]>([]);
+ const [liveBlockedUids, setLiveBlockedUids] = React.useState<string[]>(user?.blocked_uids || []);
+
+ React.useEffect(() => {
+ if (!firebaseUser) {
+ setLiveBlockedUids([]);
+ return;
+ }
+ const userRef = doc(db, 'users', firebaseUser.uid);
+ const unsub = onSnapshot(userRef, (snap) => {
+ if (snap.exists()) {
+ const data = snap.data();
+ setLiveBlockedUids(data?.blocked_uids || []);
+ }
+ }, (err) => {
+ console.error("Error listening to user profile block list:", err);
+ });
+ return () => unsub();
+ }, [firebaseUser]);
+
+ const blockedUids = React.useMemo(() => liveBlockedUids, [liveBlockedUids]);
+ const activePeople = React.useMemo(() => {
+ return people.filter(p => !p.host_uid || !blockedUids.includes(p.host_uid));
+ }, [people, blockedUids]);
+
+ // --- Check-In Feature States ---
+ const [checkInQueue, setCheckInQueue] = React.useState<any[]>([]);
+ const [queueIndex, setQueueIndex] = React.useState<number>(0);
+ const [showCheckInModal, setShowCheckInModal] = React.useState(false);
+ const [isSubmittingCheckIn, setIsSubmittingCheckIn] = React.useState(false);
+
+ // Helper for today's local date string
+ const getLocalDateString = () => {
+ const d = new Date();
+ const year = d.getFullYear();
+ const month = String(d.getMonth() + 1).padStart(2, '0');
+ const day = String(d.getDate()).padStart(2, '0');
+ return `${year}-${month}-${day}`;
+ };
+
+ const todayStr = React.useMemo(() => getLocalDateString(), [people]);
+
+ // Derived list of close friends who have not checked in today
+ const closeFriendsToCheckIn = React.useMemo(() => {
+ return activePeople.filter(p => p.isCloseFriend === true && p.lastCheckIn?.date !== todayStr);
+ }, [activePeople, todayStr]);
+
+ const handleStartCheckIn = (clickedFriend: any) => {
+ const unchecked = activePeople.filter(p => p.isCloseFriend === true && p.lastCheckIn?.date !== todayStr);
+ const remaining = unchecked.filter(p => p.id !== clickedFriend.id);
+ const queue = [clickedFriend, ...remaining];
+ setCheckInQueue(queue);
+ setQueueIndex(0);
+ setShowCheckInModal(true);
+ };
+
+ const handleCheckInResponse = async (answer: 'yes' | 'no') => {
+ if (isSubmittingCheckIn || checkInQueue.length === 0) return;
+ const currentFriend = checkInQueue[queueIndex];
+ if (!currentFriend) return;
+
+ const today = getLocalDateString();
+ const checkInItem = { date: today, answer };
+
+ // Optimistic UI update
+ const previousPeople = [...people];
+ setPeople(prev => prev.map(p => {
+ if (p.id === currentFriend.id) {
+ const history = p.checkInHistory ? [...p.checkInHistory] : [];
+ const filteredHistory = history.filter((h: any) => h.date !== today);
+ return {
+ ...p,
+ lastCheckIn: checkInItem,
+ checkInHistory: [...filteredHistory, checkInItem]
+ };
+ }
+ return p;
+ }));
+
+ setIsSubmittingCheckIn(true);
+
+ try {
+ const personRef = doc(db, 'people', currentFriend.id);
+ const updatedHistory = currentFriend.checkInHistory ? [...currentFriend.checkInHistory] : [];
+ const filteredHistory = updatedHistory.filter((h: any) => h.date !== today);
+ filteredHistory.push(checkInItem);
+
+ await updateDoc(personRef, {
+ lastCheckIn: checkInItem,
+ checkInHistory: filteredHistory
+ });
+ await recordDailyAction('check_in');
+ } catch (err) {
+ console.error("Failed to save check-in response:", err);
+ setPeople(previousPeople);
+ } finally {
+ setIsSubmittingCheckIn(false);
+ setQueueIndex(prev => prev + 1);
+ }
+ };
+
+ const handleCloseCheckInModal = () => {
+ setShowCheckInModal(false);
+ setCheckInQueue([]);
+ setQueueIndex(0);
+ };
+
+ const [analytics, setAnalytics] = React.useState<any>(null);
+ const [notifications, setNotifications] = React.useState<any[]>([]);
+ const [loading, setLoading] = React.useState(true);
+ const [brainstormingPerson, setBrainstormingPerson] = React.useState<any>(null);
+ const [aiSuggestions, setAiSuggestions] = React.useState<string[]>([]);
+ const [isGenerating, setIsGenerating] = React.useState(false);
+ const [generatingMessagePerson, setGeneratingMessagePerson] = React.useState<any>(null);
+ const [dashboardAiMessage, setDashboardAiMessage] = React.useState<any>(null);
+ const [countdown, setCountdown] = React.useState<any>(null);
+ const [showPushBanner, setShowPushBanner] = React.useState(false);
+ const [friendStreaks, setFriendStreaks] = React.useState<Record<string, number>>({});
+ const [syncedProfiles, setSyncedProfiles] = React.useState<Record<string, any>>({});
+ const [hasPendingFriendRequest, setHasPendingFriendRequest] = React.useState(false);
+ const [showFriendsDrawer, setShowFriendsDrawer] = React.useState(false);
+ const [friends, setFriends] = React.useState<any[]>([]);
+ const [friendsLoading, setFriendsLoading] = React.useState(true);
+ const [friendProfiles, setFriendProfiles] = React.useState<Record<string, any>>({});
+ const [friendRequests, setFriendRequests] = React.useState<any[]>([]);
+
+ // 1. Real-time accepted friends listener (querying members array where status is accepted)
+ React.useEffect(() => {
+ if (!firebaseUser) {
+ setFriends([]);
+ setFriendsLoading(false);
+ return;
+ }
+ const frRef = collection(db, 'friend_requests');
+ const q = query(
+ frRef,
+ where('status', '==', 'accepted'),
+ where('members', 'array-contains', firebaseUser.uid)
+ );
+ const unsub = onSnapshot(q, (snapshot) => {
+ const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+ setFriends(docs);
+ setFriendsLoading(false);
+ }, (err) => {
+ console.error("Friends list listener error:", err);
+ setFriendsLoading(false);
+ });
+ return () => unsub();
+ }, [firebaseUser]);
+
+ // 2. Real-time pending requests listener
+ React.useEffect(() => {
+ if (!firebaseUser) {
+ setFriendRequests([]);
+ return;
+ }
+ const frRef = collection(db, 'friend_requests');
+ const q = query(
+ frRef, 
+ where('receiver_uid', '==', firebaseUser.uid), 
+ where('status', '==', 'pending')
+ );
+ const unsub = onSnapshot(q, (snapshot) => {
+ const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+ setFriendRequests(docs);
+ }, (err) => {
+ console.error("Pending requests listener error:", err);
+ });
+ return () => unsub();
+ }, [firebaseUser]);
+
+ // 3. Real-time profile listen for each friend to fetch their up-to-date name, photo_url, and blocked_uids
+ React.useEffect(() => {
+ if (friends.length === 0 || !firebaseUser) {
+ setFriendProfiles({});
+ return;
+ }
+ const activeListeners: (() => void)[] = [];
+ friends.forEach((frDoc) => {
+ const friendUid = frDoc.sender_uid === firebaseUser.uid 
+ ? frDoc.receiver_uid 
+ : frDoc.sender_uid;
+ if (friendUid) {
+ const userRef = doc(db, 'users', friendUid);
+ const unsub = onSnapshot(userRef, (snap) => {
+ if (snap.exists()) {
+ setFriendProfiles((prev) => ({
+ ...prev,
+ [friendUid]: { id: snap.id, ...snap.data() }
+ }));
+ }
+ }, (err) => {
+ console.error(`Error listening to friend profile ${friendUid}:`, err);
+ });
+ activeListeners.push(unsub);
+ }
+ });
+ return () => {
+ activeListeners.forEach(unsub => unsub());
+ };
+ }, [friends, firebaseUser]);
+
+ React.useEffect(() => {
+ if (!firebaseUser) {
+ setHasPendingFriendRequest(false);
+ return;
+ }
+ const frRef = collection(db, 'friend_requests');
+ const qFRUnresolved = query(frRef, where('receiver_uid', '==', firebaseUser.uid), where('status', '==', 'pending'));
+ const unsubFR = onSnapshot(qFRUnresolved, (snap) => {
+ setHasPendingFriendRequest(!snap.empty);
+ });
+ return () => {
+ unsubFR();
+ };
+ }, [firebaseUser]);
+
+ React.useEffect(() => {
+ if (!firebaseUser) return;
+ const frRef = collection(db, 'friend_requests');
+ const q1 = query(frRef, where('sender_uid', '==', firebaseUser.uid), where('status', '==', 'accepted'));
+ const q2 = query(frRef, where('receiver_uid', '==', firebaseUser.uid), where('status', '==', 'accepted'));
+
+ const handleSnaps = (snap1: any, snap2: any) => {
+ const streaks: Record<string, number> = {};
+ const addFromDoc = (d: any) => {
+ const data = d.data();
+ const otherAnd = data.sender_uid === firebaseUser.uid ? data.receiver_uid : data.sender_uid;
+ if (data.streak_count !== undefined) {
+ streaks[otherAnd] = data.streak_count;
+ }
+ };
+ 
+ snap1.docs.forEach(addFromDoc);
+ snap2.docs.forEach(addFromDoc);
+ setFriendStreaks(streaks);
+ };
+
+ const unsub1 = onSnapshot(q1, (snap1) => {
+ getDocs(q2).then((snap2) => handleSnaps(snap1, snap2)).catch(() => {});
+ });
+
+ const unsub2 = onSnapshot(q2, (snap2) => {
+ getDocs(q1).then((snap1) => handleSnaps(snap1, snap2)).catch(() => {});
+ });
+
+ return () => {
+ unsub1();
+ unsub2();
+ };
+ }, [firebaseUser]);
+
+ React.useEffect(() => {
+ const activeListeners: (() => void)[] = [];
+ 
+ activePeople.forEach((p) => {
+ if (p.host_uid) {
+ const userRef = doc(db, 'users', p.host_uid);
+ const unsub = onSnapshot(userRef, (snap) => {
+ if (snap.exists()) {
+ const uData = snap.data();
+ setSyncedProfiles((prev) => ({
+ ...prev,
+ [p.host_uid]: {
+ name: uData.name || p.name,
+ photo_url: uData.profile_picture_url || p.photo_url,
+ fav_sports_teams: uData.fav_sports_teams,
+ fav_artists: uData.fav_artists,
+ anything_extra: uData.anything_extra
+ }
+ }));
+ }
+ });
+ activeListeners.push(unsub);
+ }
+ });
+
+ return () => {
+ activeListeners.forEach((unsub) => unsub());
+ };
+ }, [activePeople]);
+
+ React.useEffect(() => {
+ if (typeof window !== 'undefined' && 'Notification' in window) {
+ if (Notification.permission === 'default') {
+ setShowPushBanner(true);
+ }
+ }
+ }, []);
+
+ const handleEnablePush = async () => {
+ if (firebaseUser) {
+ const success = await subscribeUserToPush(firebaseUser.uid);
+ if (success) {
+ setShowPushBanner(false);
+ }
+ }
+ };
+
+ React.useEffect(() => {
+ if (user?.birthday) {
+ const timer = setInterval(() => {
+ setCountdown(getPreciseCountdown(user.birthday));
+ }, 1000);
+ return () => clearInterval(timer);
+ }
+ }, [user?.birthday]);
+
+ const handleGenerateDashboardMessage = async (person: any) => {
+ setGeneratingMessagePerson(person);
+ setIsGenerating(true);
+ try {
+ const memories = person.memories?.map((m: any) => m.content) || [];
+ if (person.notes) memories.unshift(person.notes);
+ 
+ const giftHistory = person.gifts?.filter((g: any) => g.status === 'given').map((g: any) => g.name) || [];
+ const message = await generateBirthdayMessage({
+ name: person.name,
+ age: (person.birthday && !person.birthYearUnknown) ? new Date().getFullYear() - new Date(person.birthday).getFullYear() : 'Unknown',
+ relationship: person.category,
+ interests: person.interests || 'No specific interests mentioned',
+ notes: person.notes || 'No specific notes mentioned'
+ });
+ setDashboardAiMessage(message);
+ } catch (err) {
+ console.error(err);
+ } finally {
+ setIsGenerating(false);
+ }
+ };
+
+ const handleBrainstorm = async (person: any) => {
+ setBrainstormingPerson(person);
+ setIsGenerating(true);
+ try {
+ const suggestions = await generateGiftSuggestions({
+ interests: person.notes || 'general interests',
+ budget: 50,
+ relationship: person.category,
+ giftHistory: person.gifts?.filter((g: any) => g.status === 'given').map((g: any) => g.name)
+ });
+ setAiSuggestions(suggestions);
+ } catch (err) {
+ console.error(err);
+ } finally {
+ setIsGenerating(false);
+ }
+ };
+
+ const saveSuggestion = async (suggestion: string) => {
+ if (!brainstormingPerson) return;
+ try {
+ const giftsRef = collection(db, 'people', brainstormingPerson.id, 'gifts');
+ await addDoc(giftsRef, {
+ name: suggestion,
+ status: 'idea',
+ created_at: serverTimestamp()
+ });
+ setBrainstormingPerson(null);
+ setAiSuggestions([]);
+ fetchDashboardData(); // Refresh
+ } catch (err) {
+ console.error(err);
+ }
+ };
+
+ const fetchDashboardData = async () => {
+ if (!firebaseUser) return;
+ try {
+ // Fetch People
+ const peopleRef = collection(db, 'people');
+ const q = query(peopleRef, where('user_id', '==', firebaseUser.uid));
+ const querySnapshot = await getDocs(q);
+ const peopleData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+ // Fetch Notifications
+ const notifRef = collection(db, 'notifications');
+ const nq = query(notifRef, where('user_id', '==', firebaseUser.uid));
+ const nSnapshot = await getDocs(nq);
+ const notifData = nSnapshot.docs
+ .map(doc => ({ id: doc.id, ...doc.data() } as any))
+ .sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0))
+ .slice(0, 10);
+
+ // Fetch tasks and gifts for each person
+ const peopleWithDetails = await Promise.all(peopleData.map(async (p: any) => {
+ const tasksRef = collection(db, 'people', p.id, 'tasks');
+ const tSnapshot = await getDocs(tasksRef);
+ const tasks = tSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+ const giftsRef = collection(db, 'people', p.id, 'gifts');
+ const gSnapshot = await getDocs(giftsRef);
+ const gifts = gSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+ return { ...p, tasks, gifts };
+ }));
+
+ setPeople(peopleWithDetails);
+ setNotifications(notifData);
+ 
+ // Calculate simple analytics
+ setAnalytics({
+ totalPeople: peopleData.length,
+ });
+ } catch (err: any) {
+ if (err.code === 'permission-denied') {
+ console.error("Firestore Permission Denied: Please check your Security Rules in the Firebase Console.");
+ } else {
+ console.error("Dashboard fetch error:", err);
+ }
+ } finally {
+ setLoading(false);
+ }
+ };
+
+ React.useEffect(() => {
+ fetchDashboardData();
+ }, [firebaseUser]);
+
+ React.useEffect(() => {
+ if (!firebaseUser) {
+ setNotifications([]);
+ return;
+ }
+ const notifRef = collection(db, 'notifications');
+ const q = query(notifRef, where('user_id', '==', firebaseUser.uid));
+ const unsubscribe = onSnapshot(q, (snapshot) => {
+ const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+ setNotifications(docs);
+ }, (err) => {
+ console.warn("Error listening to notifications in dashboard:", err);
+ });
+ return () => unsubscribe();
+ }, [firebaseUser]);
+
+ const unreadCount = notifications.filter(n => !n.is_read).length;
+
+ const toggleTask = async (personId: string, taskId: string, completed: boolean) => {
+ try {
+ const taskRef = doc(db, 'people', personId, 'tasks', taskId);
+ // Use setDoc with merge to avoid "No document to update" if the document was somehow missing
+ await setDoc(taskRef, { completed: !completed }, { merge: true });
+ fetchDashboardData(); // Refresh
+ } catch (err) {
+ console.error(err);
+ }
+ };
+
+ const upcoming = [...activePeople]
+ .sort((a, b) => getDaysUntil(a.birthday) - getDaysUntil(b.birthday))
+ .slice(0, 5);
+
+ const priorityPeople = [...activePeople]
+ .sort((a, b) => b.importance - a.importance)
+ .slice(0, 3);
+
+ const currentMonth = new Date().getMonth();
+ const birthdaysThisMonth = activePeople.filter(p => {
+ const [y, m, d] = p.birthday.split('-').map(Number);
+ return (m - 1) === currentMonth;
+ }).sort((a, b) => {
+ const dayA = Number(a.birthday.split('-')[2]);
+ const dayB = Number(b.birthday.split('-')[2]);
+ return dayA - dayB;
+ });
+
+ const handleWishBirthday = async (personId: string, personName: string) => {
+ if (!firebaseUser || !user) return;
+ try {
+ confetti({
+ particleCount: 100,
+ spread: 60,
+ origin: { y: 0.8 },
+ colors: ['#10b981', '#3b82f6', '#f59e0b']
+ });
+
+ const userRef = doc(db, 'users', firebaseUser.uid);
+ const newStreak = (user.streak || 0) + 1;
+ await updateDoc(userRef, { streak: newStreak });
+
+ const personRef = doc(db, 'people', personId);
+ const currentYear = new Date().getFullYear();
+ await updateDoc(personRef, {
+ friendshipScore: increment(15),
+ lastWishedYear: currentYear,
+ lastWishedDate: new Date().toISOString()
+ });
+ 
+ // Log it as a memory
+ const memoriesRef = collection(db, 'people', personId, 'memories');
+ await addDoc(memoriesRef, {
+ year: new Date().getFullYear(),
+ type: 'milestone',
+ content: `Wished a Happy Birthday! Streak increased to ${newStreak}.`,
+ created_at: serverTimestamp()
+ });
+ await recordDailyAction('memory_added');
+
+ // Mark card task as done if it exists
+ const person = upcoming.find(p => p.id === personId);
+ const cardTask = person?.tasks?.find((t: any) => t.title === 'Card Message');
+ if (cardTask && !cardTask.completed) {
+ await toggleTask(personId, cardTask.id, false);
+ }
+
+ await refreshUser();
+ alert(`Happy Birthday wished to ${personName}! Your connection streak is now ${newStreak} `);
+ fetchDashboardData(); // Refresh UI State
+ } catch (err) {
+ console.error(err);
+ }
+ };
+
+ const handleToggleBlockFriend = async (friendUid: string, isCurrentlyBlocked: boolean) => {
+ if (!firebaseUser) return;
+ try {
+ const userDocRef = doc(db, 'users', firebaseUser.uid);
+ if (isCurrentlyBlocked) {
+ await updateDoc(userDocRef, {
+ blocked_uids: arrayRemove(friendUid)
+ });
+ } else {
+ await updateDoc(userDocRef, {
+ blocked_uids: arrayUnion(friendUid)
+ });
+ }
+ if (refreshUser) {
+ await refreshUser();
+ }
+ } catch (err) {
+ console.error("Error toggling block:", err);
+ alert("Failed to update status.");
+ }
+ };
+
+ const handleDrawerAcceptRequest = async (reqId: string, senderUid: string, senderName: string) => {
+ if (!firebaseUser) return;
+ try {
+ const frDoc = doc(db, 'friend_requests', reqId);
+ await updateDoc(frDoc, { 
+ status: 'accepted',
+ streak_count: 0,
+ last_interaction_date: null,
+ members: [senderUid, firebaseUser.uid]
+ });
+ 
+ const peopleRef = collection(db, 'people');
+ const pq = query(peopleRef, where('user_id', '==', firebaseUser.uid), where('host_uid', '==', senderUid));
+ const psnap = await getDocs(pq);
+ 
+ if (psnap.empty) {
+ const userRef = collection(db, 'users');
+ let bMonth = 1;
+ let bDay = 1;
+ let bPhotoUrl = '';
+ try {
+ const uSnap = await getDocs(query(userRef, where('name', '==', senderName)));
+ if (!uSnap.empty) {
+ const uData = uSnap.docs[0].data();
+ bMonth = uData.birthday_month || 1;
+ bDay = uData.birthday_day || 1;
+ bPhotoUrl = uData.profile_picture_url || '';
+ }
+ } catch (e) {
+ console.warn(e);
+ }
+
+ const formattedMonth = String(bMonth).padStart(2, '0');
+ const formattedDay = String(bDay).padStart(2, '0');
+ const bDayStr = `2000-${formattedMonth}-${formattedDay}`;
+
+ await addDoc(peopleRef, {
+ name: senderName,
+ nickname: senderName,
+ birthday: bDayStr,
+ birthYearUnknown: true,
+ category: 'friend',
+ notes: `Accepted friend request `,
+ user_id: firebaseUser.uid,
+ photo_url: bPhotoUrl,
+ host_uid: senderUid,
+ created_at: serverTimestamp(),
+ updated_at: serverTimestamp()
+ });
+ }
+ alert("Friend request accepted! ");
+ } catch (err) {
+ console.error(err);
+ }
+ };
+
+ const handleDrawerDeclineRequest = async (reqId: string) => {
+ try {
+ const frDoc = doc(db, 'friend_requests', reqId);
+ await updateDoc(frDoc, { status: 'declined' });
+ } catch (err) {
+ console.error(err);
+ }
+ };
+
+ const handleDrawerDeleteRequest = async (reqId: string, senderName: string) => {
+ if (!window.confirm(`Are you sure you want to delete the friend request from ${senderName}?`)) return;
+ try {
+ await deleteDoc(doc(db, 'friend_requests', reqId));
+ alert("Friend request deleted.");
+ } catch (err) {
+ console.error(err);
+ }
+ };
+
+ const handleDeletePerson = async (personId: string, personName: string) => {
+ if (!window.confirm(`Are you sure you want to delete ${personName}?`)) return;
+ try {
+ // Delete from both "people" and "contacts" collections for ultimate safety and compliance
+ await deleteDoc(doc(db, 'people', personId));
+ await deleteDoc(doc(db, 'contacts', personId));
+
+ // Filter local state array immediately to cleanly remove from UI without reload
+ setPeople(prev => prev.filter(p => p.id !== personId));
+
+ alert(`${personName} has been removed from your contacts.`);
+ } catch (err) {
+ console.error("Error deleting person:", err);
+ alert("Failed to delete person.");
+ }
+ };
+
+ const [showBirthdayOnboarding, setShowBirthdayOnboarding] = React.useState(false);
+ const [showCalendarImport, setShowCalendarImport] = React.useState(false);
+
+ React.useEffect(() => {
+ if (user && !user.birthday) {
+ setShowBirthdayOnboarding(true);
+ }
+ }, [user]);
+
+ const handleSaveBirthday = async (bday: string) => {
+ if (!firebaseUser) return;
+ try {
+ const userRef = doc(db, 'users', firebaseUser.uid);
+ await setDoc(userRef, { birthday: bday }, { merge: true });
+ setShowBirthdayOnboarding(false);
+ await refreshUser();
+ setShowCalendarImport(true);
+ } catch (err) {
+ console.error(err);
+ }
+ };
+
+ if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
+
+ return (
+ <div className="pb-24 pt-[calc(1.5rem+var(--sat))] px-4 max-w-2xl mx-auto space-y-8 min-h-screen bg-zinc-50 dark:bg-black">
+ {/* Header */}
+ <header className="flex justify-between items-center">
+ <div className="flex items-center gap-3">
+ {user?.profile_picture_url ? (
+ <img 
+ src={user.profile_picture_url} 
+ alt={getDisplayName(user)} 
+ className="w-12 h-12 rounded-full object-cover border border-zinc-200 dark:border-zinc-800 shadow-inner" 
+ referrerPolicy="no-referrer"
+ />
+ ) : (
+ <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center font-black text-lg uppercase shadow-inner">
+ {getDisplayName(user)?.charAt(0) || 'U'}
+ </div>
+ )}
+ <div>
+ <h1 className="text-2xl font-bold tracking-tight leading-tight">RelateOS</h1>
+ <p className="text-zinc-500 dark:text-zinc-400 text-xs font-semibold">Welcome back, {getDisplayName(user)}</p>
+ </div>
+ </div>
+ <div className="flex gap-2 sm:gap-3 items-center">
+ <AuraHeaderBadge />
+ {(firebaseUser?.email === 'smayansri@gmail.com' || user?.isAdmin || user?.role === 'admin') && (
+ <Link 
+ to="/admin" 
+ className="p-2 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 transition-colors flex items-center justify-center" 
+ title="Admin Panel"
+ >
+ <ShieldAlert size={20} />
+ </Link>
+ )}
+ <Link to="/notifications" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 relative">
+ <Bell size={20} />
+ {(unreadCount > 0 || hasPendingFriendRequest) && (
+ <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white dark:border-zinc-900 rounded-full animate-pulse" />
+ )}
+ </Link>
+ <button 
+ onClick={() => setShowFriendsDrawer(true)}
+ className="px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-emerald-500/10 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
+ title="Friends List"
+ >
+ <Users size={14} />
+ <span>Friends</span>
+ </button>
+ </div>
+ </header>
+
+ {/* Quick Shortcuts Bar */}
+ <section className="space-y-2.5">
+ <div className="flex items-center justify-between px-1">
+ <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
+ <Zap size={12} className="text-emerald-500 fill-emerald-500/20" />
+ Quick Shortcuts
+ </h2>
+ <span className="text-[10px] font-bold text-zinc-400">Direct Actions</span>
+ </div>
+ <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+ <Link
+ to="/add"
+ className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all flex items-center gap-3 group shadow-xs cursor-pointer active:scale-[0.98]"
+ >
+ <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0 group-hover:scale-105 transition-transform">
+ <UserPlus size={18} />
+ </div>
+ <div className="min-w-0">
+ <p className="text-xs font-extrabold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-emerald-500 transition-colors">
+ Add Friend
+ </p>
+ <p className="text-[10px] font-medium text-zinc-400 truncate">New contact</p>
+ </div>
+ </Link>
+
+ <Link
+ to="/rooms/create"
+ className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all flex items-center gap-3 group shadow-xs cursor-pointer active:scale-[0.98]"
+ >
+ <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0 group-hover:scale-105 transition-transform">
+ <Sparkles size={18} />
+ </div>
+ <div className="min-w-0">
+ <p className="text-xs font-extrabold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-amber-500 transition-colors">
+ Create Room
+ </p>
+ <p className="text-[10px] font-medium text-zinc-400 truncate">Locker & party room</p>
+ </div>
+ </Link>
+
+ <button
+ type="button"
+ onClick={() => {
+ if (closeFriendsToCheckIn.length > 0) {
+ handleStartCheckIn(closeFriendsToCheckIn[0]);
+ } else {
+ const closeFriends = activePeople.filter(p => p.isCloseFriend === true);
+ if (closeFriends.length > 0) {
+ setCheckInQueue(closeFriends);
+ setQueueIndex(0);
+ setShowCheckInModal(true);
+ } else {
+ setShowCheckInModal(true);
+ }
+ }
+ }}
+ className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all flex items-center gap-3 group shadow-xs text-left cursor-pointer active:scale-[0.98]"
+ >
+ <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shrink-0 group-hover:scale-105 transition-transform relative">
+ <CheckCircle2 size={18} />
+ {closeFriendsToCheckIn.length > 0 && (
+ <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />
+ )}
+ </div>
+ <div className="min-w-0">
+ <p className="text-xs font-extrabold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-rose-500 transition-colors">
+ Check In
+ </p>
+ <p className="text-[10px] font-medium text-zinc-400 truncate">
+ {closeFriendsToCheckIn.length > 0 ? `${closeFriendsToCheckIn.length} pending` : 'Talked today?'}
+ </p>
+ </div>
+ </button>
+
+ <Link
+ to="/calendar"
+ className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all flex items-center gap-3 group shadow-xs cursor-pointer active:scale-[0.98]"
+ >
+ <div className="p-2.5 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shrink-0 group-hover:scale-105 transition-transform">
+ <Calendar size={18} />
+ </div>
+ <div className="min-w-0">
+ <p className="text-xs font-extrabold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-sky-500 transition-colors">
+ Birthdays
+ </p>
+ <p className="text-[10px] font-medium text-zinc-400 truncate">Upcoming list</p>
+ </div>
+ </Link>
+ </div>
+ </section>
+
+ {/* Story Rail for Close Friend Daily Check-In */}
+ {closeFriendsToCheckIn.length > 0 && (
+ <motion.section 
+ initial={{ opacity: 0, y: -10 }}
+ animate={{ opacity: 1, y: 0 }}
+ className="space-y-3 pb-4 pt-1 border-b border-zinc-100 dark:border-zinc-800/80"
+ >
+ <div className="flex justify-between items-center px-1">
+ <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
+ <Star className="w-3 h-3 text-amber-500" fill="currentColor" />
+ Talked today? Check-in
+ </h3>
+ <span className="text-[10px] font-bold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">
+ {closeFriendsToCheckIn.length} left
+ </span>
+ </div>
+
+ <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
+ <AnimatePresence mode="popLayout">
+ {closeFriendsToCheckIn.map((friend) => {
+ const displayName = friend.nickname || friend.name.split(' ')[0];
+ const truncatedName = displayName.length > 10 ? displayName.slice(0, 8) + '..' : displayName;
+
+ return (
+ <motion.div
+ key={`story-${friend.id}`}
+ layout
+ initial={{ opacity: 0, scale: 0.8 }}
+ animate={{ opacity: 1, scale: 1 }}
+ exit={{ opacity: 0, scale: 0.5 }}
+ transition={{ type: "spring", stiffness: 400, damping: 30 }}
+ className="flex flex-col items-center gap-1.5 cursor-pointer flex-shrink-0 group"
+ onClick={() => handleStartCheckIn(friend)}
+ >
+ {/* Story border ring */}
+ <div className="p-[3px] bg-gradient-to-tr from-rose-500 via-pink-500 to-amber-400 rounded-full shadow-sm group-hover:scale-105 transition-transform duration-200">
+ {friend.photo_url ? (
+ <img 
+ src={friend.photo_url} 
+ alt={friend.name} 
+ className="w-14 h-14 rounded-full object-cover border-2 border-white dark:border-zinc-900"
+ referrerPolicy="no-referrer"
+ />
+ ) : (
+ <div className="w-14 h-14 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center font-black text-lg border-2 border-white dark:border-zinc-900">
+ {friend.name.charAt(0).toUpperCase()}
+ </div>
+ )}
+ </div>
+ <span className="text-[11px] font-bold text-zinc-750 dark:text-zinc-300">
+ {truncatedName}
+ </span>
+ </motion.div>
+ );
+ })}
+ </AnimatePresence>
+ </div>
+ </motion.section>
+ )}
+
+ <AnimatePresence>
+ {showPushBanner && (
+ <motion.div
+ initial={{ opacity: 0, height: 0, y: -20 }}
+ animate={{ opacity: 1, height: 'auto', y: 0 }}
+ exit={{ opacity: 0, height: 0, y: -20 }}
+ className="overflow-hidden"
+ >
+ <div className="p-5 bg-emerald-500/10 border border-emerald-500/20 rounded-3xl flex items-start gap-4 relative shadow-sm">
+ <span className="text-2xl mt-0.5 select-none"></span>
+ <div className="flex-1 space-y-3">
+ <p className="text-xs font-semibold leading-relaxed text-emerald-850 dark:text-emerald-305">
+ Turn on home screen pings to catch group countdowns, live poll votes, and crew chat instantly.
+ </p>
+ <div className="flex items-center gap-2">
+ <button
+ onClick={handleEnablePush}
+ className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm"
+ >
+ Enable Alerts
+ </button>
+ <button
+ onClick={() => setShowPushBanner(false)}
+ className="py-1.5 px-2.5 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 text-[10px] font-bold cursor-pointer"
+ >
+ Dismiss
+ </button>
+ </div>
+ </div>
+ </div>
+ </motion.div>
+ )}
+ </AnimatePresence>
+
+ {/* User Birthday Countdown */}
+ {countdown && (
+ <motion.div 
+ initial={{ opacity: 0, scale: 0.95 }}
+ animate={{ opacity: 1, scale: 1 }}
+ className="p-8 bg-zinc-900 text-white rounded-[40px] space-y-6 shadow-2xl shadow-zinc-900/20 relative overflow-hidden group"
+ >
+ <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+ <Sparkles size={120} />
+ </div>
+ <div className="relative z-10 space-y-4">
+ <div className="flex items-center gap-2">
+ <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+ <span className="label-micro text-zinc-400 mb-0">Your Birthday Countdown</span>
+ </div>
+ <div className="flex justify-between items-end">
+ <div className="flex gap-4">
+ <div className="text-center">
+ <p className="text-4xl font-black tracking-tighter">{countdown.days}</p>
+ <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Days</p>
+ </div>
+ <div className="text-center">
+ <p className="text-4xl font-black tracking-tighter">{countdown.hours}</p>
+ <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Hrs</p>
+ </div>
+ <div className="text-center">
+ <p className="text-4xl font-black tracking-tighter">{countdown.minutes}</p>
+ <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Min</p>
+ </div>
+ <div className="text-center">
+ <p className="text-4xl font-black tracking-tighter text-emerald-500">{countdown.seconds}</p>
+ <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Sec</p>
+ </div>
+ </div>
+ <div className="text-right">
+ <p className="text-xs font-bold text-zinc-400">Turning</p>
+ <p className="text-2xl font-black text-emerald-500">{user?.birthday ? getTurningAge(user.birthday) : '?'}</p>
+ </div>
+ </div>
+ </div>
+ </motion.div>
+ )}
+
+ {/* Quick Stats */}
+ <section 
+ id="quick-stats-section" 
+ className="grid grid-cols-2 gap-4"
+ >
+ <motion.div 
+ initial={{ opacity: 0, y: 10 }}
+ animate={{ opacity: 1, y: 0 }}
+ className="p-6 rounded-2xl bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white space-y-1 border border-zinc-100 dark:border-zinc-700 border-t border-t-white/5 shadow-sm dark:shadow-lg"
+ >
+ <div className="flex items-center justify-between">
+ <p className="label-micro text-zinc-400 dark:text-zinc-400 mb-0">Friends Tracked</p>
+ <HelpTip 
+ title="Friends Tracked" 
+ content="The total number of contacts & friend profiles in your RelateOS network." 
+ />
+ </div>
+ <p className="text-4xl font-black tracking-tighter"><AnimatedNumber value={analytics?.totalPeople || 0} /></p>
+ </motion.div>
+ <motion.div 
+ initial={{ opacity: 0, y: 10 }}
+ animate={{ opacity: 1, y: 0 }}
+ transition={{ delay: 0.1 }}
+ className="p-6 rounded-2xl bg-emerald-500 text-white space-y-1 shadow-xl shadow-emerald-500/20 flex flex-col justify-between"
+ >
+ <div className="flex items-center justify-between">
+ <p className="label-micro text-emerald-100 mb-0">Connection Streak</p>
+ <HelpTip 
+ title="Connection Streak" 
+ content="Your streak grows each day you check in with close friends or send birthday wishes!" 
+ />
+ </div>
+ <div>
+ <p className="text-4xl font-black tracking-tighter">
+ <AnimatedNumber value={user?.streak || 0} /> 
+ </p>
+ </div>
+ </motion.div>
+ </section>
+
+ {/* Cycle Progress Calendar Card */}
+ <section id="cycle-calendar-section">
+   <motion.div
+     initial={{ opacity: 0, y: 10 }}
+     animate={{ opacity: 1, y: 0 }}
+     transition={{ delay: 0.15 }}
+     className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm dark:shadow-lg space-y-3"
+   >
+     <StreakCalendarView
+       streakProgress={user?.streakProgress || { currentCount: user?.streak || 0, lastCompletedDate: null, cycleStartDate: null }}
+       cycleLengthDays={gamificationConfig?.cycleLengthDays || 7}
+       showTitle={true}
+       dailyActionType={gamificationConfig?.dailyActionType}
+     />
+   </motion.div>
+ </section>
+
+ {/* Birthdays This Month */}
+ <section 
+ id="birthdays-month-section" 
+ className="space-y-4"
+ >
+ <div className="flex justify-between items-center px-1">
+ <div className="flex items-center gap-2">
+ <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+ <Calendar size={16} />
+ Birthdays This Month
+ </h2>
+ <HelpTip 
+ title="Birthdays This Month" 
+ content="All friends celebrating their birthday this current calendar month. Tap 'AI Message' for instant custom greeting ideas." 
+ />
+ </div>
+ </div>
+ <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4">
+ {birthdaysThisMonth.length > 0 ? birthdaysThisMonth.map((person, i) => {
+ const daysLeft = getDaysUntil(person.birthday);
+ const isUrgent = daysLeft <= 1;
+ const isSoon = daysLeft <= 7;
+ const isSafe = daysLeft > 14;
+
+ return (
+ <motion.div
+ key={`month-${person.id}`}
+ initial={{ opacity: 0, scale: 0.9 }}
+ animate={{ opacity: 1, scale: 1 }}
+ transition={{ delay: i * 0.05 }}
+ className="flex-shrink-0 w-40"
+ >
+ <div className={cn(
+ "p-5 rounded-[32px] border-2 flex flex-col items-center text-center space-y-3 transition-all",
+ isUrgent ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50" :
+ isSoon ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50" :
+ isSafe ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50" :
+ "bg-white dark:bg-zinc-800 border-zinc-100 dark:border-zinc-700 border-t border-t-white/5 shadow-sm dark:shadow-lg"
+ )}>
+ <Link to={`/person/${person.id}`} className="space-y-2">
+ <div className="w-14 h-14 rounded-2xl bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xl font-black overflow-hidden mx-auto border-2 border-white dark:border-zinc-900 shadow-sm">
+ {((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url) ? (
+ <img 
+ src={(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url} 
+ alt={person.name} 
+ className="w-full h-full object-cover" 
+ />
+ ) : (
+ ((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name)[0]
+ )}
+ </div>
+ <div>
+ <h3 className="text-sm font-bold truncate w-32 flex items-center justify-center gap-1 text-zinc-900 dark:text-white">
+ {((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name).split(' ')[0]}
+ {person.host_uid && friendStreaks[person.host_uid] > 0 && (
+ <span className="text-xs"> {friendStreaks[person.host_uid]}</span>
+ )}
+ {person.isCloseFriend && (
+ <Star size={12} className="text-amber-500 fill-amber-500 flex-shrink-0 inline-block align-middle" />
+ )}
+ </h3>
+ <p className="text-[10px] font-bold text-zinc-400 uppercase">
+ {person.birthday.split('-')[2]} {new Intl.DateTimeFormat('en-US', { month: 'short' }).format(new Date(2000, Number(person.birthday.split('-')[1]) - 1, 1))}
+ </p>
+ <p className="text-[10px] font-black text-emerald-500 uppercase mt-0.5">
+ {person.birthYearUnknown ? "" : `Turning ${getTurningAge(person.birthday)}`}
+ </p>
+ </div>
+ </Link>
+ 
+ <div className="space-y-1">
+ <p className={cn(
+ "text-xs font-black",
+ isUrgent ? "text-red-500" : isSoon ? "text-amber-600" : isSafe ? "text-emerald-600" : "text-zinc-500"
+ )}>
+ {daysLeft === 0 ? "Today! " : daysLeft === 1 ? "Tomorrow! " : `In ${daysLeft} days `}
+ </p>
+ </div>
+
+ <button 
+ onClick={() => handleGenerateDashboardMessage(person)}
+ className={cn(
+ "w-full py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-1",
+ isUrgent ? "bg-red-500 text-white" : 
+ isSoon ? "bg-amber-500 text-white" :
+ "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900"
+ )}
+ >
+ <SparklesIcon size={10} />
+ AI Message
+ </button>
+ </div>
+ </motion.div>
+ );
+ }) : (
+ <div className="w-full">
+ <EmptyState 
+ icon={Cake}
+ title="No birthdays this month"
+ description="None of your saved contacts have birthdays this month. Tap + below to add a friend's birthday!"
+ actionLabel="Add Friend's Birthday"
+ actionLink="/add"
+ />
+ </div>
+ )}
+ </div>
+ </section>
+
+ {/* Countdown Dashboard (Lightweight Project Manager) */}
+ <section 
+ id="countdown-dashboard-section" 
+ className="space-y-4"
+ >
+ <div className="flex justify-between items-center px-1">
+ <div className="flex items-center gap-2">
+ <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+ <Clock size={16} />
+ Countdown Dashboard
+ </h2>
+ <HelpTip 
+ title="Countdown Dashboard" 
+ content="Automatic planning checklist for birthdays happening within 45 days. Tracks gift decisions, card reminders, and milestone deadlines." 
+ />
+ </div>
+ </div>
+ <div className="space-y-4">
+ {upcoming.filter(p => getDaysUntil(p.birthday) <= 45).length > 0 ? (
+ upcoming.filter(p => getDaysUntil(p.birthday) <= 45).map((person) => {
+ const daysLeft = getDaysUntil(person.birthday);
+ const tasks = person.tasks || [];
+ const completedTasks = tasks.filter((t: any) => t.completed).length;
+ const totalTasks = tasks.length || 3; // Default tasks if none created
+ const progress = (completedTasks / totalTasks) * 100;
+ 
+ // Deadlines
+ const giftDeadlineDays = daysLeft - 14;
+ const cardDeadlineDays = daysLeft - 3;
+
+ return (
+ <motion.div 
+ key={`plan-${person.id}`}
+ initial={{ opacity: 0, y: 10 }}
+ animate={{ opacity: 1, y: 0 }}
+ className="p-6 card-premium space-y-6"
+ >
+ <div className="flex justify-between items-start">
+ <div className="flex items-center gap-3">
+ <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-lg font-bold overflow-hidden">
+ {((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url) ? (
+ <img 
+ src={(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url} 
+ alt={person.name} 
+ className="w-full h-full object-cover" 
+ />
+ ) : (
+ ((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name)[0]
+ )}
+ </div>
+ <div>
+ <h3 className="font-bold flex items-center gap-1.5 text-zinc-900 dark:text-white">
+ {(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name}
+ {person.host_uid && friendStreaks[person.host_uid] > 0 && (
+ <span className="text-xs"> {friendStreaks[person.host_uid]}</span>
+ )}
+ {person.isCloseFriend && (
+ <Star size={14} className="text-amber-500 fill-amber-500 flex-shrink-0 inline-block align-middle" />
+ )}
+ </h3>
+ <div className="flex items-center gap-2">
+ <span className="text-[10px] text-zinc-400 uppercase font-bold"><AnimatedNumber value={daysLeft} /> days remaining</span>
+ <div className="w-1 h-1 bg-zinc-300 rounded-full" />
+ <span className="text-[10px] text-emerald-500 font-bold uppercase">{Math.round(progress)}% Ready</span>
+ </div>
+ </div>
+ </div>
+ <div className="flex items-center gap-2">
+ <button 
+ onClick={() => handleDeletePerson(person.id, person.name)}
+ className="p-2 text-zinc-400 hover:text-red-500 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+ title="Delete Contact"
+ >
+ <Trash2 size={18} />
+ </button>
+ <Link to={`/person/${person.id}`} className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
+ <ChevronRight size={20} />
+ </Link>
+ </div>
+ </div>
+
+ {/* Progress Bar */}
+ <div className="h-1.5 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+ <motion.div 
+ initial={{ width: 0 }}
+ animate={{ width: `${progress}%` }}
+ className="h-full bg-emerald-500"
+ />
+ </div>
+
+ <div className="grid grid-cols-1 gap-3">
+ {daysLeft === 0 && person.lastWishedYear !== new Date().getFullYear() && (
+ <button
+ onClick={() => handleWishBirthday(person.id, person.name)}
+ className="flex items-center justify-center gap-2 p-3 bg-emerald-500 text-white rounded-2xl font-bold text-xs shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+ >
+ <Heart size={14} fill="currentColor" />
+ Wish Happy Birthday!
+ </button>
+ )}
+ {/* Gift Deadline */}
+ <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-700 transition-colors">
+ <div className="flex items-center gap-3">
+ <div className={cn(
+ "p-2 rounded-xl",
+ tasks.find((t: any) => t.title === 'Gift Decision')?.completed ? "bg-emerald-100 text-emerald-600" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
+ )}>
+ <Gift size={14} />
+ </div>
+ <div>
+ <p className="text-xs font-bold">Gift Decision</p>
+ <p className={cn(
+ "text-[10px] font-medium",
+ giftDeadlineDays < 0 && !tasks.find((t: any) => t.title === 'Gift Decision')?.completed ? "text-red-500" : "text-zinc-400"
+ )}>
+ {tasks.find((t: any) => t.title === 'Gift Decision')?.completed 
+ ? 'Completed' 
+ : giftDeadlineDays < 0 ? 'Overdue' : `Deadline: ${giftDeadlineDays} days`}
+ </p>
+ </div>
+ </div>
+ {!tasks.find((t: any) => t.title === 'Gift Decision')?.completed && (
+ <button 
+ onClick={() => {
+ const t = tasks.find((t: any) => t.title === 'Gift Decision');
+ if (t) toggleTask(person.id, t.id, false);
+ }}
+ className="text-[10px] font-bold text-emerald-500 uppercase hover:underline"
+ >
+ Mark Done
+ </button>
+ )}
+ </div>
+
+ {/* Card Reminder */}
+ <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-700 transition-colors">
+ <div className="flex items-center gap-3">
+ <div className={cn(
+ "p-2 rounded-xl",
+ tasks.find((t: any) => t.title === 'Card Message')?.completed ? "bg-emerald-100 text-emerald-600" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
+ )}>
+ <MessageSquare size={14} />
+ </div>
+ <div>
+ <p className="text-xs font-bold">Card Message</p>
+ <p className={cn(
+ "text-[10px] font-medium",
+ cardDeadlineDays < 0 && !tasks.find((t: any) => t.title === 'Card Message')?.completed ? "text-red-500" : "text-zinc-400"
+ )}>
+ {tasks.find((t: any) => t.title === 'Card Message')?.completed 
+ ? 'Completed' 
+ : cardDeadlineDays < 0 ? 'Overdue' : `Reminder: ${cardDeadlineDays} days`}
+ </p>
+ </div>
+ </div>
+ {!tasks.find((t: any) => t.title === 'Card Message')?.completed && (
+ <button 
+ onClick={() => {
+ const t = tasks.find((t: any) => t.title === 'Card Message');
+ if (t) toggleTask(person.id, t.id, false);
+ }}
+ className="text-[10px] font-bold text-emerald-500 uppercase hover:underline"
+ >
+ Mark Done
+ </button>
+ )}
+ </div>
+ </div>
+ </motion.div>
+ );
+ })
+ ) : (
+ <EmptyState 
+ icon={Clock}
+ title="No upcoming birthday deadlines"
+ description="No birthdays coming up in the next 45 days. Add friend profiles with birthdays to automatically trigger planning milestones!"
+ actionLabel="Add a Friend"
+ actionLink="/add"
+ />
+ )}
+ </div>
+ </section>
+
+ {/* Priority Intelligence Section */}
+ <section 
+ id="priority-intelligence-section" 
+ className="p-6 bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 border-t border-t-white/5 rounded-3xl shadow-sm dark:shadow-lg space-y-4"
+ >
+ <div className="flex items-center justify-between">
+ <div className="flex items-center gap-2">
+ <Star className="text-amber-500" size={18} fill="currentColor" />
+ <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400">Priority Intelligence</h2>
+ </div>
+ <span className="label-micro">Algo v1.2</span>
+ </div>
+ <div className="space-y-6">
+ {priorityPeople.map((person) => {
+ const healthResult = calculateRelationshipHealthScore({
+ person,
+ memories: person.memories || [],
+ gifts: person.gifts || []
+ });
+ return (
+ <div key={person.id} className="space-y-2">
+ <div className="flex items-center justify-between">
+ <Link to={`/person/${person.id}`} className="flex items-center gap-3 group">
+ <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold overflow-hidden">
+ {((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url) ? (
+ <img 
+ src={(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url} 
+ alt={person.name} 
+ className="w-full h-full object-cover" 
+ />
+ ) : (
+ ((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name)[0]
+ )}
+ </div>
+ <span className="text-sm font-bold flex items-center gap-1.5 group-hover:text-emerald-500 transition-colors">
+ {(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name}
+ {person.host_uid && friendStreaks[person.host_uid] > 0 && (
+ <span className="text-xs"> {friendStreaks[person.host_uid]}</span>
+ )}
+ </span>
+ </Link>
+ <HealthScoreCompactBadge input={{ person, memories: person.memories, gifts: person.gifts }} />
+ </div>
+ <div className="h-2 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+ <motion.div 
+ initial={{ width: 0 }}
+ animate={{ width: `${healthResult.score}%` }}
+ transition={{ duration: 1, ease: "easeOut" }}
+ className={cn("h-full rounded-full transition-all", healthResult.badgeStyle.barColor)}
+ />
+ </div>
+ <p className="text-[10px] font-medium text-zinc-400 truncate">{healthResult.reason}</p>
+ </div>
+ );
+ })}
+ </div>
+ <p className="text-[10px] text-zinc-400 text-center pt-2">Based on memories, interactions & how much you show up</p>
+ </section>
+
+
+
+ {/* Navigation Bar */}
+ <Navigation />
+
+ {/* Brainstorm Modal */}
+ <AnimatePresence>
+ {brainstormingPerson && (
+ <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+ <motion.div 
+ initial={{ opacity: 0 }}
+ animate={{ opacity: 1 }}
+ exit={{ opacity: 0 }}
+ onClick={() => setBrainstormingPerson(null)}
+ className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+ />
+ <motion.div 
+ initial={{ scale: 0.9, opacity: 0 }}
+ animate={{ scale: 1, opacity: 1 }}
+ exit={{ scale: 0.9, opacity: 0 }}
+ className="relative w-full max-w-sm bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 border-t border-t-white/5 rounded-[32px] p-8 space-y-6 shadow-2xl dark:shadow-lg"
+ >
+ <div className="flex justify-between items-center">
+ <div className="flex items-center gap-2">
+ <Sparkles className={accent.text} size={20} />
+ <h3 className="font-black tracking-tight">Gift Brainstorm</h3>
+ </div>
+ <button onClick={() => setBrainstormingPerson(null)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
+ <X size={20} />
+ </button>
+ </div>
+
+ <div className="space-y-1">
+ <p className="text-xs font-bold text-zinc-400 uppercase">Subject</p>
+ <p className="text-lg font-black">{brainstormingPerson.name}</p>
+ </div>
+
+ <div className="space-y-4">
+ {isGenerating ? (
+ <div className="space-y-3">
+ {[1, 2, 3].map(i => (
+ <div key={i} className="h-16 bg-zinc-100 dark:bg-zinc-800 rounded-2xl animate-pulse" />
+ ))}
+ <p className="text-center text-xs text-zinc-400 font-bold uppercase animate-bounce">AI is thinking...</p>
+ </div>
+ ) : (
+ <>
+ <p className="text-xs text-zinc-500 leading-relaxed">
+ Based on your notes and relationship, here are some ideas. Tap one to save it to their registry.
+ </p>
+ <div className="space-y-2">
+ {aiSuggestions.map((suggestion, i) => (
+ <button
+ key={i}
+ onClick={() => saveSuggestion(suggestion)}
+ className={`w-full p-4 text-left bg-zinc-50 dark:bg-zinc-800 hover:${accent.bgSolid} hover:text-white rounded-2xl transition-all group`}
+ >
+ <div className="flex justify-between items-center">
+ <span className="text-sm font-bold">{suggestion}</span>
+ <Plus size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+ </div>
+ </button>
+ ))}
+ </div>
+ <button 
+ onClick={() => handleBrainstorm(brainstormingPerson)}
+ className="w-full py-3 text-xs font-bold text-zinc-400 uppercase hover:text-zinc-600 dark:hover:text-zinc-200"
+ >
+ Regenerate Ideas
+ </button>
+ </>
+ )}
+ </div>
+ </motion.div>
+ </div>
+ )}
+ </AnimatePresence>
+
+ {/* AI Message Dashboard Modal */}
+ <AnimatePresence>
+ {generatingMessagePerson && (
+ <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+ <motion.div 
+ initial={{ opacity: 0 }}
+ animate={{ opacity: 1 }}
+ exit={{ opacity: 0 }}
+ onClick={() => {
+ if (!isGenerating) {
+ setGeneratingMessagePerson(null);
+ setDashboardAiMessage(null);
+ }
+ }}
+ className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+ />
+ <motion.div 
+ initial={{ scale: 0.9, opacity: 0 }}
+ animate={{ scale: 1, opacity: 1 }}
+ exit={{ scale: 0.9, opacity: 0 }}
+ className="relative w-full max-w-sm bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 border-t border-t-white/5 rounded-[32px] p-8 space-y-6 shadow-2xl dark:shadow-lg"
+ >
+ <div className="flex justify-between items-center">
+ <div className="flex items-center gap-2">
+ <SparklesIcon className={accent.text} size={20} />
+ <h3 className="font-black tracking-tight">AI Birthday Message</h3>
+ </div>
+ {!isGenerating && (
+ <button onClick={() => {
+ setGeneratingMessagePerson(null);
+ setDashboardAiMessage(null);
+ }} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full">
+ <X size={20} />
+ </button>
+ )}
+ </div>
+
+ <div className="space-y-1">
+ <p className="text-xs font-bold text-zinc-400 uppercase">For</p>
+ <p className="text-lg font-black">{generatingMessagePerson.name}</p>
+ </div>
+
+ <div className="space-y-4">
+ {isGenerating ? (
+ <div className="space-y-3">
+ <div className="h-24 bg-zinc-100 dark:bg-zinc-800 rounded-2xl animate-pulse" />
+ <p className="text-center text-xs text-zinc-400 font-bold uppercase animate-bounce">AI is writing a personal message...</p>
+ </div>
+ ) : dashboardAiMessage ? (
+ <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-hide">
+ <div className="space-y-2">
+ <div className="flex justify-between items-center">
+ <p className="text-[10px] font-bold text-zinc-400 uppercase">Short Text (SMS Style)</p>
+ <button 
+ onClick={() => {
+ navigator.clipboard.writeText(dashboardAiMessage.shortText);
+ alert("Short text copied!");
+ }}
+ className={`text-[10px] font-bold ${accent.text} uppercase hover:underline`}
+ >
+ Copy
+ </button>
+ </div>
+ <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-sm italic whitespace-pre-wrap">
+ "{dashboardAiMessage.shortText}"
+ </div>
+ </div>
+ <div className="space-y-2">
+ <div className="flex justify-between items-center">
+ <p className="text-[10px] font-bold text-zinc-400 uppercase">Card Message</p>
+ <button 
+ onClick={() => {
+ navigator.clipboard.writeText(dashboardAiMessage.cardMessage);
+ alert("Card message copied!");
+ }}
+ className={`text-[10px] font-bold ${accent.text} uppercase hover:underline`}
+ >
+ Copy
+ </button>
+ </div>
+ <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-sm italic whitespace-pre-wrap">
+ "{dashboardAiMessage.cardMessage}"
+ </div>
+ </div>
+ </div>
+ ) : (
+ <p className="text-sm text-zinc-500">Something went wrong. Please try again.</p>
+ )}
+ </div>
+ </motion.div>
+ </div>
+ )}
+ </AnimatePresence>
+
+ {/* Birthday Onboarding Modal */}
+ <AnimatePresence>
+ {showBirthdayOnboarding && (
+ <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+ <motion.div 
+ initial={{ opacity: 0 }}
+ animate={{ opacity: 1 }}
+ exit={{ opacity: 0 }}
+ className="absolute inset-0 bg-black/80 backdrop-blur-md"
+ />
+ <motion.div 
+ initial={{ scale: 0.9, opacity: 0 }}
+ animate={{ scale: 1, opacity: 1 }}
+ exit={{ scale: 0.9, opacity: 0 }}
+ className="relative w-full max-w-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 border-t border-t-white/5 rounded-[40px] p-10 text-center space-y-8 shadow-2xl dark:shadow-lg"
+ >
+ <div className="w-20 h-20 bg-emerald-500 text-white rounded-3xl flex items-center justify-center mx-auto rotate-12 shadow-xl shadow-emerald-500/20">
+ <Cake size={40} />
+ </div>
+ 
+ <div className="space-y-2">
+ <h2 className="text-2xl font-black tracking-tight">When's the big day?</h2>
+ <p className="text-zinc-500 font-medium">We need your birthday to unlock your secret lockers and show your countdown!</p>
+ </div>
+
+ <div className="space-y-4">
+ <input 
+ type="date"
+ min="1900-01-01"
+ max={new Date().toISOString().split('T')[0]}
+ className="w-full p-5 rounded-2xl bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-center font-bold text-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+ onBlur={(e) => {
+ if (e.target.value) handleSaveBirthday(e.target.value);
+ }}
+ />
+ <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">You can change this later in settings</p>
+ </div>
+ </motion.div>
+ </div>
+ )}
+ </AnimatePresence>
+
+ {/* Calendar Import Modal Onboarding */}
+ <AnimatePresence>
+ {showCalendarImport && (
+ <CalendarImportStep 
+ onComplete={() => setShowCalendarImport(false)} 
+ firebaseUserId={firebaseUser?.uid || ''} 
+ />
+ )}
+ </AnimatePresence>
+
+ {/* Friends & Block Drawer (Objective 1) */}
+ <AnimatePresence>
+ {showFriendsDrawer && (
+ <div className="fixed inset-0 z-[120] flex justify-end">
+ {/* Backdrop Overlay */}
+ <motion.div
+ initial={{ opacity: 0 }}
+ animate={{ opacity: 1 }}
+ exit={{ opacity: 0 }}
+ onClick={() => setShowFriendsDrawer(false)}
+ className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+ />
+ {/* Slide-out Sidebar */}
+ <motion.div
+ initial={{ x: '100%' }}
+ animate={{ x: 0 }}
+ exit={{ x: '100%' }}
+ transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+ className="relative w-full max-w-sm h-full bg-white dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-700 shadow-2xl p-6 flex flex-col z-10"
+ >
+ {/* Header */}
+ <div className="flex justify-between items-center pb-4 border-b border-zinc-200 dark:border-zinc-800">
+ <div className="flex items-center gap-2.5">
+ <div className="p-2.5 bg-gradient-to-tr from-emerald-500 to-teal-500 text-white rounded-2xl shadow-md shadow-emerald-500/10">
+ <Users size={18} />
+ </div>
+ <div>
+ <h3 className="font-black text-base tracking-tight leading-none text-zinc-900 dark:text-white">Friends & Crew</h3>
+ <p className="text-[10px] uppercase tracking-wider font-extrabold text-zinc-400 mt-1">Real-time Synchronization</p>
+ </div>
+ </div>
+ <button 
+ onClick={() => setShowFriendsDrawer(false)}
+ className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors cursor-pointer text-zinc-500 hover:text-zinc-800 dark:hover:text-white"
+ >
+ <X size={20} />
+ </button>
+ </div>
+
+ {/* Scrollable Contents */}
+ <div className="flex-1 overflow-y-auto py-4 space-y-6 scrollbar-hide">
+ {/* 1. Pending Requests Section inside the Drawer (Objective 2 Integration) */}
+ {friendRequests.length > 0 && (
+ <div className="space-y-3">
+ <div className="flex items-center justify-between px-1">
+ <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5">
+ <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+ Pending Invitations ({friendRequests.length})
+ </h4>
+ </div>
+ <div className="space-y-2">
+ {friendRequests.map((req) => {
+ const senderName = req.sender_name || 'Anonymous User';
+ return (
+ <div 
+ key={req.id} 
+ className="p-4 rounded-3xl border border-amber-100 dark:border-amber-500/10 bg-amber-500/5 dark:bg-amber-500/5 flex flex-col gap-3 transition-all"
+ >
+ <div className="flex items-center justify-between gap-2">
+ <div className="flex items-center gap-2.5">
+ <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-xs">
+ {senderName.charAt(0).toUpperCase()}
+ </div>
+ <span className="text-xs font-black text-zinc-900 dark:text-zinc-100">{senderName}</span>
+ </div>
+ <button
+ onClick={() => handleDrawerDeleteRequest(req.id, senderName)}
+ className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+ title="Delete/Reject Request"
+ >
+ <Trash2 size={14} />
+ </button>
+ </div>
+ <div className="flex gap-2">
+ <button
+ onClick={() => handleDrawerAcceptRequest(req.id, req.sender_uid, senderName)}
+ className="flex-1 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-extrabold uppercase tracking-wider rounded-xl cursor-pointer"
+ >
+ Accept
+ </button>
+ <button
+ onClick={() => handleDrawerDeclineRequest(req.id)}
+ className="flex-1 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-300 text-[9px] font-extrabold uppercase tracking-wider rounded-xl cursor-pointer"
+ >
+ Decline
+ </button>
+ </div>
+ </div>
+ );
+ })}
+ </div>
+ </div>
+ )}
+
+ {/* 2. Active Crew / Friends List */}
+ <div className="space-y-3">
+ <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 px-1">
+ Your Connections ({friends.length})
+ </h4>
+
+ {friendsLoading ? (
+ <div className="p-8 text-center text-zinc-400 font-bold text-xs uppercase animate-pulse">
+ Syncing database...
+ </div>
+ ) : friends.length === 0 ? (
+ <div className="p-8 text-center bg-zinc-50 dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800 space-y-2">
+ <p className="text-zinc-400 text-xs font-medium">No active connections found.</p>
+ <p className="text-[10px] text-zinc-500 leading-relaxed">
+ Share your landing URL with other users to sync birthdays and unlock streak alerts!
+ </p>
+ </div>
+ ) : (
+ <div className="space-y-2.5">
+ {friends.map((friendDoc) => {
+ const friendUid = friendDoc.sender_uid === firebaseUser.uid 
+ ? friendDoc.receiver_uid 
+ : friendDoc.sender_uid;
+
+ // Retrieve live updated profile metadata
+ const liveProfile = friendProfiles[friendUid];
+ const displayName = liveProfile?.name || (friendDoc.sender_uid === firebaseUser.uid ? friendDoc.receiver_name : friendDoc.sender_name) || "Friend";
+ const displayPic = liveProfile?.profile_picture_url || liveProfile?.photo_url;
+ const streak = friendDoc.streak_count || friendStreaks[friendUid] || 0;
+
+ // Private relationship designation lookup
+ const personMatch = people.find(p => p.host_uid === friendUid);
+ const isCloseFriend = personMatch?.isCloseFriend ?? false;
+
+ // Multi-cross blocking checks
+ const blockedByUs = blockedUids.includes(friendUid);
+ const blockedByThem = liveProfile?.blocked_uids?.includes(firebaseUser.uid);
+ const isMutuallyBlocked = blockedByUs && blockedByThem;
+ const isBlocked = blockedByUs || blockedByThem;
+
+ return (
+ <div 
+ key={friendDoc.id}
+ className={cn(
+ "p-3 rounded-2xl border transition-all flex items-center justify-between gap-3",
+ isBlocked 
+ ? "bg-zinc-50/50 dark:bg-zinc-950/30 border-red-200/40 dark:border-red-900/10 opacity-70" 
+ : "bg-white dark:bg-zinc-800 border-zinc-100 dark:border-zinc-800/80 hover:border-zinc-200 dark:hover:border-zinc-700 shadow-sm"
+ )}
+ >
+ <div className="flex items-center gap-3">
+ {/* Beautiful high-energy circular badge avatar */}
+ <div className="relative">
+ {isBlocked ? (
+ <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 overflow-hidden shrink-0 border border-red-500/20">
+ <ShieldAlert size={18} className="text-red-500" />
+ </div>
+ ) : displayPic ? (
+ <img 
+ src={displayPic} 
+ alt={displayName} 
+ className="w-10 h-10 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-sm"
+ referrerPolicy="no-referrer"
+ />
+ ) : (
+ <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
+ {displayName.charAt(0)}
+ </div>
+ )}
+ 
+ {/* Pulsing streak/live indicator */}
+ {!isBlocked && (
+ <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-zinc-900 rounded-full animate-pulse" />
+ )}
+ </div>
+
+ <div className="min-w-0">
+ <h5 className={cn(
+ "text-xs font-black leading-tight flex items-center gap-1.5 truncate",
+ isBlocked ? "text-zinc-400 line-through" : "text-zinc-900 dark:text-zinc-100"
+ )}>
+ <span className="truncate max-w-[120px]">{displayName}</span>
+ {!isBlocked && streak > 0 && (
+ <span className="text-[10px] font-extrabold text-orange-500 shrink-0"> {streak}</span>
+ )}
+ {!isBlocked && isCloseFriend && (
+ <Star size={12} className="text-amber-500 fill-amber-500 flex-shrink-0 inline-block align-middle animate-pulse" />
+ )}
+ </h5>
+ <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1">
+ {isMutuallyBlocked 
+ ? "Mutually Locked " 
+ : blockedByUs 
+ ? "Blocked by you" 
+ : blockedByThem 
+ ? "Restricted connection" 
+ : "Active Sync"}
+ </p>
+ </div>
+ </div>
+
+ {/* Easy-to-use Block/Unblock toggle button */}
+ <button
+ onClick={() => handleToggleBlockFriend(friendUid, blockedByUs)}
+ className={cn(
+ "px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-widest rounded-xl transition-all cursor-pointer",
+ blockedByUs 
+ ? "bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white"
+ : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20"
+ )}
+ title={blockedByUs ? "Unblock Crew Member" : "Block Crew Member"}
+ >
+ {blockedByUs ? "Blocked" : "Block"}
+ </button>
+ </div>
+ );
+ })}
+ </div>
+ )}
+ </div>
+ </div>
+
+ {/* Empty background space warning */}
+ <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 text-center">
+ <p className="text-[9px] text-zinc-400 leading-normal">
+ Blocking instantly restricts profile card updates, sync feeds and gift suggestions between devices.
+ </p>
+ </div>
+ </motion.div>
+ </div>
+ )}
+ </AnimatePresence>
+
+ {/* Check-In Multi-Step Modal */}
+ <AnimatePresence>
+ {showCheckInModal && (
+ <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm">
+ <motion.div
+ initial={{ opacity: 0, scale: 0.95, y: 20 }}
+ animate={{ opacity: 1, scale: 1, y: 0 }}
+ exit={{ opacity: 0, scale: 0.95, y: 20 }}
+ className="w-full max-w-sm bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 border-t border-t-white/5 rounded-[32px] p-8 shadow-2xl dark:shadow-lg relative overflow-hidden"
+ >
+ {/* Close Button */}
+ <button
+ onClick={handleCloseCheckInModal}
+ className="absolute top-5 right-5 p-1.5 rounded-full bg-zinc-50 dark:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+ >
+ <X size={16} />
+ </button>
+
+ {queueIndex < checkInQueue.length ? (
+ // Active check-in step
+ <div className="space-y-6 text-center">
+ <div className="flex flex-col items-center space-y-3">
+ {/* Ring around avatar */}
+ <div className="p-[3px] bg-gradient-to-tr from-rose-500 via-pink-500 to-amber-400 rounded-full shadow-lg">
+ {checkInQueue[queueIndex].photo_url ? (
+ <img 
+ src={checkInQueue[queueIndex].photo_url} 
+ alt={checkInQueue[queueIndex].name} 
+ className="w-20 h-20 rounded-full object-cover border-4 border-white dark:border-zinc-900"
+ referrerPolicy="no-referrer"
+ />
+ ) : (
+ <div className="w-20 h-20 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center font-black text-2xl border-4 border-white dark:border-zinc-900">
+ {checkInQueue[queueIndex].name.charAt(0).toUpperCase()}
+ </div>
+ )}
+ </div>
+ <div className="space-y-1">
+ <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold text-[10px] uppercase tracking-wider">
+ Close Friend Check-In
+ </span>
+ <h3 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white pt-1">
+ Talked to {checkInQueue[queueIndex].nickname || checkInQueue[queueIndex].name.split(' ')[0]} today?
+ </h3>
+ <p className="text-xs text-zinc-400 font-medium">
+ Keep your circle updated and nurture your connection history.
+ </p>
+ </div>
+ </div>
+
+ {/* Actions */}
+ <div className="space-y-3 pt-2">
+ <button
+ onClick={() => handleCheckInResponse('yes')}
+ disabled={isSubmittingCheckIn}
+ className="w-full py-4 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-750 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-rose-500/15 cursor-pointer flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+ >
+ <Heart className="w-4 h-4 fill-current" />
+ Yes, we connected
+ </button>
+ <button
+ onClick={() => handleCheckInResponse('no')}
+ disabled={isSubmittingCheckIn}
+ className="w-full py-4 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-750 text-zinc-650 dark:text-zinc-300 font-bold text-xs uppercase tracking-wider rounded-2xl cursor-pointer transition-all disabled:opacity-50"
+ >
+ Not today
+ </button>
+ </div>
+
+ {/* Progress indicator */}
+ <div className="flex justify-center items-center gap-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+ <span>Friend {queueIndex + 1} of {checkInQueue.length}</span>
+ </div>
+ </div>
+ ) : (
+ // Completion state
+ <div className="space-y-6 text-center py-4">
+ <div className="w-16 h-16 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto animate-bounce">
+ <Star className="w-8 h-8 fill-current text-rose-500" />
+ </div>
+ <div className="space-y-2">
+ <h3 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">
+ All caught up! 
+ </h3>
+ <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
+ Your daily close connections have been updated. Keep up the awesome vibe!
+ </p>
+ </div>
+ <button
+ onClick={handleCloseCheckInModal}
+ className="w-full py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl font-black text-xs uppercase tracking-wider shadow-md hover:scale-[1.01] active:scale-95 transition-all cursor-pointer"
+ >
+ Close
+ </button>
+ </div>
+ )}
+ </motion.div>
+ </div>
+ )}
+ </AnimatePresence>
+ </div>
+ );
 }
