@@ -67,6 +67,21 @@
         "invite_code": { "type": "string" },
         "created_by": { "type": "string" },
         "members": { "type": "array", "items": { "type": "string" } },
+        "roles": { "type": "object" },
+        "room_structure": { "type": "string" },
+        "notes": { "type": "string" },
+        "planner_notes": { "type": "string", "description": "Notes from the planners and hosts to feed into the AI generation" },
+        "responses_lock_date": { "type": "string", "description": "Date and time when guest responses to questions lock" },
+        "responses_lock_timestamp": { "type": "object", "description": "Firestore timestamp representing the lock cutoff" },
+        "visibility_by_status": {
+          "type": "object",
+          "description": "Configure dashboard visibility per attendance status"
+        },
+        "photo_access": {
+          "type": "string",
+          "enum": ["guests_can_add", "guests_view_only", "guests_hidden"],
+          "description": "Configure guest access level in the photos tab"
+        },
         "target_amount": { "type": "number" },
         "created_at": { "type": "string", "format": "date-time" }
       }
@@ -103,6 +118,46 @@
         "content": { "type": "string" },
         "sender_name": { "type": "string" },
         "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Theme": {
+      "title": "Theme",
+      "description": "A plannable party theme idea",
+      "type": "object",
+      "properties": {
+        "themeName": { "type": "string" },
+        "decorations": { "type": "array", "items": { "type": "string" } },
+        "playlistVibe": { "type": "string" },
+        "foodIdeas": { "type": "array", "items": { "type": "string" } },
+        "costPerPerson": { "type": "string" },
+        "published": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Venue": {
+      "title": "Venue",
+      "description": "A plannable party venue idea",
+      "type": "object",
+      "properties": {
+        "venueType": { "type": "string" },
+        "why": { "type": "string" },
+        "estimatedCost": { "type": "string" },
+        "tips": { "type": "string" },
+        "published": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Playlist": {
+      "title": "Playlist",
+      "description": "A plannable playlist concept",
+      "type": "object",
+      "properties": {
+        "vibeDescription": { "type": "string" },
+        "hype": { "type": "array", "items": { "type": "object" } },
+        "mid": { "type": "array", "items": { "type": "object" } },
+        "chill": { "type": "array", "items": { "type": "object" } },
+        "published": { "type": "boolean" },
+        "updated_at": { "type": "string", "format": "date-time" }
       }
     }
   },
@@ -146,6 +201,30 @@
     "/rooms/{roomId}/surprises/{surpriseId}": {
       "schema": "Surprise",
       "description": "Secret vault items (messages, photos, etc.)"
+    },
+    "/rooms/{roomId}/themes/{themeId}": {
+      "schema": "Theme",
+      "description": "Themes for party planning rooms"
+    },
+    "/rooms/{roomId}/venues/{venueId}": {
+      "schema": "Venue",
+      "description": "Venues for party planning rooms"
+    },
+    "/rooms/{roomId}/playlists/{playlistId}": {
+      "schema": "Playlist",
+      "description": "Playlists for party planning rooms"
+    },
+    "/rooms/{roomId}/party_photos/{photoId}": {
+      "schema": "object",
+      "description": "Uploaded party photos"
+    },
+    "/rooms/{roomId}/birthday_questions/{questionId}": {
+      "schema": "object",
+      "description": "Proposed trivia questions about the birthday person"
+    },
+    "/rooms/{roomId}/birthday_responses/{responseId}": {
+      "schema": "object",
+      "description": "Guest responses to trivia questions"
     }
   }
 }
