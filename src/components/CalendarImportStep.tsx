@@ -2,7 +2,8 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Calendar, Check, Loader2, ChevronRight } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { getLocalDateString } from '../lib/utils';
 
 const loadGsiScript = (): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -204,6 +205,7 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
             nickname: '',
             photo_url: contact.photo_url || '',
             created_at: serverTimestamp(),
+            updated_at: serverTimestamp(),
             reminder_settings: {
               "30_days": true,
               "7_days": true,
@@ -218,6 +220,18 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
     );
 
     setCount(savedCount);
+    if (savedCount > 0) {
+      try {
+        const userRef = doc(db, 'users', firebaseUserId);
+        await updateDoc(userRef, {
+          initialTaskCompleted: true,
+          initialTaskCompletedDate: getLocalDateString(),
+          unlockedFeatures: arrayUnion('analytics')
+        });
+      } catch (e) {
+        console.error("Error setting initialTaskCompleted:", e);
+      }
+    }
     setState('success');
   };
 
