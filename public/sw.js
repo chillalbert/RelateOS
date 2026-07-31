@@ -47,7 +47,7 @@ self.addEventListener('push', (event) => {
       url: payload.url || '/'
     },
     actions: [
-      { action: 'open', title: 'Open App 🤝' },
+      { action: 'open', title: 'Open App' },
       { action: 'close', title: 'Dismiss' }
     ]
   };
