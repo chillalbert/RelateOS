@@ -5,6 +5,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function getLocalDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function getLocalYesterdayString(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return getLocalDateString(d);
+}
+
 export function formatDate(dateString: string) {
   // Parse YYYY-MM-DD as local date
   const [year, month, day] = dateString.split('-').map(Number);
@@ -113,9 +126,60 @@ export interface AIAccentClasses {
   iconText: string;
 }
 
-export function getAIAccent(color?: 'violet' | 'emerald' | 'amber' | 'sky' | 'rose' | null): AIAccentClasses {
+export function getAIAccent(color?: 'violet' | 'emerald' | 'amber' | 'sky' | 'rose' | 'gold' | 'cyan' | 'fuchsia' | null): AIAccentClasses {
   const c = color || 'violet';
   switch (c) {
+    case 'gold':
+      return {
+        text: 'text-amber-500 dark:text-yellow-400',
+        textMuted: 'text-amber-400 dark:text-yellow-500',
+        bgLight: 'bg-amber-50 dark:bg-amber-950/40',
+        border: 'border-amber-300 dark:border-yellow-600/60',
+        borderLight: 'border-amber-200 dark:border-yellow-800/40',
+        bgSolid: 'bg-amber-500 dark:bg-yellow-500',
+        bgSolidHover: 'hover:bg-amber-600 dark:hover:bg-yellow-600',
+        ring: 'ring-amber-500/20',
+        focusRing: 'focus:ring-amber-500',
+        gradientFrom: 'from-amber-500/20 dark:from-yellow-950/30',
+        gradientTo: 'to-yellow-500/10 dark:to-amber-950/10',
+        badge: 'bg-amber-100 dark:bg-yellow-950/40 text-amber-800 dark:text-yellow-300 border border-amber-300 dark:border-yellow-700/40',
+        iconBg: 'bg-amber-100 dark:bg-yellow-950/60',
+        iconText: 'text-amber-600 dark:text-yellow-400'
+      };
+    case 'cyan':
+      return {
+        text: 'text-cyan-600 dark:text-cyan-400',
+        textMuted: 'text-cyan-500 dark:text-cyan-500',
+        bgLight: 'bg-cyan-50 dark:bg-cyan-950/40',
+        border: 'border-cyan-200 dark:border-cyan-800/60',
+        borderLight: 'border-cyan-100 dark:border-cyan-900/40',
+        bgSolid: 'bg-cyan-500 dark:bg-cyan-600',
+        bgSolidHover: 'hover:bg-cyan-600 dark:hover:bg-cyan-700',
+        ring: 'ring-cyan-500/20',
+        focusRing: 'focus:ring-cyan-500',
+        gradientFrom: 'from-cyan-500/20 dark:from-cyan-950/30',
+        gradientTo: 'to-blue-500/10 dark:to-blue-950/10',
+        badge: 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 border border-cyan-100 dark:border-cyan-900/40',
+        iconBg: 'bg-cyan-100 dark:bg-cyan-950/60',
+        iconText: 'text-cyan-600 dark:text-cyan-400'
+      };
+    case 'fuchsia':
+      return {
+        text: 'text-fuchsia-600 dark:text-fuchsia-400',
+        textMuted: 'text-fuchsia-500 dark:text-fuchsia-500',
+        bgLight: 'bg-fuchsia-50 dark:bg-fuchsia-950/40',
+        border: 'border-fuchsia-200 dark:border-fuchsia-800/60',
+        borderLight: 'border-fuchsia-100 dark:border-fuchsia-900/40',
+        bgSolid: 'bg-fuchsia-500 dark:bg-fuchsia-600',
+        bgSolidHover: 'hover:bg-fuchsia-600 dark:hover:bg-fuchsia-700',
+        ring: 'ring-fuchsia-500/20',
+        focusRing: 'focus:ring-fuchsia-500',
+        gradientFrom: 'from-fuchsia-500/20 dark:from-fuchsia-950/30',
+        gradientTo: 'to-pink-500/10 dark:to-pink-950/10',
+        badge: 'bg-fuchsia-50 dark:bg-fuchsia-950/40 text-fuchsia-700 dark:text-fuchsia-300 border border-fuchsia-100 dark:border-fuchsia-900/40',
+        iconBg: 'bg-fuchsia-100 dark:bg-fuchsia-950/60',
+        iconText: 'text-fuchsia-600 dark:text-fuchsia-400'
+      };
     case 'emerald':
       return {
         text: 'text-emerald-600 dark:text-emerald-400',
@@ -289,5 +353,78 @@ export function formatDateTime(dateInput: any, preference: '12h' | '24h' = '12h'
     return '';
   }
 }
+
+export function getDailyActionLabel(actionType?: string | null): string {
+  if (!actionType) return 'Check in with a close friend';
+  switch (actionType) {
+    case 'note_edit':
+      return 'Add or edit a note about someone';
+    case 'memory_added':
+      return 'Log a new memory';
+    case 'check_in':
+      return 'Check in with a close friend';
+    default:
+      return actionType.replace(/_/g, ' ');
+  }
+}
+
+export function getPhaseAwareTaskLabel(
+  user?: { initialTaskCompleted?: boolean; initialTaskCompletedDate?: string | null } | null,
+  dailyActionType?: string | null
+): string {
+  const today = getLocalDateString();
+  const initialTaskCompleted = user?.initialTaskCompleted === true;
+  const initialTaskCompletedDate = user?.initialTaskCompletedDate;
+
+  if (!initialTaskCompleted) {
+    return "Add your first contact's birthday to get started";
+  }
+
+  if (initialTaskCompletedDate && today <= initialTaskCompletedDate) {
+    return "Your streak starts tomorrow!";
+  }
+
+  return getDailyActionLabel(dailyActionType);
+}
+
+export function getCycleTaskPrefix(cycleLengthDays?: number | null): string {
+  if (cycleLengthDays === 7) return "This week's task:";
+  if (cycleLengthDays === 14) return "These 2 weeks' task:";
+  if (cycleLengthDays && cycleLengthDays >= 28 && cycleLengthDays <= 31) return "This month's task:";
+  return "This cycle's task:";
+}
+
+export function isFeatureLocked(
+  featureId: string,
+  unlockedFeatures?: string[],
+  unlockSequence?: { id: string; name?: string }[]
+): boolean {
+  if (!unlockSequence || unlockSequence.length === 0) return false;
+
+  const getAliases = (id: string): string[] => {
+    if (id === 'leaderboard') return ['leaderboard'];
+    if (id === 'analytics' || id === 'deep_analytics') return ['analytics', 'deep_analytics'];
+    if (id === 'shop' || id === 'aura_shop') return ['shop', 'aura_shop'];
+    if (id === 'coach' || id === 'ai_coach') return ['coach', 'ai_coach'];
+    if (id === 'vaults' || id === 'memory_vaults') return ['vaults', 'memory_vaults'];
+    if (id === 'rooms' || id === 'party') return ['rooms', 'party'];
+    return [id];
+  };
+
+  const featureAliases = getAliases(featureId);
+
+  const inSequence = unlockSequence.some(item => 
+    featureAliases.includes(item.id) || (item.name && featureAliases.includes(item.name.toLowerCase()))
+  );
+
+  if (!inSequence) return false;
+
+  const isUnlocked = unlockedFeatures?.some(unlockedId => 
+    featureAliases.includes(unlockedId)
+  );
+
+  return !isUnlocked;
+}
+
 
 
