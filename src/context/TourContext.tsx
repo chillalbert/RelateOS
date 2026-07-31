@@ -1,6 +1,8 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import confetti from 'canvas-confetti';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 
 export interface TourStep {
@@ -11,57 +13,52 @@ export interface TourStep {
 
 export const TOUR_STEPS: TourStep[] = [
   {
-    title: "Dashboard 📊",
+    title: "Dashboard",
     route: "/",
     description: "Your relationship command center. Track connection streaks, check-in with friends, and view upcoming milestones."
   },
   {
-    title: "Birthday Calendar 🎂",
+    title: "Birthday Calendar",
     route: "/calendar",
     description: "Never miss a celebration. View birthdays in an organized grid and instantly generate personalized AI birthday wishes."
   },
   {
-    title: "Circles & Groups 👥",
-    route: "/groups",
-    description: "Organize your network into custom social circles. Track relationship health and circle strengths dynamically."
+    title: "Leaderboard",
+    route: "/leaderboard",
+    description: "Build streaks and consistency to unlock rankings and track your relationship activity."
   },
   {
-    title: "Secret Planning Rooms 🎁",
+    title: "Secret Planning Rooms",
     route: "/rooms",
     description: "Collaborate with others to brainstorm gift ideas or organize surprise events in shared, encrypted vaults."
   },
   {
-    title: "Add Contacts ➕",
+    title: "First Task: Add a Contact",
     route: "/add",
-    description: "Expand your circles. Import contacts directly from Google Calendar & Contacts, or add new friends manually."
+    description: "Add a contact with their birthday to unlock your first hidden tab."
   },
   {
-    title: "Spark Activities ⚡",
-    route: "/spark",
-    description: "Keep connections strong with collaborative games, daily icebreakers, and relationship challenge rooms."
-  },
-  {
-    title: "Memory Vaults 🔒",
+    title: "Memory Vaults",
     route: "/vaults",
     description: "Preserve cherished milestones. Store secure photos, logs, and shared memories safely within digital vaults."
   },
   {
-    title: "Relationship Analytics 📈",
+    title: "Relationship Analytics",
     route: "/analytics",
     description: "Visualize connection depth, response frequency, and interaction trends with interactive charts and graphs."
   },
   {
-    title: "AI Relationship Coach 🧠",
+    title: "AI Relationship Coach",
     route: "/coach",
     description: "Get smart advice. Receive tailored gift suggestions and communication tips from your personal AI relationship mentor."
   },
   {
-    title: "Notifications 🔔",
+    title: "Notifications",
     route: "/notifications",
     description: "Review circle activities, pending invitations, and friend request notifications in real-time."
   },
   {
-    title: "Settings ⚙️",
+    title: "Settings",
     route: "/settings",
     description: "Manage your user profile, active integrations, notification intervals, and choose your favorite AI accent theme."
   }
@@ -104,7 +101,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const nextTourStep = () => {
+  const nextTourStep = async () => {
     if (tourStep === null) return;
     if (tourStep < TOUR_STEPS.length) {
       const nextStep = tourStep + 1;
@@ -115,6 +112,13 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       }
     } else {
       setTourStepState(null);
+      if (firebaseUser) {
+        try {
+          await setDoc(doc(db, 'users', firebaseUser.uid), { tourFinished: true, tourCompletedNaturally: true }, { merge: true });
+        } catch (err) {
+          console.error("Failed to mark tourFinished:", err);
+        }
+      }
       navigate('/');
       setTimeout(() => {
         confetti({
@@ -126,8 +130,15 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const skipTour = () => {
+  const skipTour = async () => {
     setTourStepState(null);
+    if (firebaseUser) {
+      try {
+        await setDoc(doc(db, 'users', firebaseUser.uid), { tourFinished: true, postTourNudgeShown: true }, { merge: true });
+      } catch (err) {
+        console.error("Failed to mark tourFinished on skip:", err);
+      }
+    }
     navigate('/');
   };
 
