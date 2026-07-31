@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Navigation from '../components/Navigation';
+import AuraHeaderBadge from '../components/AuraHeaderBadge';
 import { formatDate, getDisplayName, formatDateTime } from '../lib/utils';
 import { db } from '../lib/firebase';
 import { 
@@ -201,7 +202,7 @@ export default function Notifications() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             host_uid: targetUid,
-            title: '🤝 Friend Invitation',
+            title: 'Friend Invitation',
             message: `${getDisplayName(user) || 'Someone'} requested your birthday back!`
           })
         });
@@ -209,14 +210,14 @@ export default function Notifications() {
         console.warn('Sync notification failed:', e);
       }
 
-      setActionStatus(prev => ({ ...prev, [targetUid]: 'Sent! 🤝' }));
+      setActionStatus(prev => ({ ...prev, [targetUid]: 'Sent!' }));
     } catch (err) {
       console.error(err);
       setActionStatus(prev => ({ ...prev, [targetUid]: 'Error' }));
     }
   };
 
-  // Button B Actions: Block User 🛑
+  // Button B Actions: Block User
   const handleBlockUser = async (act: any) => {
     if (!firebaseUser) return;
     const targetUid = act.grabber_uid;
@@ -247,7 +248,7 @@ export default function Notifications() {
       const deletePromises = psnap.docs.map(d => deleteDoc(doc(db, 'people', d.id)));
       await Promise.all(deletePromises);
 
-      setActionStatus(prev => ({ ...prev, [targetUid + '_block']: 'Blocked 🛑' }));
+      setActionStatus(prev => ({ ...prev, [targetUid + '_block']: 'Blocked' }));
 
       // Clean stream feed filter
       setTimeout(() => {
@@ -308,15 +309,16 @@ export default function Notifications() {
           birthday: bDayStr,
           birthYearUnknown: true,
           category: 'friend',
-          notes: `Accepted friend request 🤝`,
+          notes: `Accepted friend request`,
           user_id: firebaseUser.uid,
           photo_url: bPhotoUrl,
           host_uid: senderUid,
-          created_at: serverTimestamp()
+          created_at: serverTimestamp(),
+          updated_at: serverTimestamp()
         });
       }
       
-      setActionStatus(prev => ({ ...prev, [reqId]: 'Accepted 🤝' }));
+      setActionStatus(prev => ({ ...prev, [reqId]: 'Accepted' }));
 
       // 3. Clear all redundant duplicate notifications referencing this pair
       try {
@@ -389,8 +391,8 @@ export default function Notifications() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
-      <header className="p-6 pt-[calc(1.5rem+var(--sat))] bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10">
+    <div className="min-h-screen bg-zinc-50 dark:bg-black pb-24">
+      <header className="p-6 pt-[calc(1.5rem+var(--sat))] bg-white dark:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-700 sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-zinc-700 dark:text-zinc-300">
@@ -398,8 +400,9 @@ export default function Notifications() {
             </button>
             <h1 className="text-lg font-black tracking-tight text-zinc-900 dark:text-white">Workspace Center</h1>
           </div>
-          {activeTab === 'notifications' && notifications.length > 0 && (
-            <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            <AuraHeaderBadge />
+            {activeTab === 'notifications' && notifications.length > 0 && (
               <button 
                 onClick={async () => {
                   for (const n of notifications.filter(n => !n.is_read)) {
@@ -410,14 +413,14 @@ export default function Notifications() {
               >
                 Mark all read
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </header>
 
       <div className="p-6 max-w-2xl mx-auto space-y-6">
         {/* Elegant Pill tab selector */}
-        <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-2xl max-w-sm mx-auto shadow-sm">
+        <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-2xl max-w-sm mx-auto shadow-sm border border-zinc-200 dark:border-zinc-700">
           <button
             onClick={() => setActiveTab('notifications')}
             className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${
@@ -464,12 +467,12 @@ export default function Notifications() {
                         exit={{ opacity: 0, scale: 0.95 }}
                         className={`p-4 rounded-3xl border transition-all flex gap-4 ${
                           notif.is_read 
-                            ? 'bg-white/50 dark:bg-zinc-900/50 border-zinc-100 dark:border-zinc-800 opacity-70' 
-                            : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 shadow-sm'
+                            ? 'bg-white/50 dark:bg-zinc-800/50 border-zinc-100 dark:border-zinc-700 opacity-70' 
+                            : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 border-t border-t-white/5 shadow-sm dark:shadow-lg'
                         }`}
                       >
                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                          notif.is_read ? 'bg-zinc-100 dark:bg-zinc-805' : 'bg-zinc-50 dark:bg-zinc-800'
+                          notif.is_read ? 'bg-zinc-100 dark:bg-zinc-950' : 'bg-zinc-50 dark:bg-zinc-950'
                         }`}>
                           {getIcon(notif.type)}
                         </div>
@@ -548,11 +551,11 @@ export default function Notifications() {
               {friendRequests.filter(fr => fr.status === 'pending').length > 0 && (
                 <div className="space-y-3 mb-6">
                   <h3 className="text-xs font-black uppercase text-amber-500 tracking-wider flex items-center gap-1.5 px-1">
-                    🤝 Pending Connections ({friendRequests.filter(fr => fr.status === 'pending').length})
+                    Pending Connections ({friendRequests.filter(fr => fr.status === 'pending').length})
                   </h3>
                   {friendRequests.filter(fr => fr.status === 'pending').map((invite) => {
                     const isAccepting = actionStatus[invite.id] === 'Accepting...';
-                    const isAccepted = actionStatus[invite.id] === 'Accepted 🤝';
+                    const isAccepted = actionStatus[invite.id] === 'Accepted';
                     const isDeclining = actionStatus[invite.id + '_decline'] === 'Declining...';
                     const isDeclined = actionStatus[invite.id + '_decline'] === 'Ignored';
 
@@ -578,7 +581,7 @@ export default function Notifications() {
                         <div className="flex gap-2 items-center">
                           {isAccepted || isDeclined ? (
                             <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 px-3 py-2">
-                              {isAccepted ? 'Accepted 🤝' : 'Ignored'}
+                              {isAccepted ? 'Accepted' : 'Ignored'}
                             </span>
                           ) : (
                             <>
@@ -635,7 +638,7 @@ export default function Notifications() {
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.95 }}
-                          className="p-5 rounded-3xl border border-zinc-150 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
+                          className="p-5 rounded-3xl border border-zinc-150 dark:border-zinc-700 bg-white dark:bg-zinc-800 border-t border-t-white/5 shadow-sm dark:shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4"
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-11 h-11 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-black text-sm uppercase shrink-0">
@@ -657,9 +660,9 @@ export default function Notifications() {
                               id={`req-back-btn-${act.id}`}
                               onClick={() => handleRequestBirthdayBack(act)}
                               disabled={!!isActionBusy || !!isBlockBusy}
-                              className="px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 dark:hover:bg-emerald-400/10 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                              className="px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 dark:hover:bg-emerald-400/10 rounded-xl transition-all cursor-pointer disabled:opacity-50 border border-zinc-200 dark:border-zinc-700"
                             >
-                              {isActionBusy || 'Request Birthday Back 🤝'}
+                              {isActionBusy || 'Request Birthday Back'}
                             </button>
 
                             {/* Button B: Block User */}
@@ -667,9 +670,9 @@ export default function Notifications() {
                               id={`block-user-btn-${act.id}`}
                               onClick={() => handleBlockUser(act)}
                               disabled={!!isBlockBusy}
-                              className="px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800 text-[10px] font-black uppercase tracking-wider text-red-500 hover:bg-red-500/10 dark:hover:bg-red-500/10 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                              className="px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 text-[10px] font-black uppercase tracking-wider text-red-500 hover:bg-red-500/10 dark:hover:bg-red-500/10 rounded-xl transition-all cursor-pointer disabled:opacity-50 border border-zinc-200 dark:border-zinc-700"
                             >
-                              {isBlockBusy || 'Block User 🛑'}
+                              {isBlockBusy || 'Block User'}
                             </button>
 
                             {/* Button C: Trash Deletion Button */}
