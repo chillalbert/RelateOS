@@ -6,7 +6,9 @@ export interface Person {
   category: 'friend' | 'family' | 'partner' | 'coworker' | 'other';
   importance: number;
   notes?: string;
+  ai_notes?: string;
   interests?: string;
+  updated_at?: any;
   photo_url?: string;
   isCloseFriend?: boolean;
   user_id?: string;
@@ -22,6 +24,42 @@ export interface Person {
   tasks?: Task[];
   memories?: Memory[];
   gifts?: Gift[];
+}
+
+export interface StreakProgress {
+  currentCount: number;
+  lastCompletedDate: string | null;
+  cycleStartDate: string | null;
+  introShownForCycleStart?: string | null;
+}
+
+export interface UnlockItem {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface ShopCosts {
+  streakFreeze: number;
+  leaderboardFlair: number;
+  customAccentColor: number;
+  bonusEnrichment: number;
+}
+
+export const DEFAULT_SHOP_COSTS: ShopCosts = {
+  streakFreeze: 20,
+  leaderboardFlair: 50,
+  customAccentColor: 30,
+  bonusEnrichment: 40
+};
+
+export interface GamificationConfig {
+  dailyActionType: 'check_in' | 'note_edit' | 'memory_added' | string;
+  cycleLengthDays: number;
+  auraPerDay: number;
+  unlockSequence: UnlockItem[];
+  currentUnlockIndex: number;
+  shopCosts?: ShopCosts;
 }
 
 export interface Task {
