@@ -1318,9 +1318,9 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify({
- userIds: group.members || [],
+ userIds: group?.members || [],
  title: "Gift Finalized! ",
- body: `The crew has locked in the gift choice for ${group.person_name || 'our friend'}! Check it out.`,
+ body: `The crew has locked in the gift choice for ${group?.person_name || 'our friend'}! Check it out.`,
  url: `/rooms/${id}`
  })
  });
@@ -1376,7 +1376,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  }
  
  let combinedInterestsList = [];
- if (group.person_notes) combinedInterestsList.push(group.person_notes);
+ if (group?.person_notes) combinedInterestsList.push(group.person_notes);
  if (matchedInterests.length > 0) combinedInterestsList.push(matchedInterests.join(', '));
  if (matchedNotes.length > 0) combinedInterestsList.push(matchedNotes.join(', '));
  let combinedInterests = combinedInterestsList.join(', ') || 'General interests';
@@ -1891,14 +1891,55 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
 
 
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">Loading room details...</p>
+      </div>
+    );
+  }
+
+  if (!group) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24 flex flex-col justify-between">
+        <header className="p-6 pt-[calc(1.5rem+var(--sat))] flex items-center justify-between bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer">
+            <ArrowLeft size={24} />
+          </button>
+          <h1 className="text-lg font-bold tracking-tight">Room Unavailable</h1>
+          <div className="w-10" />
+        </header>
+
+        <div className="p-6 max-w-md mx-auto text-center space-y-4 my-auto">
+          <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-900 text-zinc-400 rounded-full flex items-center justify-center mx-auto">
+            <Lock size={32} />
+          </div>
+          <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Access Restricted</h2>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+            You don't have access to this room or it may no longer exist.
+          </p>
+          <button
+            onClick={() => navigate('/vaults')}
+            className="px-6 py-3 bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+          >
+            Back to Rooms & Vaults
+          </button>
+        </div>
+
+        <Navigation />
+      </div>
+    );
+  }
+
  const totalContributed = contributions?.reduce((sum: number, c: any) => sum + c.amount, 0) || 0;
- const targetAmount = group.target_amount || 500;
+ const targetAmount = group?.target_amount || 500;
  const progress = Math.min((totalContributed / targetAmount) * 100, 100);
 
  // Check if it's the birthday
- const isBirthday = isBirthdayToday(group.person_birthday);
- const isUnlocked = isBirthday || group.isMember;
- const isCrewAdminOrMod = group.admins?.includes(firebaseUser?.uid) || group.mods?.includes(firebaseUser?.uid) || group.created_by === firebaseUser?.uid;
+ const isBirthday = isBirthdayToday(group?.person_birthday);
+ const isUnlocked = isBirthday || group?.isMember;
+ const isCrewAdminOrMod = group?.admins?.includes(firebaseUser?.uid) || group?.mods?.includes(firebaseUser?.uid) || group?.created_by === firebaseUser?.uid;
 
  return (
  <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
@@ -1906,8 +1947,8 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  <div className="flex items-center justify-between">
  <button onClick={() => navigate(-1)} className="p-2 -ml-2"><ArrowLeft size={24} /></button>
  <div className="text-center">
- <h1 className="font-bold">{group.code_name || group.name}</h1>
- <p className="text-[10px] text-zinc-400 uppercase font-bold">For {group.person_name}</p>
+ <h1 className="font-bold">{group?.code_name || group?.name}</h1>
+ <p className="text-[10px] text-zinc-400 uppercase font-bold">For {group?.person_name}</p>
  </div>
  <button 
  onClick={handleLeaveRoom}
@@ -1939,16 +1980,16 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  {activeTab === 'planning' && (
  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
  {/* Birthday Countdown */}
- {group.person_birthday && (
+ {group?.person_birthday && (
  (() => {
  const days = getDaysUntil(group.person_birthday);
  let text = "";
  if (days === 0) {
- text = ` It's ${group.person_name}'s birthday TODAY!`;
+ text = ` It's ${group?.person_name || 'Friend'}'s birthday TODAY!`;
  } else if (days === 1) {
- text = `Tomorrow is ${group.person_name}'s birthday! `;
+ text = `Tomorrow is ${group?.person_name || 'Friend'}'s birthday! `;
  } else {
- text = `${days} days until ${group.person_name}'s birthday `;
+ text = `${days} days until ${group?.person_name || 'Friend'}'s birthday `;
  }
  return (
  <div className="bg-zinc-900 text-white rounded-3xl p-6 border border-zinc-800">
@@ -1982,10 +2023,10 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  <div className="p-4 bg-zinc-900 text-white rounded-2xl flex justify-between items-center">
  <div>
  <p className="text-[10px] uppercase font-bold text-zinc-400">Party Join Code</p>
- <p className="text-xl font-mono font-bold tracking-widest">{group.join_code || group.invite_code}</p>
+ <p className="text-xl font-mono font-bold tracking-widest">{group?.join_code || group?.invite_code}</p>
  </div>
  <button className="px-4 py-2 bg-white/10 rounded-xl text-xs font-bold" onClick={() => {
- navigator.clipboard.writeText(group.join_code || group.invite_code);
+ navigator.clipboard.writeText(group?.join_code || group?.invite_code || '');
  alert('Join Code copied!');
  }}>Copy Code</button>
  </div>
@@ -2205,12 +2246,12 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  <p className="text-sm text-zinc-400 mt-2">
  {isUnlocked 
  ? "The locker is open! Enjoy all the surprises your friends left for you."
- : `Locked until ${group.person_name}'s birthday. Add surprises below!`}
+ : `Locked until ${group?.person_name || 'Friend'}'s birthday. Add surprises below!`}
  </p>
  </div>
  </div>
 
- {group.isMember && (
+ {group?.isMember && (
  <button 
  onClick={() => setShowSurpriseForm(true)}
  className="w-full p-4 bg-emerald-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
