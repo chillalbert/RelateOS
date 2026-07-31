@@ -215,6 +215,7 @@ export default function PublicProfileCollector() {
         host_uid: hostUser.id, 
         isCloseFriend: isCloseFriend,
         created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
         reminder_settings: {
           one_week_before: true,
           three_days_before: true,
@@ -243,7 +244,7 @@ export default function PublicProfileCollector() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userIds: [hostUid],
-              title: "Profile Saved! ⚡",
+              title: "Profile Saved!",
               body: `${visitorName} just added your profile card to their list.`,
               url: "/notifications"
             })
@@ -278,7 +279,7 @@ export default function PublicProfileCollector() {
 
       // Trigger automatic high-priority background system alert
       await triggerSystemNotification(
-        "New Orbit Invitation! 🚀",
+        "New Orbit Invitation!",
         `${getDisplayName(user) || 'A Friend'} invited you to join their network Circle. Check it out now!`,
         "/notifications"
       );
@@ -315,14 +316,14 @@ export default function PublicProfileCollector() {
           </div>
           <div className="space-y-2">
             <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">
-              Connect with {username || 'Friend'} 🎂
+              Connect with {username || 'Friend'}
             </h1>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
               RelateOS is a modern, clean social utility to sync birthdays, current vibes, and sport teams with your closest circle. 
             </p>
           </div>
-          <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl text-[11px] text-zinc-400 font-semibold leading-relaxed">
-            ✨ Register today to grab {username}'s birthday list and sync your calendar in 1 click.
+          <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl text-[11px] text-zinc-500 dark:text-zinc-400 font-semibold leading-relaxed">
+            Register today to grab {username}'s birthday list and sync your calendar in 1 click.
           </div>
           <button
             onClick={() => {
@@ -360,7 +361,7 @@ export default function PublicProfileCollector() {
           className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 p-8 rounded-[32px] text-center space-y-6 shadow-xl"
         >
           <div className="mx-auto w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
-            🔒
+            <Lock size={32} />
           </div>
           <div className="space-y-2">
             <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Profile Hidden</h1>
@@ -434,7 +435,7 @@ export default function PublicProfileCollector() {
             <Lock size={32} />
           </div>
           <div className="space-y-2">
-            <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Profile is Locked 🔒</h1>
+            <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Profile is Locked</h1>
             <p className="text-xs text-zinc-450 dark:text-zinc-400 leading-relaxed font-semibold">
               This profile has been locked by the host and is currently unavailable.
             </p>
@@ -463,7 +464,7 @@ export default function PublicProfileCollector() {
             <Lock size={32} />
           </div>
           <div className="space-y-3">
-            <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">This Profile is Private 🔒</h1>
+            <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">This Profile is Private</h1>
             <p className="text-xs text-zinc-500 dark:text-zinc-405 font-semibold leading-relaxed">
               {hostUser.name}'s workspace is configured for maximum confidentiality. Direct public invitations are disabled.
             </p>
@@ -472,7 +473,7 @@ export default function PublicProfileCollector() {
             onClick={() => navigate('/')}
             className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-wider transition-all hover:bg-emerald-600 shadow-md cursor-pointer"
           >
-            Launch My Dashboard ⚡
+            Launch My Dashboard
           </button>
         </motion.div>
       </div>
@@ -519,7 +520,7 @@ export default function PublicProfileCollector() {
         <div className="w-full bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-[32px] p-6 shadow-md space-y-5">
           <div className="flex items-center gap-3 pb-4 border-b border-zinc-100 dark:border-zinc-800">
             <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center">
-              🎂
+              <Sparkles size={20} />
             </div>
             <div>
               <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400">Birthday Month & Day</h2>
@@ -532,7 +533,7 @@ export default function PublicProfileCollector() {
           <div className="space-y-4">
             {hostUser.fav_sports_teams && (
               <div className="space-y-1">
-                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">🏅 Cheering For</span>
+                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">Cheering For</span>
                 <div className="flex flex-wrap gap-1.5">
                   {hostUser.fav_sports_teams.split(',').map((team: string, idx: number) => (
                     <span 
@@ -548,7 +549,7 @@ export default function PublicProfileCollector() {
 
             {hostUser.fav_artists && (
               <div className="space-y-1">
-                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">🎵 Currently Jamming</span>
+                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">Currently Jamming</span>
                 <p className="text-xs text-zinc-700 dark:text-zinc-300 font-bold">
                   {hostUser.fav_artists}
                 </p>
@@ -557,7 +558,7 @@ export default function PublicProfileCollector() {
 
             {hostUser.weekend_activities && (
               <div className="space-y-1">
-                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">⚡ Favorite Weekend Activity</span>
+                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">Favorite Weekend Activity</span>
                 <p className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-xs text-zinc-650 dark:text-zinc-350 italic font-medium leading-relaxed">
                   "{hostUser.weekend_activities}"
                 </p>
@@ -566,7 +567,7 @@ export default function PublicProfileCollector() {
 
             {hostUser.anything_extra && (
               <div className="space-y-1">
-                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">✨ Anything Extra</span>
+                <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400">Anything Extra</span>
                 <p className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-2xl text-xs text-zinc-650 dark:text-zinc-300 font-semibold leading-relaxed">
                   {hostUser.anything_extra}
                 </p>
@@ -613,7 +614,7 @@ export default function PublicProfileCollector() {
                 id="already-in-orbit-badge"
                 className="w-full py-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 font-extrabold text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed select-none"
               >
-                Already in Orbit ✨
+                Already in Orbit
               </div>
               <button
                 id="cancel-return-btn"
@@ -632,7 +633,7 @@ export default function PublicProfileCollector() {
                 disabled={isGrabbing || (firebaseUser && firebaseUser.uid === hostUser.id)}
                 className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 font-black text-xs text-white uppercase tracking-wider rounded-2xl shadow-lg shadow-emerald-500/15 cursor-pointer flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isGrabbing ? 'Saving to list...' : firebaseUser && firebaseUser.uid === hostUser.id ? "Your Own Invite Link (Cannot Add Self)" : `Add ${hostUser.name} to My Birthday List 🎂`}
+                {isGrabbing ? 'Saving to list...' : firebaseUser && firebaseUser.uid === hostUser.id ? "Your Own Invite Link (Cannot Add Self)" : `Add ${hostUser.name} to My Birthday List`}
               </button>
               <button
                 id="cancel-return-guest-btn"
@@ -669,12 +670,12 @@ export default function PublicProfileCollector() {
                 >
                   <span className="text-[11px] font-black uppercase tracking-wider">
                     {friendRequestRelationship === 'pending'
-                      ? 'Request Pending ⏳'
+                      ? 'Request Pending'
                       : friendRequestRelationship === 'accepted'
-                        ? 'Connected 🤝'
+                        ? 'Connected'
                         : friendRequestSent 
-                          ? 'Sent! 🤝' 
-                          : 'Send Friend Request 🤝'}
+                          ? 'Sent!' 
+                          : 'Send Friend Request'}
                   </span>
                   <span className="text-[9px] text-zinc-400 font-semibold leading-tight">
                     {friendRequestRelationship === 'pending'
