@@ -91,7 +91,7 @@ async function callGemini(prompt: string, config?: any) {
     
     if (prompt.includes("birthday message")) {
       return JSON.stringify({
-        shortText: "Happy Birthday! Hope you have an amazing day! 🎂✨",
+        shortText: "Happy Birthday! Hope you have an amazing day!",
         cardMessage: "Wishing you a day filled with joy and a year ahead full of wonderful adventures. You deserve the best, and I hope this year brings you everything you've been working towards!"
       });
     }
@@ -183,13 +183,13 @@ Recipient Info:
     const text = await callGemini(prompt, { responseMimeType: "application/json" });
     const result = JSON.parse(text || '{}');
     return { 
-      shortText: result.shortText || `Happy Birthday ${params.name}! Hope you have the best day! 🎂`, 
+      shortText: result.shortText || `Happy Birthday ${params.name}! Hope you have the best day!`, 
       cardMessage: result.cardMessage || `Happy Birthday ${params.name}! Wishing you an incredible year ahead filled with joy and success.` 
     };
   } catch (error) {
     console.error("AI Generation Error:", error);
     return { 
-      shortText: `Happy Birthday ${params.name}! 🎂`, 
+      shortText: `Happy Birthday ${params.name}!`, 
       cardMessage: `Happy Birthday ${params.name}! Have an amazing day.` 
     };
   }
@@ -345,3 +345,112 @@ export async function callCoachModel(contents: any[], config?: any) {
     throw error;
   }
 }
+
+export async function generateSparkQuestions(params: {
+  name: string;
+  interests: string;
+  notes: string;
+  plannerNotes?: string;
+  questionDepth?: 'light' | 'medium' | 'deep';
+}) {
+  const depth = params.questionDepth || 'light';
+  try {
+    let depthGuidance = '';
+    if (depth === 'light') {
+      depthGuidance = `
+Question Depth Level: LIGHT (Fun, silly, surface-level)
+- Focus explicitly on fun, silly, lighthearted surface-level questions that are easy and casual to answer.
+- Avoid deep personal feelings or emotional intimacy. Keep it 100% fun, relaxed, and not awkward for anyone.
+- Examples: "What's ${params.name}'s most-used emoji?", "What is ${params.name}'s go-to coffee order?", "If ${params.name} was a movie character, who would they be?", "What's ${params.name}'s ultimate comfort food?"
+`;
+    } else if (depth === 'medium') {
+      depthGuidance = `
+Question Depth Level: MEDIUM (Mix of fun and slightly more personal/reflective)
+- Provide a balanced mix of fun trivia and slightly more personal or reflective questions about memories, preferences, and milestones.
+- Examples: "What's the best trip or outing you've ever shared with ${params.name}?", "What is ${params.name}'s absolute dream travel destination?", "Which recent milestone of ${params.name} made you proudest?", "What's a song that instantly reminds you of ${params.name}?"
+`;
+    } else if (depth === 'deep') {
+      depthGuidance = `
+Question Depth Level: DEEP (Meaningful, sentimental, and heartwarming)
+- Focus on deeper, sentimental, appreciative, and meaningful questions about friendship, impact, gratitude, and cherished moments.
+- Keep questions tasteful, warm, and appropriate — never invasive or uncomfortable.
+- Examples: "What's a moment ${params.name} made you feel truly supported?", "What is something inspiring or admirable about ${params.name}?", "What is a core memory with ${params.name} that you will never forget?", "What quality in ${params.name} do you appreciate the most?"
+`;
+    }
+
+    const prompt = `
+Generate 4-5 custom trivia/question suggestions about the birthday person named ${params.name}.
+These questions will be asked to their friends in a "Who Knows Them Best?" game.
+
+Recipient Information:
+- Name: ${params.name}
+- Interests: ${params.interests}
+- Notes: ${params.notes}
+- Party Planner Notes: ${params.plannerNotes || 'None'}
+
+${depthGuidance}
+
+Return a JSON array of strings, where each string is a distinct question. Do not return any other text or explanation. Only the JSON array of strings.
+`;
+
+    const text = await callGemini(prompt, { responseMimeType: "application/json" });
+    const questions = JSON.parse(text || '[]');
+    if (Array.isArray(questions) && questions.length > 0) {
+      return questions;
+    }
+    throw new Error("Invalid format returned from Gemini");
+  } catch (error) {
+    console.error("AI Spark Question Generation Error:", error);
+    if (depth === 'deep') {
+      return [
+        `What's a moment ${params.name} made you feel truly supported or cared for?`,
+        `What is something inspiring or admirable about ${params.name}?`,
+        `What is a core memory with ${params.name} that you'll always cherish?`,
+        `What trait or quality in ${params.name} do you value the most?`
+      ];
+    } else if (depth === 'medium') {
+      return [
+        `What's the best trip or outing you've ever shared with ${params.name}?`,
+        `If ${params.name} could master any skill overnight, what would it be?`,
+        `What is ${params.name}'s absolute dream travel destination?`,
+        `What is a song that instantly reminds you of ${params.name}?`
+      ];
+    }
+    return [
+      `What is ${params.name}'s go-to coffee or snack order?`,
+      `What is ${params.name}'s most-used emoji in group chats?`,
+      `If ${params.name} was a movie character, who would they be?`,
+      `What is ${params.name}'s most surprising or funny habit?`
+    ];
+  }
+}
+
+export async function generateEnrichedAINotes(params: {
+  name: string;
+  interests?: string;
+  notes?: string;
+  category?: string;
+}) {
+  try {
+    const prompt = `
+Generate a concise, thoughtful AI Profile Notebook summary for a ${params.category || 'friend'} named ${params.name}.
+Context:
+- Interests: ${params.interests || 'None listed'}
+- Current Notes: ${params.notes || 'None'}
+
+Formatting:
+Return 3-4 bullet points highlighting:
+1. Core Bonding Themes & Hobbies
+2. Meaningful Gesture / Gift Inspiration
+3. Suggested Next Check-in Idea
+
+Keep it warm, practical, and clear.
+`;
+    const text = await callGemini(prompt);
+    return text || `✨ AI Enriched Insights for ${params.name}:\n• Interests: ${params.interests || 'General'}\n• Gesture Idea: Plan a casual check-in based on their preferences.\n• Focus: Deepen friendship through consistent small moments.`;
+  } catch (err) {
+    console.error("AI Profile Enrichment Error:", err);
+    return `✨ AI Enriched Insights for ${params.name}:\n• Interests: ${params.interests || 'General'}\n• Gesture Idea: Plan a casual check-in based on their preferences.\n• Focus: Deepen friendship through consistent small moments.`;
+  }
+}
+
