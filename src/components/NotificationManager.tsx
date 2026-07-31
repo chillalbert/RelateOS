@@ -26,7 +26,7 @@ export default function NotificationManager() {
           
           // 1. Birthday Today
           if (daysUntil === 0) {
-            const title = `It's ${person.name}'s Birthday! 🎂`;
+            const title = `It's ${person.name}'s Birthday!`;
             if (!existingNotifs.some(n => n.title === title && n.person_id === person.id && isToday(n.created_at))) {
               await addDoc(notifRef, {
                 user_id: firebaseUser.uid,
