@@ -4,8 +4,9 @@ import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Shield, Lock, ChevronRight, Gift, Clock, Calendar } from 'lucide-react';
+import { Shield, Lock, ChevronRight, Gift, Clock, Calendar, Plus } from 'lucide-react';
 import Navigation from '../components/Navigation';
+import AuraHeaderBadge from '../components/AuraHeaderBadge';
 import { cn, isBirthdayToday } from '../lib/utils';
 
 export default function Vaults() {
@@ -73,11 +74,22 @@ export default function Vaults() {
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-32">
       <header className="p-8 pt-[calc(2rem+var(--sat))] bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800">
         <div className="max-w-2xl mx-auto space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-emerald-500 rounded-xl text-white shadow-lg shadow-emerald-500/20">
-              <Shield size={24} />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-500 rounded-xl text-white shadow-lg shadow-emerald-500/20">
+                <Shield size={24} />
+              </div>
+              <h1 className="text-2xl font-black tracking-tight">My Lockers</h1>
             </div>
-            <h1 className="text-2xl font-black tracking-tight">My Lockers</h1>
+            <div className="flex items-center gap-2">
+              <AuraHeaderBadge />
+              <Link 
+                to="/rooms/create"
+                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/20"
+              >
+                <Plus size={16} /> Create Room
+              </Link>
+            </div>
           </div>
           <p className="text-zinc-500 text-sm leading-relaxed">
             Secret lockers created for you by your friends. They remain locked until your birthday to keep the surprises secret!
@@ -189,9 +201,15 @@ export default function Vaults() {
             <div className="space-y-2">
               <h3 className="text-xl font-black">No lockers yet</h3>
               <p className="text-zinc-500 text-sm max-w-[280px] mx-auto leading-relaxed">
-                When your friends create a secret birthday room for you, the locker will appear here!
+                When your friends create a secret birthday room for you, the locker will appear here! Or create a room for a friend now.
               </p>
             </div>
+            <Link 
+              to="/rooms/create"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/20"
+            >
+              <Plus size={16} /> Create Room
+            </Link>
           </div>
         )}
       </main>
