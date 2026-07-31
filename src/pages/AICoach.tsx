@@ -20,7 +20,7 @@ import Navigation from '../components/Navigation';
 import AuraHeaderBadge from '../components/AuraHeaderBadge';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
-import { callCoachModel } from '../services/geminiService';
+import { callCoachModel, parseCoachResponse } from '../services/geminiService';
 import { getDisplayName, getAIAccent } from '../lib/utils';
 
 interface Message {
@@ -140,11 +140,14 @@ Do NOT use bullet points or lists in this opening message.
 Return plain text only, no JSON.
 `;
 
-        const welcomeText = await callCoachModel([{ role: 'user', parts: [{ text: openingPrompt }] }]);
+        const welcomeRaw = await callCoachModel([{ role: 'user', parts: [{ text: openingPrompt }] }]);
+        const parsedWelcome = parseCoachResponse(welcomeRaw || '');
+        const welcomeText = parsedWelcome.reply || `Hey ${userName}! I'm scanning through your contacts and upcoming events. Let me know if you want to draft a customized message, get some gift ideas, or register a new contact!`;
+
         const firstMsg: Message = {
           id: 'welcome-' + Date.now(),
           sender: 'assistant',
-          text: welcomeText || `Hey ${userName}! I'm scanning through your contacts and upcoming events. Let me know if you want to draft a customized message, get some gift ideas, or register a new contact!`
+          text: welcomeText
         };
         setMessages([firstMsg]);
 
@@ -153,7 +156,7 @@ Return plain text only, no JSON.
         // Sort people by birthdays or upcoming events
         const sortedPeople = [...peopleData].slice(0, 2);
         sortedPeople.forEach(p => {
-          suggestedList.push(p.name);
+          if (p.name) suggestedList.push(p.name);
         });
         suggestedList.push("How do I show up for someone?");
         suggestedList.push("Something else");
@@ -161,6 +164,13 @@ Return plain text only, no JSON.
 
       } catch (err) {
         console.error("Error loading coach:", err);
+        const userName = getDisplayName(user) || 'Friend';
+        setMessages([{
+          id: 'welcome-fallback-' + Date.now(),
+          sender: 'assistant',
+          text: `Hey ${userName}! I'm your AI Relationship Coach. I can help you draft customized messages, brainstorm gift ideas, keep track of important dates, or give relationship advice. How can I help you today?`
+        }]);
+        setSuggestions(["How do I show up for someone?", "Brainstorm a gift", "Draft a text"]);
       } finally {
         setIsLoading(false);
       }
@@ -255,7 +265,7 @@ Return plain text only, no JSON.
         },
         ...updatedMessages.map(m => ({
           role: m.sender === 'user' ? 'user' : 'model',
-          parts: [{ text: m.action ? JSON.stringify({ reply: m.text, action: m.action }) : m.text }]
+          parts: [{ text: m.sender === 'user' ? m.text : JSON.stringify({ reply: m.text, action: m.action || null }) }]
         })),
         {
           role: 'user',
@@ -309,10 +319,10 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
         responseMimeType: "application/json"
       });
 
-      const parsedResponse = JSON.parse(cleanJsonString(aiResponseRaw));
+      const parsedResponse = parseCoachResponse(aiResponseRaw);
       
-      const aiReply = parsedResponse?.reply || "I'm not sure how to answer that, but I'm here for you!";
-      const aiAction = parsedResponse?.action;
+      const aiReply = parsedResponse.reply || "I'm not sure how to answer that, but I'm here for you!";
+      const aiAction = parsedResponse.action;
 
       const aiMsg: Message = {
         id: 'msg-' + Date.now() + '-ai',
