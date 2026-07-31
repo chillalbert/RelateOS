@@ -274,7 +274,7 @@ export default function Login() {
                         type="text"
                         required
                         className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
-                        placeholder="e.g., Smayan Sri"
+                        placeholder="e.g., Alex Morgan"
                         value={formData.name || ''}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       />
