@@ -1,43 +1,35 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, arrayUnion } from 'firebase/firestore';
 import { motion } from 'motion/react';
-import { Link } from 'react-router-dom';
-import { Users, Plus, ChevronRight, Shield, MessageSquare } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Users, Plus, ChevronRight, MessageSquare, Key } from 'lucide-react';
 import Navigation from '../components/Navigation';
-import { cn } from '../lib/utils';
+import HelpTip from '../components/HelpTip';
+import EmptyState from '../components/EmptyState';
 
 export default function Groups() {
   const { firebaseUser, user } = useAuth();
+  const navigate = useNavigate();
   const [groups, setGroups] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
+  
+  // Join by code states
+  const [joinCodeInput, setJoinCodeInput] = React.useState('');
+  const [isJoining, setIsJoining] = React.useState(false);
+  const [joinError, setJoinError] = React.useState('');
 
   const fetchGroups = async () => {
-    if (!firebaseUser) {
-      console.log("No firebaseUser, skipping fetchGroups");
-      return;
-    }
-    console.log("Fetching groups for user:", firebaseUser.uid, "email:", user?.email);
+    if (!firebaseUser) return;
     try {
       const groupsRef = collection(db, 'rooms');
-      
-      // Query groups where user is a member
       const qMembers = query(
         groupsRef, 
         where('members', 'array-contains', firebaseUser.uid)
       );
-      let membersSnapshot;
-      try {
-        console.log("Executing members query...");
-        membersSnapshot = await getDocs(qMembers);
-        console.log("Members query success, found:", membersSnapshot.size);
-      } catch (err) {
-        console.error("Error fetching member groups:", err);
-        throw err;
-      }
-      const membersData = membersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-
+      const membersSnapshot = await getDocs(qMembers);
+      const membersData = membersSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
       setGroups(membersData.sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0)));
     } catch (err: any) {
       console.error("Error fetching groups:", err);
@@ -50,17 +42,125 @@ export default function Groups() {
     fetchGroups();
   }, [firebaseUser, user?.email]);
 
+  const handleJoinByCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firebaseUser || !joinCodeInput.trim()) return;
+
+    setIsJoining(true);
+    setJoinError('');
+
+    const rawCode = joinCodeInput.trim();
+    const cleanedCode = rawCode.replace(/\s+/g, '').replace(/[^a-zA-Z0-9-_]/g, '');
+    const normalizedCode = cleanedCode.toLowerCase();
+
+    try {
+      const groupsRef = collection(db, 'rooms');
+      
+      // Query 1: normalized_join_code
+      let querySnapshot = await getDocs(query(groupsRef, where('normalized_join_code', '==', normalizedCode)));
+
+      // Query 2: exact match on join_code
+      if (querySnapshot.empty && cleanedCode) {
+        querySnapshot = await getDocs(query(groupsRef, where('join_code', '==', cleanedCode)));
+      }
+
+      // Query 3: exact match on invite_code
+      if (querySnapshot.empty && cleanedCode) {
+        querySnapshot = await getDocs(query(groupsRef, where('invite_code', '==', cleanedCode)));
+      }
+
+      // Query 4: uppercase match for legacy codes like PARTY-X7K2Q9
+      if (querySnapshot.empty && cleanedCode) {
+        const upper = cleanedCode.toUpperCase();
+        querySnapshot = await getDocs(query(groupsRef, where('join_code', '==', upper)));
+        if (querySnapshot.empty) {
+          const partyUpper = upper.startsWith('PARTY-') ? upper : `PARTY-${upper}`;
+          querySnapshot = await getDocs(query(groupsRef, where('join_code', '==', partyUpper)));
+        }
+      }
+
+      if (querySnapshot.empty) {
+        setJoinError('Invalid code — double check and try again');
+        setIsJoining(false);
+        return;
+      }
+
+      const groupDoc = querySnapshot.docs[0];
+      const groupData = groupDoc.data();
+
+      if (!groupData.members?.includes(firebaseUser.uid)) {
+        await updateDoc(doc(db, 'rooms', groupDoc.id), {
+          members: arrayUnion(firebaseUser.uid),
+          [`roles.${firebaseUser.uid}`]: groupData.roles?.[firebaseUser.uid] || 'guest',
+          [`attendance.${firebaseUser.uid}`]: groupData.attendance?.[firebaseUser.uid] || 'undecided',
+          [`rsvps.${firebaseUser.uid}`]: groupData.rsvps?.[firebaseUser.uid] || 'maybe'
+        });
+      }
+
+      navigate(`/rooms/${groupDoc.id}`);
+    } catch (err) {
+      console.error("Error joining room by code:", err);
+      setJoinError('Invalid code — double check and try again');
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
   return (
-    <div className="pb-32 pt-[calc(1.5rem+var(--sat))] px-4 max-w-2xl mx-auto space-y-8">
+    <div className="pb-32 pt-[calc(1.5rem+var(--sat))] px-4 max-w-2xl mx-auto space-y-6">
       <header className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Surprise Rooms</h1>
-          <p className="text-zinc-500 text-sm">Collaborate on secret surprises</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight">Party Planning Rooms</h1>
+            <HelpTip 
+              title="What is a Party Room?" 
+              content="Secret spaces for co-organizing surprise birthdays, tracking RSVPs, dividing tasks, and collecting gift ideas without the guest of honor knowing!" 
+            />
+          </div>
+          <p className="text-zinc-500 text-sm">Secret spaces for party planning & surprise celebrations</p>
         </div>
-        <Link to="/rooms/create" className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-emerald-500">
-          <Plus size={24} />
+        <Link to="/rooms/create" className="p-2.5 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 hover:scale-105 transition-all shadow-md shadow-emerald-500/20" title="Create Room">
+          <Plus size={22} />
         </Link>
       </header>
+
+      {/* JOIN WITH CODE CARD */}
+      <div className="bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 border-t border-t-white/5 rounded-3xl p-5 shadow-sm dark:shadow-lg space-y-3 text-left">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+            <Key size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">Join a Party Room</h3>
+            <p className="text-xs text-zinc-400">Enter a party room join code to jump in as a guest</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleJoinByCode} className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            value={joinCodeInput}
+            onChange={(e) => {
+              setJoinCodeInput(e.target.value.replace(/\s+/g, ''));
+              if (joinError) setJoinError('');
+            }}
+            placeholder="e.g. Alex or Sarah30"
+            className="flex-1 px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-2xl font-mono text-sm uppercase tracking-wider outline-none focus:ring-1 focus:ring-emerald-500 text-zinc-900 dark:text-white"
+          />
+          <button
+            type="submit"
+            disabled={isJoining || !joinCodeInput.trim()}
+            className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs rounded-2xl transition-all shadow-md shadow-emerald-500/10 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            {isJoining ? 'Joining...' : 'Join Room'}
+          </button>
+        </form>
+        {joinError && (
+          <p className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/20 p-2.5 rounded-xl text-center">
+            {joinError}
+          </p>
+        )}
+      </div>
 
       <section className="space-y-4">
         {loading ? (
@@ -78,7 +178,7 @@ export default function Groups() {
               >
                 <Link 
                   to={`/rooms/${group.id}`}
-                  className="block p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all group"
+                  className="block p-6 bg-white dark:bg-zinc-800 rounded-3xl border border-zinc-100 dark:border-zinc-700 border-t border-t-white/5 shadow-sm dark:shadow-lg hover:shadow-md transition-all group"
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-3">
@@ -93,10 +193,10 @@ export default function Groups() {
                     <ChevronRight size={20} className="text-zinc-300 group-hover:text-emerald-500 transition-colors" />
                   </div>
                   
-                  <div className="flex items-center justify-between pt-4 border-t border-zinc-50 dark:border-zinc-800">
+                  <div className="flex items-center justify-between pt-4 border-t border-zinc-50 dark:border-zinc-700">
                     <div className="flex -space-x-2">
                       {((group.members || []) as string[]).filter((m: string) => !(user?.blocked_uids || []).includes(m)).slice(0, 4).map((m: string, idx: number) => (
-                        <div key={idx} className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 border-2 border-white dark:border-zinc-900 flex items-center justify-center text-[10px] font-bold">
+                        <div key={idx} className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-950 border-2 border-white dark:border-zinc-800 flex items-center justify-center text-[10px] font-bold">
                           {idx + 1}
                         </div>
                       ))}
@@ -108,7 +208,7 @@ export default function Groups() {
                     </div>
                     <div className="flex items-center gap-2 text-zinc-400">
                       <MessageSquare size={14} />
-                      <span className="text-xs font-bold uppercase tracking-widest font-mono">{group.invite_code}</span>
+                      <span className="text-xs font-bold uppercase tracking-widest font-mono">{group.join_code || group.invite_code}</span>
                     </div>
                   </div>
                 </Link>
@@ -116,23 +216,13 @@ export default function Groups() {
             ))}
           </div>
         ) : (
-          <div className="p-12 text-center bg-white dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800 space-y-4">
-            <div className="w-16 h-16 bg-zinc-50 dark:bg-zinc-800 rounded-full flex items-center justify-center mx-auto text-zinc-300">
-              <Users size={32} />
-            </div>
-            <div className="space-y-1">
-              <h3 className="font-bold">No active groups</h3>
-              <p className="text-sm text-zinc-500">Start a secret planning group for a friend's birthday or join an existing one.</p>
-            </div>
-            <div className="flex flex-col gap-2 pt-2">
-              <Link to="/rooms/create" className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-500/20">
-                Create Room
-              </Link>
-              <Link to="/rooms/create?join=true" className="w-full py-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-2xl font-bold">
-                Join with Code
-              </Link>
-            </div>
-          </div>
+          <EmptyState 
+            icon={Users}
+            title="No active party planning rooms"
+            description="Start a secret planning room to organize a friend's birthday celebration with mutual friends, or enter a join code above!"
+            actionLabel="Create Room"
+            actionLink="/rooms/create"
+          />
         )}
       </section>
 
