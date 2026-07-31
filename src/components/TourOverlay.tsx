@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { useTour, TOUR_STEPS } from '../context/TourContext';
 import { useAuth } from '../context/AuthContext';
+import { useGamification } from '../context/GamificationContext';
+import { isFeatureLocked } from '../lib/utils';
 
 interface CardPosition {
   top?: number;
@@ -12,65 +14,46 @@ interface CardPosition {
   arrowStyle?: React.CSSProperties;
 }
 
+const ROUTE_TO_FEATURE_ID: Record<string, string> = {
+  '/leaderboard': 'leaderboard',
+  '/rooms': 'rooms',
+  '/vaults': 'vaults',
+  '/analytics': 'analytics',
+  '/coach': 'coach',
+};
+
 const getTargetElement = (step: number) => {
   const stepInfo = TOUR_STEPS[step - 1];
   if (!stepInfo) return null;
 
-  let selector = '';
-  switch (step) {
-    case 1:
-      selector = 'nav a[href="/"]';
-      break;
-    case 2:
-      selector = 'nav a[href="/calendar"]';
-      break;
-    case 3:
-      selector = 'nav a[href="/groups"]';
-      break;
-    case 4:
-      selector = 'nav a[href="/rooms"]';
-      break;
-    case 5:
-      selector = 'nav a[href="/add"]';
-      break;
-    case 6:
-      selector = 'nav a[href="/spark"]';
-      break;
-    case 7:
-      selector = 'nav a[href="/vaults"]';
-      break;
-    case 8:
-      selector = 'nav a[href="/analytics"]';
-      break;
-    case 9:
-      selector = 'nav a[href="/coach"]';
-      break;
-    case 10:
-      selector = 'a[href="/notifications"]';
-      break;
-    case 11:
-      selector = 'a[href="/settings"]';
-      break;
-    default:
-      break;
-  }
-
-  if (selector) {
-    const el = document.querySelector(selector);
-    if (el) return el;
-  }
-
   const route = stepInfo.route;
-  const fallbackEl = document.querySelector(`a[href="${route}"]`);
-  return fallbackEl || null;
+
+  // 1. Try nav link matching route
+  const navEl = document.querySelector(`nav a[href="${route}"]`);
+  if (navEl) return navEl;
+
+  // 2. Try any link with href equal to route
+  const linkEl = document.querySelector(`a[href="${route}"]`);
+  if (linkEl) return linkEl;
+
+  return null;
 };
 
 export default function TourOverlay() {
   const { tourStep, nextTourStep, skipTour } = useTour();
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, user } = useAuth();
+  const { config } = useGamification();
   const [cardPosition, setCardPosition] = React.useState<CardPosition>({});
 
   const currentStepInfo = tourStep !== null ? TOUR_STEPS[tourStep - 1] : null;
+
+  const featureId = currentStepInfo ? ROUTE_TO_FEATURE_ID[currentStepInfo.route] : null;
+  const isLocked = featureId ? isFeatureLocked(featureId, user?.unlockedFeatures, config?.unlockSequence) : false;
+
+  const displayTitle = isLocked ? "Locked Tab (???)" : currentStepInfo?.title;
+  const displayDescription = isLocked 
+    ? "This one's a mystery for now. Any tabs that say ??? will be unlocked through weekly/monthly streaks. Complete your cycle's task to unlock what's behind it." 
+    : currentStepInfo?.description;
 
   const updatePosition = React.useCallback(() => {
     if (tourStep === null) return;
@@ -229,10 +212,10 @@ export default function TourOverlay() {
 
           <div className="space-y-1">
             <h3 className="text-base font-black text-zinc-900 dark:text-white">
-              {currentStepInfo.title}
+              {displayTitle}
             </h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
-              {currentStepInfo.description}
+              {displayDescription}
             </p>
           </div>
 
