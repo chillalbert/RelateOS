@@ -3,11 +3,14 @@ import { auth, db, googleProvider } from '../lib/firebase';
 import { onAuthStateChanged, signOut, User as FirebaseUser, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
+import { GamificationConfig, StreakProgress, UnlockItem } from '../types';
+
 interface UserProfile {
   id: string;
   email: string;
   name: string;
   role?: string;
+  isAdmin?: boolean;
   birthday?: string;
   birthday_month?: number;
   birthday_day?: number;
@@ -16,11 +19,19 @@ interface UserProfile {
   personality?: string;
   appearance?: 'light' | 'dark';
   streak?: number;
+  streakProgress?: StreakProgress;
+  auraBalance?: number;
+  pendingUnlockReady?: boolean;
   notification_time?: string;
   profile_picture_url?: string;
   onboarding_completed?: boolean;
   has_completed_onboarding?: boolean;
   hasSeenTour?: boolean;
+  tourFinished?: boolean;
+  tourCompletedNaturally?: boolean;
+  postTourNudgeShown?: boolean;
+  initialTaskCompleted?: boolean;
+  initialTaskCompletedDate?: string | null;
   hasSeenPersonProfileHint?: boolean;
   timeFormatPreference?: '12h' | '24h';
   custom_handle?: string;
@@ -31,7 +42,16 @@ interface UserProfile {
   weekend_activities?: string;
   anything_extra?: string;
   nameDisplayPreference?: 'full' | 'first';
-  aiAccentColor?: 'violet' | 'emerald' | 'amber' | 'sky' | 'rose';
+  aiAccentColor?: 'violet' | 'emerald' | 'amber' | 'sky' | 'rose' | 'gold' | 'cyan' | 'fuchsia';
+  streakFreezeAvailable?: number;
+  leaderboardFlairUnlocked?: boolean;
+  premiumAccentUnlocked?: boolean;
+  bonusEnrichmentCredits?: number;
+  unlockedFeatures?: string[];
+  unlockExplainersShown?: string[];
+  unlockProgressCount?: number;
+  relationshipScore?: number;
+  leaderboardVisibility?: 'public' | 'private';
   notification_settings?: {
     birthdays: boolean;
     tasks: boolean;
@@ -97,6 +117,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               blocked_uids: [],
               onboarding_completed: false,
               has_completed_onboarding: false,
+              initialTaskCompleted: false,
+              initialTaskCompletedDate: null,
+              unlockProgressCount: 0,
               nameDisplayPreference: 'full',
               aiAccentColor: 'violet',
               notification_settings: {
