@@ -4,10 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Camera, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { db } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { getLocalDateString } from '../lib/utils';
 
 export default function AddPerson() {
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, user } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = React.useState({
     name: '',
@@ -46,12 +47,23 @@ export default function AddPerson() {
         birthYearUnknown: !hasYear,
         user_id: firebaseUser.uid,
         created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
         reminder_settings: {
           "30_days": true,
           "7_days": true,
           "morning": true
         }
       });
+
+      if (birthdayStr && !user?.initialTaskCompleted) {
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        await updateDoc(userRef, {
+          initialTaskCompleted: true,
+          initialTaskCompletedDate: getLocalDateString(),
+          unlockedFeatures: arrayUnion('analytics')
+        });
+      }
+
       navigate('/');
     } catch (err: any) {
       console.error(err);
@@ -149,6 +161,8 @@ export default function AddPerson() {
                 <input
                   type="number"
                   placeholder="Year (optional)"
+                  min="1900"
+                  max={new Date().getFullYear()}
                   className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500"
                   value={birthYear}
                   onChange={(e) => setBirthYear(e.target.value)}
@@ -172,23 +186,36 @@ export default function AddPerson() {
             </select>
           </div>
 
-          <div className="space-y-3">
-            <label className="text-xs font-bold uppercase text-zinc-400">Importance Level</label>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase text-zinc-400">Importance Level</label>
+              <span className="text-[11px] font-semibold text-emerald-500 dark:text-emerald-400">
+                {formData.importance === 1 && "1 = Casual / Low"}
+                {formData.importance === 2 && "2 = Moderate"}
+                {formData.importance === 3 && "3 = Important"}
+                {formData.importance === 4 && "4 = Very Important"}
+                {formData.importance === 5 && "5 = Highest / VIP"}
+              </span>
+            </div>
             <div className="flex justify-between gap-2">
               {[1, 2, 3, 4, 5].map((level) => (
                 <button
                   key={level}
                   type="button"
                   onClick={() => setFormData({ ...formData, importance: level })}
-                  className={`flex-1 py-3 rounded-xl font-bold transition-all ${
+                  className={`flex-1 py-3 rounded-xl font-bold transition-all cursor-pointer ${
                     formData.importance === level 
                     ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-lg' 
-                    : 'bg-white dark:bg-zinc-900 text-zinc-400 border border-zinc-100 dark:border-zinc-800'
+                    : 'bg-white dark:bg-zinc-900 text-zinc-400 border border-zinc-100 dark:border-zinc-800 hover:border-zinc-300'
                   }`}
                 >
                   {level}
                 </button>
               ))}
+            </div>
+            <div className="flex justify-between text-[10px] font-bold text-zinc-400 px-1 pt-0.5">
+              <span>1 = Casual / Low</span>
+              <span>5 = Highest / VIP</span>
             </div>
           </div>
 
