@@ -3,8 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'r
 import { motion, AnimatePresence } from 'motion/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TourProvider, useTour } from './context/TourContext';
+import { GamificationProvider, useGamification } from './context/GamificationContext';
 import TourOverlay from './components/TourOverlay';
-import { cn } from './lib/utils';
+import { cn, isFeatureLocked } from './lib/utils';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import AddPerson from './pages/AddPerson';
@@ -19,10 +20,11 @@ import Notifications from './pages/Notifications';
 import AICoach from './pages/AICoach';
 import SurpriseReveal from './pages/SurpriseReveal';
 import PublicProfileCollector from './pages/PublicProfileCollector';
-import GroupsDirectory from './pages/GroupsDirectory';
 import GroupView from './pages/GroupView';
-import SparkHome from './pages/SparkHome';
-import SparkGameRoom from './pages/SparkGameRoom';
+import Leaderboard from './pages/Leaderboard';
+import LeaderboardLocked from './pages/LeaderboardLocked';
+import AuraShop from './pages/AuraShop';
+import AdminPanel from './pages/AdminPanel';
 
 import LoadingScreen from './components/LoadingScreen';
 import NotificationManager from './components/NotificationManager';
@@ -105,7 +107,6 @@ const RealtimeNotificationTracker = () => {
         >
           <div className="bg-emerald-500 text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-3 border border-emerald-400 hover:bg-emerald-600 transition-all">
             <div className="flex items-center gap-2.5">
-              <span className="text-xl">🤝</span>
               <div className="text-left">
                 <p className="text-[10px] font-black uppercase tracking-wider text-emerald-100">New Friend Request!</p>
                 <p className="text-sm font-extrabold">{toast.senderName} wants to connect.</p>
@@ -152,6 +153,35 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+const FeatureRoute = ({ featureId, children }: { featureId: string; children: React.ReactNode }) => {
+  const { user } = useAuth();
+  const { config } = useGamification();
+
+  const isLocked = isFeatureLocked(featureId, user?.unlockedFeatures, config?.unlockSequence);
+
+  if (isLocked) {
+    return <LeaderboardLocked />;
+  }
+
+  return <>{children}</>;
+};
+
+const LeaderboardRoute = () => {
+  const { user } = useAuth();
+  const { config } = useGamification();
+  const isLocked = isFeatureLocked('leaderboard', user?.unlockedFeatures, config?.unlockSequence);
+  return isLocked ? <LeaderboardLocked /> : <Leaderboard />;
+};
+
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { firebaseUser, user, isLoading } = useAuth();
+  if (isLoading) return <LoadingScreen />;
+  if (!firebaseUser || (firebaseUser.email !== 'smayansri@gmail.com' && !user?.isAdmin && user?.role !== 'admin')) {
+    return <Navigate to="/" replace />;
+  }
+  return <PrivateRoute>{children}</PrivateRoute>;
+};
+
 const ThemeHandler = ({ children }: { children: React.ReactNode }) => {
   const { user, firebaseUser, isLoading } = useAuth();
 
@@ -176,38 +206,41 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <ThemeHandler>
-          <NotificationManager />
-          <Router>
-            <TourProvider>
-              <RealtimeNotificationTracker />
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/surprise/:roomId" element={<SurpriseReveal />} />
-                <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-                <Route path="/add" element={<PrivateRoute><AddPerson /></PrivateRoute>} />
-                <Route path="/vaults" element={<PrivateRoute><Vaults /></PrivateRoute>} />
-                <Route path="/calendar" element={<PrivateRoute><BirthdayCalendar /></PrivateRoute>} />
-                <Route path="/person/:id" element={<PrivateRoute><PersonProfile /></PrivateRoute>} />
-                <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
-                <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
-                <Route path="/coach" element={<PrivateRoute><AICoach /></PrivateRoute>} />
-                <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
-                <Route path="/groups" element={<PrivateRoute><GroupsDirectory /></PrivateRoute>} />
-                <Route path="/groups/:groupId" element={<PrivateRoute><GroupView /></PrivateRoute>} />
-                <Route path="/spark" element={<PrivateRoute><SparkHome /></PrivateRoute>} />
-                <Route path="/spark/:groupId" element={<PrivateRoute><SparkGameRoom /></PrivateRoute>} />
-                <Route path="/rooms" element={<PrivateRoute><Groups /></PrivateRoute>} />
-                <Route path="/rooms/create" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
-                <Route path="/rooms/:id" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
-                <Route path="/u/:username" element={<PublicProfileCollector />} />
-                {/* Fallback */}
-                <Route path="*" element={<Navigate to="/" />} />
-              </Routes>
-              <TourOverlay />
-            </TourProvider>
-          </Router>
-        </ThemeHandler>
+        <GamificationProvider>
+          <ThemeHandler>
+            <NotificationManager />
+            <Router>
+              <TourProvider>
+                <RealtimeNotificationTracker />
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/surprise/:roomId" element={<SurpriseReveal />} />
+                  <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+                  <Route path="/add" element={<PrivateRoute><AddPerson /></PrivateRoute>} />
+                  <Route path="/vaults" element={<PrivateRoute><FeatureRoute featureId="vaults"><Vaults /></FeatureRoute></PrivateRoute>} />
+                  <Route path="/calendar" element={<PrivateRoute><BirthdayCalendar /></PrivateRoute>} />
+                  <Route path="/person/:id" element={<PrivateRoute><PersonProfile /></PrivateRoute>} />
+                  <Route path="/analytics" element={<PrivateRoute><FeatureRoute featureId="analytics"><Analytics /></FeatureRoute></PrivateRoute>} />
+                  <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+                  <Route path="/coach" element={<PrivateRoute><FeatureRoute featureId="coach"><AICoach /></FeatureRoute></PrivateRoute>} />
+                  <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
+                  <Route path="/leaderboard" element={<PrivateRoute><LeaderboardRoute /></PrivateRoute>} />
+                  <Route path="/shop" element={<PrivateRoute><FeatureRoute featureId="aura_shop"><AuraShop /></FeatureRoute></PrivateRoute>} />
+                  <Route path="/aura-shop" element={<PrivateRoute><FeatureRoute featureId="aura_shop"><AuraShop /></FeatureRoute></PrivateRoute>} />
+                  <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
+                  <Route path="/groups/:groupId" element={<PrivateRoute><GroupView /></PrivateRoute>} />
+                  <Route path="/rooms" element={<PrivateRoute><FeatureRoute featureId="rooms"><Groups /></FeatureRoute></PrivateRoute>} />
+                  <Route path="/rooms/create" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
+                  <Route path="/rooms/:id" element={<PrivateRoute><GroupPlanning /></PrivateRoute>} />
+                  <Route path="/u/:username" element={<PublicProfileCollector />} />
+                  {/* Fallback */}
+                  <Route path="*" element={<Navigate to="/" />} />
+                </Routes>
+                <TourOverlay />
+              </TourProvider>
+            </Router>
+          </ThemeHandler>
+        </GamificationProvider>
       </AuthProvider>
     </ErrorBoundary>
   );
