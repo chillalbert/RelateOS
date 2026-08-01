@@ -154,8 +154,12 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const FeatureRoute = ({ featureId, children }: { featureId: string; children: React.ReactNode }) => {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { config } = useGamification();
+
+  if (authLoading || !user || !config) {
+    return <LoadingScreen />;
+  }
 
   const isLocked = isFeatureLocked(featureId, user?.unlockedFeatures, config?.unlockSequence);
 
@@ -167,8 +171,13 @@ const FeatureRoute = ({ featureId, children }: { featureId: string; children: Re
 };
 
 const LeaderboardRoute = () => {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { config } = useGamification();
+
+  if (authLoading || !user || !config) {
+    return <LoadingScreen />;
+  }
+
   const isLocked = isFeatureLocked('leaderboard', user?.unlockedFeatures, config?.unlockSequence);
   return isLocked ? <LeaderboardLocked /> : <Leaderboard />;
 };
