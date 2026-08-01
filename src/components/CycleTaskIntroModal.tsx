@@ -4,7 +4,7 @@ import { Zap, Sparkles, X, Check, Calendar, ArrowDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
 import { getDailyActionLabel, getPhaseAwareTaskLabel, getLocalDateString, getCycleTaskPrefix } from '../lib/utils';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 export default function CycleTaskIntroModal() {
@@ -14,7 +14,7 @@ export default function CycleTaskIntroModal() {
   const [isDismissing, setIsDismissing] = useState(false);
 
   const isCompletedOnboarding = user?.onboarding_completed === true || user?.has_completed_onboarding === true;
-  const isTourFinished = user?.tourFinished === true;
+  const isTourFinished = user?.tourFinished === true || (user?.tourFinished === undefined && user?.hasSeenTour === true);
 
   const today = getLocalDateString();
   const initialTaskCompleted = user?.initialTaskCompleted === true;
@@ -24,6 +24,37 @@ export default function CycleTaskIntroModal() {
   // Determine current cycleStartDate
   const currentCycleStart = user?.streakProgress?.cycleStartDate || today;
   const introShown = user?.streakProgress?.introShownForCycleStart;
+
+  // Backfill initialTaskCompleted for legacy users who already have at least 1 contact with a birthday set
+  useEffect(() => {
+    if (!firebaseUser || !user) return;
+    if (user.initialTaskCompleted === undefined) {
+      const checkLegacyUser = async () => {
+        try {
+          const q = query(
+            collection(db, 'people'),
+            where('user_uid', '==', firebaseUser.uid)
+          );
+          const snap = await getDocs(q);
+          const hasContactWithBirthday = snap.docs.some(d => Boolean(d.data().birthday));
+          if (hasContactWithBirthday) {
+            const todayStr = getLocalDateString();
+            await setDoc(
+              doc(db, 'users', firebaseUser.uid),
+              {
+                initialTaskCompleted: true,
+                initialTaskCompletedDate: todayStr
+              },
+              { merge: true }
+            );
+          }
+        } catch (err) {
+          console.error('Error backfilling initialTaskCompleted for legacy user:', err);
+        }
+      };
+      checkLegacyUser();
+    }
+  }, [firebaseUser, user?.initialTaskCompleted]);
 
   useEffect(() => {
     if (!firebaseUser || !user || !isCompletedOnboarding || !isTourFinished || !isCycleStarted) {
