@@ -36,7 +36,11 @@ import {
  Key,
  Pencil,
  Gamepad2,
- Bot
+ Bot,
+ LayoutDashboard,
+ Palette,
+ Eye,
+ EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Navigation from '../components/Navigation';
@@ -524,11 +528,120 @@ export default function GroupPlanning() {
  const [isSavingJoinCode, setIsSavingJoinCode] = React.useState(false);
  const [editJoinCodeSuccess, setEditJoinCodeSuccess] = React.useState(false);
  
- // Vault states
- const [showSurpriseForm, setShowSurpriseForm] = React.useState(false);
- const [newSurprise, setNewSurprise] = React.useState({ type: 'message', content: '' });
- const [surprises, setSurprises] = React.useState<any[]>([]);
- const [linkCopied, setLinkCopied] = React.useState(false);
+  // Vault states
+  const [showSurpriseForm, setShowSurpriseForm] = React.useState(false);
+  const [newSurprise, setNewSurprise] = React.useState({ type: 'message', content: '' });
+  const [surprises, setSurprises] = React.useState<any[]>([]);
+  const [linkCopied, setLinkCopied] = React.useState(false);
+
+  // Full-party tab state
+  const [partyPlaylistUrl, setPartyPlaylistUrl] = React.useState('');
+  const [newTriviaQuestion, setNewTriviaQuestion] = React.useState('');
+  const [editableJoinCode, setEditableJoinCode] = React.useState('');
+  const [isGeneratingTrivia, setIsGeneratingTrivia] = React.useState(false);
+
+  const venues = partyVenues;
+  const gameProposals = partyGameIdeas;
+  const photoDumpImages = photos;
+  const triviaQuestions = birthdayQuestions;
+
+  const handleVotePoll = async (pollId: string, optionIndex: number) => {
+    if (!id || !firebaseUser) return;
+    const poll = polls.find(p => p.id === pollId);
+    if (!poll) return;
+    const userVotes = poll.user_votes || {};
+    userVotes[firebaseUser.uid] = optionIndex;
+    try {
+      await updateDoc(doc(db, 'rooms', id, 'polls', pollId), { user_votes: userVotes });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleCreatePoll = async () => {
+    if (!id || !newPollQuestion.trim() || !firebaseUser) return;
+    try {
+      await addDoc(collection(db, 'rooms', id, 'polls'), {
+        question: newPollQuestion.trim(),
+        options: newPollOptions.filter(o => o.trim().length > 0),
+        user_votes: {},
+        created_at: serverTimestamp()
+      });
+      setNewPollQuestion('');
+      setNewPollOptions(['', '']);
+      setShowPollForm(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSavePlaylistUrl = async () => {
+    if (!id) return;
+    try {
+      await updateDoc(doc(db, 'rooms', id), { playlist_url: partyPlaylistUrl });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handlePhotoDumpUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id || !firebaseUser) return;
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        await addDoc(collection(db, 'rooms', id, 'party_photos'), {
+          image_url: reader.result as string,
+          uploader_uid: firebaseUser.uid,
+          created_at: serverTimestamp()
+        });
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleGenerateTrivia = async () => {
+    setIsGeneratingTrivia(true);
+    setTimeout(() => setIsGeneratingTrivia(false), 1200);
+  };
+
+  const handlePublishTriviaToLocker = async (questionId: string) => {
+    if (!id) return;
+    try {
+      await updateDoc(doc(db, 'rooms', id, 'birthday_questions', questionId), {
+        is_published: true
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleAddTriviaQuestion = async () => {
+    if (!id || !newTriviaQuestion.trim() || !firebaseUser) return;
+    try {
+      await addDoc(collection(db, 'rooms', id, 'birthday_questions'), {
+        question_text: newTriviaQuestion.trim(),
+        created_by: firebaseUser.uid,
+        created_at: serverTimestamp()
+      });
+      setNewTriviaQuestion('');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleToggleRequiresAttendance = async () => {
+    if (!id || !group) return;
+    try {
+      await updateDoc(doc(db, 'rooms', id), {
+        requires_attendance: !group.requires_attendance
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
  const [copiedCode, setCopiedCode] = React.useState(false);
  const [ideas, setIdeas] = React.useState<any[]>([]);
 
@@ -1944,6 +2057,462 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  const isCrewAdminOrMod = group?.admins?.includes(firebaseUser?.uid) || group?.mods?.includes(firebaseUser?.uid) || group?.created_by === firebaseUser?.uid;
  const isFullParty = group?.room_type === 'party' || group?.is_party === true || group?.isPartyRoom === true;
 
+ const userRole = group?.roles?.[firebaseUser?.uid] || (group?.created_by === firebaseUser?.uid ? 'admin' : 'guest');
+ const isGuest = userRole === 'guest';
+ const requiresAttendance = group?.requires_attendance || group?.attendance?.requires_attendance;
+ const myRsvp = group?.rsvps?.[firebaseUser?.uid] || 'going';
+ const isAttendanceGated = requiresAttendance && isGuest && myRsvp !== 'going';
+
+ // Helper action handlers
+ const handleVoteTheme = async (themeId: string, currentVotes: string[] = []) => {
+   if (!id || !firebaseUser) return;
+   const uid = firebaseUser.uid;
+   const updated = currentVotes.includes(uid)
+     ? currentVotes.filter(u => u !== uid)
+     : [...currentVotes, uid];
+   try {
+     await updateDoc(doc(db, 'rooms', id, 'themes', themeId), { votes: updated });
+   } catch (e) {
+     console.error("Error voting theme:", e);
+   }
+ };
+
+ const handleVoteVenue = async (venueId: string, currentVotes: string[] = []) => {
+   if (!id || !firebaseUser) return;
+   const uid = firebaseUser.uid;
+   const updated = currentVotes.includes(uid)
+     ? currentVotes.filter(u => u !== uid)
+     : [...currentVotes, uid];
+   try {
+     await updateDoc(doc(db, 'rooms', id, 'venues', venueId), { votes: updated });
+   } catch (e) {
+     console.error("Error voting venue:", e);
+   }
+ };
+
+ const handleVoteGameIdea = async (gameId: string, currentVotes: string[] = []) => {
+   if (!id || !firebaseUser) return;
+   const uid = firebaseUser.uid;
+   const updated = currentVotes.includes(uid)
+     ? currentVotes.filter(u => u !== uid)
+     : [...currentVotes, uid];
+   try {
+     await updateDoc(doc(db, 'rooms', id, 'game_ideas', gameId), { votes: updated });
+   } catch (e) {
+     console.error("Error voting game idea:", e);
+   }
+ };
+
+ const handleAddCustomTheme = async () => {
+   if (!id || !customThemeName.trim()) return;
+   try {
+     await addDoc(collection(db, 'rooms', id, 'themes'), {
+       name: customThemeName.trim(),
+       cost: customThemeCost.trim() || '$',
+       decorations: customThemeDecorations.trim(),
+       vibe: customThemeVibe.trim(),
+       food: customThemeFood.trim(),
+       published: true,
+       created_at: serverTimestamp()
+     });
+     setCustomThemeName(''); setCustomThemeCost(''); setCustomThemeDecorations(''); setCustomThemeVibe(''); setCustomThemeFood('');
+     setShowCustomThemeForm(false);
+   } catch (err) { console.error("Error adding theme:", err); }
+ };
+
+ const handleGenerateAiThemes = async () => {
+   if (!id) return;
+   setIsGeneratingThemes(true);
+   try {
+     const prompt = `Generate 3 creative, immersive party theme ideas for event "${group?.name || 'Party'}".
+Party Vibe/Notes: ${group?.vibe || group?.planner_notes || 'Fun and memorable'}.
+Return a JSON array of objects with keys:
+- "name": String (unique theme title)
+- "cost": String (e.g. "$", "$$", "$$$")
+- "decorations": String (detailed multi-sentence description of lighting, props, color schemes, and setup ideas)
+- "vibe": String (detailed multi-sentence description of the atmosphere, music style, and guest mood)
+- "food": String (detailed multi-sentence food and cocktail menu suggestions matching the theme)
+
+CRITICAL: Provide rich, multi-sentence descriptive content for decorations, vibe, and food. Do NOT use emojis. Output ONLY valid raw JSON array.`;
+     const resText = await callCoachModel([{ role: 'user', parts: [{ text: prompt }] }]);
+     const jsonMatch = resText.match(/\[[\s\S]*\]/);
+     if (jsonMatch) {
+       const items = JSON.parse(jsonMatch[0]);
+       for (const item of items) {
+         await addDoc(collection(db, 'rooms', id, 'themes'), {
+           name: item.name || 'Party Theme',
+           cost: item.cost || '$$',
+           decorations: item.decorations || '',
+           vibe: item.vibe || '',
+           food: item.food || '',
+           published: true,
+           created_at: serverTimestamp()
+         });
+       }
+     }
+   } catch (err) { console.error("Error generating themes:", err); }
+   finally { setIsGeneratingThemes(false); }
+ };
+
+ const handleAddCustomVenue = async () => {
+   if (!id || !customVenueType.trim()) return;
+   try {
+     await addDoc(collection(db, 'rooms', id, 'venues'), {
+       type: customVenueType.trim(),
+       cost: customVenueCost.trim() || '$$',
+       why: customVenueWhy.trim(),
+       tips: customVenueTips.trim(),
+       published: true,
+       created_at: serverTimestamp()
+     });
+     setCustomVenueType(''); setCustomVenueCost(''); setCustomVenueWhy(''); setCustomVenueTips('');
+     setShowCustomVenueForm(false);
+   } catch (err) { console.error("Error adding venue:", err); }
+ };
+
+ const handleGenerateAiVenues = async () => {
+   if (!id) return;
+   setIsGeneratingVenues(true);
+   try {
+     const prompt = `Generate 3 venue ideas for event "${group?.name || 'Party'}".
+Party Vibe/Notes: ${group?.vibe || group?.planner_notes || 'Fun and memorable'}.
+Return a JSON array of objects with keys:
+- "type": String (venue style name)
+- "cost": String (e.g. "$", "$$", "$$$")
+- "why": String (detailed multi-sentence explanation of why this venue fits the event, capacity, and ambiance)
+- "tips": String (detailed multi-sentence practical booking tips, parking/transport notes, and setup advice)
+
+CRITICAL: Provide rich, multi-sentence descriptive content for why and tips. Do NOT use emojis. Output ONLY valid raw JSON array.`;
+     const resText = await callCoachModel([{ role: 'user', parts: [{ text: prompt }] }]);
+     const jsonMatch = resText.match(/\[[\s\S]*\]/);
+     if (jsonMatch) {
+       const items = JSON.parse(jsonMatch[0]);
+       for (const item of items) {
+         await addDoc(collection(db, 'rooms', id, 'venues'), {
+           type: item.type || 'Venue',
+           cost: item.cost || '$$',
+           why: item.why || '',
+           tips: item.tips || '',
+           published: true,
+           created_at: serverTimestamp()
+         });
+       }
+     }
+   } catch (err) { console.error("Error generating venues:", err); }
+   finally { setIsGeneratingVenues(false); }
+ };
+
+ const handleAddCustomGame = async () => {
+   if (!id || !customGameName.trim()) return;
+   try {
+     await addDoc(collection(db, 'rooms', id, 'game_ideas'), {
+       name: customGameName.trim(),
+       description: customGameDescription.trim(),
+       duration: customGameDuration.trim() || '15 mins',
+       materials: customGameMaterials.trim(),
+       published: true,
+       created_at: serverTimestamp()
+     });
+     setCustomGameName(''); setCustomGameDescription(''); setCustomGameDuration(''); setCustomGameMaterials('');
+     setShowCustomGameForm(false);
+   } catch (err) { console.error("Error adding game idea:", err); }
+ };
+
+ const handleGenerateAiGames = async () => {
+   if (!id) return;
+   setIsGeneratingGameIdeas(true);
+   try {
+     const prompt = `Generate 3 party game or activity ideas for event "${group?.name || 'Party'}".
+Party Vibe/Notes: ${group?.vibe || group?.planner_notes || 'Fun and memorable'}.
+Return a JSON array of objects with keys:
+- "name": String (game title)
+- "description": String (detailed multi-sentence explanation of how to play, rules, and host instructions)
+- "duration": String (e.g. "20-30 mins")
+- "materials": String (detailed multi-sentence list of required items, props, or setup needed)
+
+CRITICAL: Provide rich, multi-sentence descriptive content for description and materials. Do NOT use emojis. Output ONLY valid raw JSON array.`;
+     const resText = await callCoachModel([{ role: 'user', parts: [{ text: prompt }] }]);
+     const jsonMatch = resText.match(/\[[\s\S]*\]/);
+     if (jsonMatch) {
+       const items = JSON.parse(jsonMatch[0]);
+       for (const item of items) {
+         await addDoc(collection(db, 'rooms', id, 'game_ideas'), {
+           name: item.name || 'Party Game',
+           description: item.description || '',
+           duration: item.duration || '15 mins',
+           materials: item.materials || 'None',
+           published: true,
+           created_at: serverTimestamp()
+         });
+       }
+     }
+   } catch (err) { console.error("Error generating games:", err); }
+   finally { setIsGeneratingGameIdeas(false); }
+ };
+
+ const handleSaveCustomPlaylist = async () => {
+   if (!id || !customPlaylistVibe.trim()) return;
+   try {
+     await setDoc(doc(db, 'rooms', id, 'playlists', 'current'), {
+       vibe: customPlaylistVibe.trim(),
+       hype_tracks: customPlaylistHype.trim(),
+       mid_tracks: customPlaylistMid.trim(),
+       chill_tracks: customPlaylistChill.trim(),
+       published: true,
+       created_at: serverTimestamp()
+     });
+     setCustomPlaylistVibe(''); setCustomPlaylistHype(''); setCustomPlaylistMid(''); setCustomPlaylistChill('');
+     setShowCustomPlaylistForm(false);
+   } catch (err) { console.error("Error saving playlist:", err); }
+ };
+
+ const handleGenerateAiPlaylist = async () => {
+   if (!id) return;
+   setIsGeneratingPlaylist(true);
+   try {
+     const prompt = `Create a playlist concept for party "${group?.name || 'Party'}". Return a JSON object with keys: vibe, hype_tracks, mid_tracks, chill_tracks. Output JSON object only.`;
+     const resText = await callCoachModel([{ role: 'user', parts: [{ text: prompt }] }]);
+     const jsonMatch = resText.match(/\{[\s\S]*\}/);
+     if (jsonMatch) {
+       const item = JSON.parse(jsonMatch[0]);
+       await setDoc(doc(db, 'rooms', id, 'playlists', 'current'), {
+         vibe: item.vibe || group?.vibe || 'Party Vibes',
+         hype_tracks: item.hype_tracks || '',
+         mid_tracks: item.mid_tracks || '',
+         chill_tracks: item.chill_tracks || '',
+         published: true,
+         created_at: serverTimestamp()
+       });
+     }
+   } catch (err) { console.error("Error generating playlist:", err); }
+   finally { setIsGeneratingPlaylist(false); }
+ };
+
+ const handleProposeQuestion = async () => {
+   if (!id || !newQuestionText.trim() || !firebaseUser) return;
+   setIsProposingQuestion(true);
+   try {
+     await addDoc(collection(db, 'rooms', id, 'birthday_questions'), {
+       question_text: newQuestionText.trim(),
+       created_by: firebaseUser.uid,
+       created_by_name: user?.name || 'Member',
+       created_at: serverTimestamp()
+     });
+     setNewQuestionText('');
+   } catch (err) { console.error("Error proposing question:", err); }
+   finally { setIsProposingQuestion(false); }
+ };
+
+ const handleGenerateAiQuestions = async () => {
+   if (!id) return;
+   setIsGeneratingAIQuestions(true);
+   try {
+     const prompt = `Generate 3 fun trivia questions about guest of honor "${group?.person_name || 'Friend'}". Return a JSON array of strings. Output JSON array only.`;
+     const resText = await callCoachModel([{ role: 'user', parts: [{ text: prompt }] }]);
+     const jsonMatch = resText.match(/\[[\s\S]*\]/);
+     if (jsonMatch) {
+       const questions = JSON.parse(jsonMatch[0]);
+       for (const qText of questions) {
+         await addDoc(collection(db, 'rooms', id, 'birthday_questions'), {
+           question_text: typeof qText === 'string' ? qText : qText.question,
+           created_by: firebaseUser?.uid || 'ai',
+           created_by_name: 'AI Spark Assistant',
+           created_at: serverTimestamp()
+         });
+       }
+     }
+   } catch (err) { console.error("Error generating AI questions:", err); }
+   finally { setIsGeneratingAIQuestions(false); }
+ };
+
+ const handleSaveAnswer = async (questionId: string) => {
+   if (!id || !firebaseUser) return;
+   const answer = userAnswers[questionId];
+   if (!answer?.trim()) return;
+   setIsSavingAnswers(prev => ({ ...prev, [questionId]: true }));
+   try {
+     const respRef = doc(db, 'rooms', id, 'birthday_responses', `${questionId}_${firebaseUser.uid}`);
+     await setDoc(respRef, {
+       question_id: questionId,
+       user_id: firebaseUser.uid,
+       user_name: user?.name || 'Member',
+       answer_text: answer.trim(),
+       updated_at: serverTimestamp()
+     });
+   } catch (err) { console.error("Error saving answer:", err); }
+   finally { setIsSavingAnswers(prev => ({ ...prev, [questionId]: false })); }
+ };
+
+ const handleSendTriviaToVault = async () => {
+   if (!id || !firebaseUser) return;
+   setIsSendingToVaults(true);
+   try {
+     const compiledText = birthdayQuestions.map(q => {
+       const qResps = birthdayResponses.filter(r => r.question_id === q.id);
+       const respStr = qResps.map(r => `${r.user_name}: "${r.answer_text}"`).join(', ');
+       return `Q: ${q.question_text}\nAnswers: ${respStr || 'No answers yet'}`;
+     }).join('\n\n');
+
+     await addDoc(collection(db, 'rooms', id, 'surprises'), {
+       type: 'spark',
+       content: compiledText,
+       user_id: 'spark',
+       user_name: 'Spark Game Results',
+       created_at: serverTimestamp()
+     });
+     alert("Spark Game results compiled & sent to the Locker!");
+   } catch (err) { console.error("Error compiling trivia to vault:", err); }
+   finally { setIsSendingToVaults(false); }
+ };
+
+ const handleAddDatePoll = async () => {
+   if (!id || !newPollDate.trim()) return;
+   try {
+     await addDoc(collection(db, 'rooms', id, 'date_polls'), {
+       date: newPollDate.trim(),
+       time: newPollTime.trim() || 'TBD',
+       votes: [],
+       created_at: serverTimestamp()
+     });
+     setNewPollDate(''); setNewPollTime(''); setShowAddDatePoll(false);
+   } catch (err) { console.error("Error adding date poll:", err); }
+ };
+
+ const handleVoteDatePoll = async (datePollId: string, currentVotes: string[]) => {
+   if (!id || !firebaseUser) return;
+   const userUid = firebaseUser.uid;
+   const hasVoted = currentVotes?.includes(userUid);
+   const updatedVotes = hasVoted ? currentVotes.filter(u => u !== userUid) : [...(currentVotes || []), userUid];
+   try {
+     await updateDoc(doc(db, 'rooms', id, 'date_polls', datePollId), { votes: updatedVotes });
+   } catch (err) { console.error("Error voting on date poll:", err); }
+ };
+
+ const handleAddCustomPoll = async () => {
+   if (!id || !newPollQuestion.trim()) return;
+   try {
+     const validOpts = newPollOptions.filter(o => o.trim());
+     await addDoc(collection(db, 'rooms', id, 'polls'), {
+       question: newPollQuestion.trim(),
+       options: validOpts.map(o => ({ text: o.trim(), votes: [] })),
+       created_at: serverTimestamp()
+     });
+     setNewPollQuestion(''); setNewPollOptions(['', '']); setShowPollForm(false);
+   } catch (err) { console.error("Error adding custom poll:", err); }
+ };
+
+ const handleVotePollOption = async (pollId: string, optionIndex: number, currentPoll: any) => {
+   if (!id || !firebaseUser) return;
+   const userUid = firebaseUser.uid;
+   const newOpts = (currentPoll.options || []).map((opt: any, idx: number) => {
+     let votes = opt.votes || [];
+     if (idx === optionIndex) {
+       votes = votes.includes(userUid) ? votes.filter((u: string) => u !== userUid) : [...votes, userUid];
+     } else {
+       votes = votes.filter((u: string) => u !== userUid);
+     }
+     return { ...opt, votes };
+   });
+   try {
+     await updateDoc(doc(db, 'rooms', id, 'polls', pollId), { options: newOpts });
+   } catch (err) { console.error("Error voting on poll option:", err); }
+ };
+
+ const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+   const file = e.target.files?.[0];
+   if (!file || !id || !firebaseUser) return;
+   setIsUploadingPhoto(true);
+   try {
+     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dffkrlv1k';
+     const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'relateos_uploads';
+     const formData = new FormData();
+     formData.append('file', file);
+     formData.append('upload_preset', uploadPreset);
+     const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+     if (!res.ok) throw new Error("Upload failed");
+     const data = await res.json();
+     await addDoc(collection(db, 'rooms', id, 'party_photos'), {
+       photo_url: data.secure_url,
+       user_id: firebaseUser.uid,
+       user_name: user?.name || 'Guest',
+       caption: '',
+       created_at: serverTimestamp()
+     });
+   } catch (err) { console.error("Photo upload error:", err); }
+   finally { setIsUploadingPhoto(false); }
+ };
+
+ const handleGenerateAiMemory = async () => {
+   if (!id) return;
+   setIsGeneratingMemory(true);
+   try {
+     const prompt = `Write a nostalgic, fun 2-paragraph memory recap for a party named "${group?.name || 'Party'}". Highlight how amazing the atmosphere and guest connections were. Keep it clean without emojis.`;
+     const resText = await callCoachModel([{ role: 'user', parts: [{ text: prompt }] }]);
+     const cleanText = (resText || '').replace(/[\u{1F300}-\u{1F9FF}]/gu, '');
+     setPartyMemory(cleanText);
+     await updateDoc(doc(db, 'rooms', id), { memory_recap: cleanText });
+   } catch (err) { console.error("Memory generation error:", err); }
+   finally { setIsGeneratingMemory(false); }
+ };
+
+ const handleSaveRoomDetails = async () => {
+   if (!id) return;
+   setIsSavingRoomDetails(true);
+   try {
+     await updateDoc(doc(db, 'rooms', id), {
+       name: editRoomName.trim() || group?.name,
+       notes: editRoomNotes.trim()
+     });
+     alert("Room details saved!");
+   } catch (err) { console.error("Save details error:", err); }
+   finally { setIsSavingRoomDetails(false); }
+ };
+
+ const handleSavePlannerNotes = async () => {
+   if (!id) return;
+   setIsSavingPlannerNotes(true);
+   try {
+     await updateDoc(doc(db, 'rooms', id), { planner_notes: editPlannerNotes.trim() });
+     alert("Planner notes saved!");
+   } catch (err) { console.error("Save planner notes error:", err); }
+   finally { setIsSavingPlannerNotes(false); }
+ };
+
+ const handleSavePartyDate = async () => {
+   if (!id) return;
+   setIsSavingPartyDate(true);
+   try {
+     await updateDoc(doc(db, 'rooms', id), { party_date: editPartyDate });
+     alert("Party date saved!");
+   } catch (err) { console.error("Save date error:", err); }
+   finally { setIsSavingPartyDate(false); }
+ };
+
+ const handleSaveJoinCode = async () => {
+   if (!id || !editJoinCode.trim()) return;
+   const cleanCode = editJoinCode.trim().toUpperCase();
+   if (cleanCode.length < 3) {
+     setEditJoinCodeError("Join code must be at least 3 characters.");
+     return;
+   }
+   setIsSavingJoinCode(true);
+   setEditJoinCodeError('');
+   try {
+     await updateDoc(doc(db, 'rooms', id), {
+       join_code: cleanCode,
+       invite_code: cleanCode,
+       normalized_join_code: cleanCode.toLowerCase()
+     });
+     setEditJoinCodeSuccess(true);
+     setIsEditingJoinCode(false);
+   } catch (err) {
+     console.error("Save join code error:", err);
+     setEditJoinCodeError("Failed to save join code.");
+   } finally {
+     setIsSavingJoinCode(false);
+   }
+ };
+
  const handleUpdateRsvp = async (newRsvp: 'going' | 'maybe' | 'not_going') => {
    if (!id || !firebaseUser) return;
    try {
@@ -1993,11 +2562,82 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  </button>
  </div>
 
+ {isFullParty ? (
+ <div className="relative">
+   <button
+     onClick={() => setIsTabMenuOpen(!isTabMenuOpen)}
+     className="w-full flex items-center justify-between p-3 bg-zinc-100 dark:bg-zinc-800 rounded-2xl font-extrabold text-xs uppercase tracking-wider text-zinc-900 dark:text-zinc-100 border border-zinc-200/50 dark:border-zinc-700/50 shadow-sm transition-all hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
+   >
+     <div className="flex items-center gap-2">
+       <Sparkles size={16} className="text-emerald-500" />
+       <span>
+         {partyActiveTab === 'setup' && ' Overview & Setup'}
+         {partyActiveTab === 'plan' && ' Themes, Venues & Ideas'}
+         {partyActiveTab === 'polls' && ' Polls & Date Options'}
+         {partyActiveTab === 'guests' && ' Guest List & Roles'}
+         {partyActiveTab === 'vibes' && ' Playlist & Vibes'}
+         {partyActiveTab === 'photos' && ' Photo Dump'}
+         {partyActiveTab === 'chat' && ' Party Chat'}
+         {partyActiveTab === 'trivia' && ' Spark & Trivia Builder'}
+         {partyActiveTab === 'ai_assistant' && ' Ask AI'}
+         {partyActiveTab === 'settings' && ' Room Settings'}
+       </span>
+     </div>
+     <ChevronDown size={16} className={cn("text-zinc-400 transition-transform duration-200", isTabMenuOpen && "rotate-180")} />
+   </button>
+
+   <AnimatePresence>
+     {isTabMenuOpen && (
+       <>
+         <div className="fixed inset-0 z-20" onClick={() => setIsTabMenuOpen(false)} />
+         <motion.div
+           initial={{ opacity: 0, y: -8, scale: 0.98 }}
+           animate={{ opacity: 1, y: 0, scale: 1 }}
+           exit={{ opacity: 0, y: -8, scale: 0.98 }}
+           className="absolute left-0 right-0 top-full mt-2 z-30 bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 rounded-2xl dark:shadow-lg overflow-hidden p-1.5 space-y-1"
+         >
+           {[
+             { id: 'setup', label: ' Overview & Setup', icon: LayoutDashboard },
+             { id: 'plan', label: ' Themes, Venues & Ideas', icon: Palette },
+             { id: 'polls', label: ' Polls & Date Options', icon: Vote },
+             { id: 'guests', label: ' Guest List & Roles', icon: Users },
+             { id: 'vibes', label: ' Playlist & Vibes', icon: Music },
+             { id: 'photos', label: ' Photo Dump', icon: ImageIcon },
+             { id: 'chat', label: ' Party Chat', icon: MessageSquare },
+             { id: 'trivia', label: ' Spark & Trivia Builder', icon: Sparkles },
+             ...(isCrewAdminOrMod ? [
+               { id: 'ai_assistant', label: ' Ask AI', icon: Bot },
+               { id: 'settings', label: ' Room Settings', icon: Settings },
+             ] : []),
+           ].map(tabItem => (
+             <button
+               key={tabItem.id}
+               onClick={() => {
+                 setPartyActiveTab(tabItem.id as any);
+                 setIsTabMenuOpen(false);
+               }}
+               className={cn(
+                 "w-full flex items-center justify-between p-2.5 px-3 rounded-xl text-xs font-bold transition-all text-left cursor-pointer",
+                 partyActiveTab === tabItem.id
+                   ? "bg-emerald-500 text-white font-extrabold shadow-sm"
+                   : "text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+               )}
+             >
+               <div className="flex items-center gap-2.5">
+                 <tabItem.icon size={15} />
+                 <span>{tabItem.label}</span>
+               </div>
+               {partyActiveTab === tabItem.id && <Check size={14} />}
+             </button>
+           ))}
+         </motion.div>
+       </>
+     )}
+   </AnimatePresence>
+ </div>
+ ) : (
  <div className="flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl">
- {(isFullParty 
-   ? (['planning', 'guests', 'vault', 'chat'] as const)
-   : (['planning', 'vault', 'chat'] as const)
- ).map((tab) => (
+ {(['planning', 'vault', 'chat'] as const).map((tab) => (
  <button
  key={tab}
  onClick={() => setActiveTab(tab)}
@@ -2008,13 +2648,819 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  : "text-zinc-400"
  )}
  >
- {tab === 'vault' ? 'Locker' : tab === 'guests' ? 'Guests' : tab === 'chat' ? 'Chat' : isFullParty ? 'Party Plan' : 'Plan'}
+ {tab === 'vault' ? 'Locker' : tab === 'chat' ? 'Chat' : 'Plan'}
  </button>
  ))}
  </div>
+ )}
  </header>
 
  <div className="p-6 space-y-8 max-w-2xl mx-auto">
+ {isFullParty ? (
+   <div className="space-y-8">
+     {isAttendanceGated && partyActiveTab !== 'setup' && partyActiveTab !== 'guests' ? (
+       <div className="p-8 bg-amber-500/10 border border-amber-500/20 rounded-3xl text-center space-y-4">
+         <Shield size={40} className="mx-auto text-amber-500" />
+         <h3 className="text-lg font-black text-amber-900 dark:text-amber-200">Attendance RSVP Required</h3>
+         <p className="text-xs text-zinc-500 max-w-md mx-auto">
+           This party has attendance gating enabled. Please RSVP "Going" under Overview & Setup to access themes, venues, polls, and party plans!
+         </p>
+         <div className="flex justify-center gap-2 pt-2">
+           <button
+             onClick={() => handleUpdateRsvp('going')}
+             className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+           >
+             I'm Going!
+           </button>
+         </div>
+       </div>
+     ) : (
+       <>
+         {partyActiveTab === 'setup' && (
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+             <div className="p-6 bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-3xl shadow-xl space-y-4 relative overflow-hidden">
+               <div className="flex items-center justify-between">
+                 <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest">
+                   Full Party Mode
+                 </span>
+                 {group?.vibe && (
+                   <span className="text-xs font-bold bg-black/20 px-3 py-1 rounded-full">
+                     Vibe: {group.vibe}
+                   </span>
+                 )}
+               </div>
+
+               <div>
+                 <h2 className="text-2xl font-black tracking-tight">{group?.name}</h2>
+                 {group?.notes && <p className="text-xs opacity-90 mt-1">{group.notes}</p>}
+               </div>
+
+               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-white/20">
+                 {group?.party_date && (
+                   <div>
+                     <p className="text-[9px] uppercase font-bold text-emerald-200">Date & Time</p>
+                     <p className="text-xs font-extrabold">{group.party_date} {group?.party_time && `@ ${group.party_time}`}</p>
+                   </div>
+                 )}
+                 <div>
+                   <p className="text-[9px] uppercase font-bold text-emerald-200">Guest Count</p>
+                   <p className="text-xs font-extrabold">{group?.guest_count || (group?.members?.length || 1)} Guests</p>
+                 </div>
+                 <div>
+                   <p className="text-[9px] uppercase font-bold text-emerald-200">My RSVP</p>
+                   <p className="text-xs font-extrabold capitalize">{group?.rsvps?.[firebaseUser?.uid] || 'Going'}</p>
+                 </div>
+               </div>
+
+               <div className="pt-2 border-t border-white/20 flex flex-wrap items-center justify-between gap-2">
+                 <span className="text-xs font-bold">Update My RSVP:</span>
+                 <div className="flex gap-1.5">
+                   {(['going', 'maybe', 'not_going'] as const).map((status) => {
+                     const currentRsvp = group?.rsvps?.[firebaseUser?.uid] || 'going';
+                     const isSel = currentRsvp === status;
+                     return (
+                       <button
+                         key={status}
+                         onClick={() => handleUpdateRsvp(status)}
+                         className={cn(
+                           "px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer",
+                           isSel
+                             ? "bg-white text-emerald-800 shadow-md"
+                             : "bg-white/10 hover:bg-white/20 text-white"
+                         )}
+                       >
+                         {status === 'not_going' ? 'Not Going' : status}
+                       </button>
+                     );
+                   })}
+                 </div>
+               </div>
+             </div>
+
+             {group?.person_birthday && (
+               (() => {
+                 const days = getDaysUntil(group.person_birthday);
+                 let text = "";
+                 if (days === 0) {
+                   text = ` It's ${group?.person_name || 'Friend'}'s birthday TODAY!`;
+                 } else if (days === 1) {
+                   text = `Tomorrow is ${group?.person_name || 'Friend'}'s birthday! `;
+                 } else {
+                   text = `${days} days until ${group?.person_name || 'Friend'}'s birthday `;
+                 }
+                 return (
+                   <div className="bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-3xl p-6 border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg">
+                     <p className="text-lg font-extrabold tracking-tight">{text}</p>
+                   </div>
+                 );
+               })()
+             )}
+
+             {isCrewAdminOrMod && (
+               <section className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-[32px] flex items-center justify-between gap-4 animate-fade-in">
+                 <div className="space-y-1">
+                   <h3 className="font-extrabold text-sm tracking-tight text-amber-850 dark:text-amber-300">Host Controls</h3>
+                   <p className="text-xs text-zinc-500 dark:text-zinc-400">Send an urgent home screen ping to everyone in the party planning room.</p>
+                 </div>
+                 <button
+                   onClick={() => {
+                     setAdminTypedMessage('');
+                     setShowNotifyCrewModal(true);
+                   }}
+                   className="py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-amber-500/10 flex-shrink-0 cursor-pointer"
+                 >
+                   Notify Crew
+                 </button>
+               </section>
+             )}
+
+             <div className="space-y-3">
+               <div className="p-4 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-2xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg flex justify-between items-center">
+                 <div>
+                   <p className="text-[10px] uppercase font-bold text-zinc-400">Party Join Code</p>
+                   <p className="text-xl font-mono font-bold tracking-widest">{group?.join_code || group?.invite_code}</p>
+                 </div>
+                 <button className="px-4 py-2 bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-900 text-zinc-800 dark:text-zinc-100 rounded-xl text-xs font-bold cursor-pointer transition-all" onClick={() => {
+                   navigator.clipboard.writeText(group?.join_code || group?.invite_code || '');
+                   alert('Join Code copied!');
+                 }}>Copy Code</button>
+               </div>
+
+               <button 
+                 onClick={() => {
+                   navigator.clipboard.writeText(`${window.location.origin}/surprise/${id}`);
+                   setLinkCopied(true);
+                   setTimeout(() => setLinkCopied(false), 2000);
+                 }} 
+                 className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.99] text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/10 text-sm cursor-pointer"
+               >
+                 <Share2 size={16} />
+                 {linkCopied ? "Link copied!" : "Share Party Link"}
+               </button>
+             </div>
+
+             <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+               <div>
+                 <div className="flex justify-between items-center">
+                   <h3 className="font-bold flex items-center gap-2">
+                     <DollarSign size={18} className="text-emerald-500" />
+                     Gift Pool
+                   </h3>
+                   <span className="text-sm font-bold">${totalContributed} / ${targetAmount}</span>
+                 </div>
+                 <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium font-sans mt-1">
+                   Track who's chipping in — this doesn't process real payments (pledge tracker only).
+                 </p>
+               </div>
+               <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                 <motion.div 
+                   initial={{ width: 0 }}
+                   animate={{ width: `${progress}%` }}
+                   className="h-full bg-emerald-500" 
+                 />
+               </div>
+
+               <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                 <p className="text-[10px] text-zinc-400 uppercase font-black tracking-wide">Chip-in Logs</p>
+                 {contributions && contributions.length > 0 ? (
+                   <div className="flex flex-wrap gap-2 pt-1">
+                     {contributions.map((c: any, idx: number) => (
+                       <span key={idx} className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black px-2.5 py-1.5 rounded-full flex items-center gap-1">
+                         {c.user_name} contributed ${c.amount}
+                       </span>
+                     ))}
+                   </div>
+                 ) : (
+                   <p className="text-xs text-zinc-400 italic">No pool contributions added yet.</p>
+                 )}
+               </div>
+
+               <AnimatePresence>
+                 {isContributingSidebar ? (
+                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-3 pt-2">
+                     <div className="flex gap-2">
+                       {['10', '25', '50', '100'].map(amt => (
+                         <button 
+                           key={amt}
+                           onClick={() => setContributionAmountSidebar(amt)}
+                           className={`flex-1 py-2 rounded-xl text-sm font-bold border transition-all ${
+                             contributionAmountSidebar === amt ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-100 dark:border-zinc-700'
+                           }`}
+                         >
+                           ${amt}
+                         </button>
+                       ))}
+                     </div>
+                     <div className="flex gap-2">
+                       <button onClick={() => setIsContributingSidebar(false)} className="flex-1 py-3 text-sm font-bold text-zinc-500">Cancel</button>
+                       <button onClick={handleContribute} className="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-bold text-sm">Confirm</button>
+                     </div>
+                   </motion.div>
+                 ) : (
+                   <div className="space-y-2">
+                     <button onClick={() => setIsContributingSidebar(true)} className="w-full py-3 bg-emerald-500/10 text-emerald-600 rounded-xl font-bold text-sm cursor-pointer">
+                       Contribute to Pool
+                     </button>
+                     {isCrewAdminOrMod && !group?.gift_finalized && (
+                       <button onClick={handleFinalizeGift} className="w-full py-3 bg-amber-500 text-white rounded-xl font-bold text-sm cursor-pointer shadow-sm shadow-amber-500/10">
+                         Finalize Gift Choice 
+                       </button>
+                     )}
+                     {group?.gift_finalized && (
+                       <div className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded-xl font-bold text-sm text-center">
+                         Gift Choice Finalized 
+                       </div>
+                     )}
+                   </div>
+                 )}
+               </AnimatePresence>
+             </section>
+
+             <section className="space-y-4">
+               <div className="flex justify-between items-center">
+                 <h2 className="text-lg font-bold flex items-center gap-2">
+                   <Sparkles size={20} className="text-amber-500" />
+                   AI Gift Suggestions
+                 </h2>
+                 <button onClick={handleGenerateSuggestions} disabled={isGeneratingSuggestions} className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1 cursor-pointer">
+                   {isGeneratingSuggestions ? 'Analyzing...' : 'Refresh Suggestions'}
+                 </button>
+               </div>
+               <div className="grid grid-cols-1 gap-4">
+                 {aiSuggestions.length > 0 ? aiSuggestions.map((suggestion, i) => (
+                   <motion.a key={i} href={suggestion.searchUrl} target="_blank" rel="noopener noreferrer" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }} className="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex justify-between items-center group hover:border-emerald-500 transition-all">
+                     <div className="flex-1">
+                       <div className="flex items-center gap-2">
+                         <h4 className="font-bold">{suggestion.title}</h4>
+                         <span className="text-xs font-bold text-emerald-500">{suggestion.price}</span>
+                       </div>
+                       <p className="text-xs text-zinc-500 mt-1">{suggestion.reason}</p>
+                     </div>
+                     <div className="p-2 text-zinc-300 group-hover:text-emerald-500 transition-colors">
+                       <ExternalLink size={18} />
+                     </div>
+                   </motion.a>
+                 )) : (
+                   <div className="p-8 text-center bg-zinc-50 dark:bg-zinc-800/50 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-700">
+                     <p className="text-zinc-500 text-sm">Tap refresh to see AI gift ideas based on the current pool and interests.</p>
+                   </div>
+                 )}
+               </div>
+             </section>
+
+             <section className="space-y-4">
+               <div className="flex justify-between items-center">
+                 <h2 className="text-lg font-bold flex items-center gap-2">
+                   <Vote size={20} className="text-zinc-400" />
+                   Idea Board
+                 </h2>
+               </div>
+               <div className="space-y-4">
+                 {ideas?.map((idea: any) => (
+                   <motion.div key={idea.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex justify-between items-start">
+                     <div>
+                       <h4 className="font-bold">{idea.title}</h4>
+                       <p className="text-sm text-zinc-500">{idea.description}</p>
+                     </div>
+                     <button onClick={() => handleVote(idea.id, idea.votes || [])} className="flex flex-col items-center p-2 bg-zinc-50 dark:bg-zinc-800 rounded-xl min-w-[44px] cursor-pointer">
+                       <ChevronUp size={20} className={cn((idea.votes || []).includes(firebaseUser?.uid) && "text-emerald-500")} />
+                       <span className="text-xs font-bold">{(idea.votes || []).length}</span>
+                     </button>
+                   </motion.div>
+                 ))}
+               </div>
+               <div className="flex gap-2">
+                 <input value={newIdea || ''} onChange={(e) => setNewIdea(e.target.value)} className="flex-1 p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-sm" placeholder="Suggest something..." />
+                 <button onClick={handleAddIdea} className="p-4 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-2xl cursor-pointer">
+                   <Plus size={24} />
+                 </button>
+               </div>
+             </section>
+           </motion.div>
+         )}
+
+         {partyActiveTab === 'plan' && (
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+             <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+               <div className="flex items-center justify-between">
+                 <h3 className="font-extrabold text-base flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                   <Palette size={20} className="text-emerald-500" />
+                   Party Themes & Aesthetics
+                 </h3>
+                 <button onClick={handleGenerateAiThemes} disabled={isGeneratingThemes} className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1 cursor-pointer hover:text-emerald-400 transition-colors">
+                   {isGeneratingThemes ? 'Generating...' : 'AI Generate'}
+                 </button>
+               </div>
+               <div className="grid grid-cols-1 gap-3">
+                 {partyThemes.map((t: any) => (
+                   <div key={t.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-700 space-y-2">
+                     <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-2">
+                         <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">{t.name}</h4>
+                         {t.cost && <span className="text-xs font-bold text-emerald-500">{t.cost}</span>}
+                       </div>
+                       <button onClick={() => handleVoteTheme(t.id, t.votes || [])} className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs rounded-xl border border-emerald-500/20 transition-all cursor-pointer">
+                         {(t.votes || []).includes(firebaseUser?.uid) ? 'Voted' : 'Vote'} ({(t.votes || []).length})
+                       </button>
+                     </div>
+                     {t.vibe && <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed"><strong className="text-zinc-700 dark:text-zinc-200">Vibe:</strong> {t.vibe}</p>}
+                     {t.decorations && <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed"><strong className="text-zinc-700 dark:text-zinc-200">Decor:</strong> {t.decorations}</p>}
+                     {t.food && <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed"><strong className="text-zinc-700 dark:text-zinc-200">Menu & Drinks:</strong> {t.food}</p>}
+                   </div>
+                 ))}
+                 {partyThemes.length === 0 && (
+                   <p className="text-xs text-zinc-400 italic text-center py-4">No party themes proposed yet. Tap AI Generate or add your custom theme below!</p>
+                 )}
+               </div>
+
+               {showCustomThemeForm ? (
+                 <div className="space-y-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                   <input value={customThemeName} onChange={(e) => setCustomThemeName(e.target.value)} placeholder="Theme Name..." className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 outline-none" />
+                   <input value={customThemeVibe} onChange={(e) => setCustomThemeVibe(e.target.value)} placeholder="Atmosphere & Vibe..." className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 outline-none" />
+                   <input value={customThemeDecorations} onChange={(e) => setCustomThemeDecorations(e.target.value)} placeholder="Decorations & Props..." className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 outline-none" />
+                   <div className="flex gap-2">
+                     <button onClick={() => setShowCustomThemeForm(false)} className="px-4 py-2.5 text-xs font-bold text-zinc-500 cursor-pointer">Cancel</button>
+                     <button onClick={handleAddCustomTheme} className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all">Add Theme</button>
+                   </div>
+                 </div>
+               ) : (
+                 <button onClick={() => setShowCustomThemeForm(true)} className="w-full py-2.5 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-bold text-xs rounded-xl border border-zinc-200 dark:border-zinc-700 transition-all cursor-pointer">
+                   + Add Custom Theme
+                 </button>
+               )}
+             </section>
+
+             <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+               <div className="flex items-center justify-between">
+                 <h3 className="font-extrabold text-base flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                   <Eye size={20} className="text-emerald-500" />
+                   Venues & Locations
+                 </h3>
+                 <button onClick={handleGenerateAiVenues} disabled={isGeneratingVenues} className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1 cursor-pointer hover:text-emerald-400 transition-colors">
+                   {isGeneratingVenues ? 'Analyzing...' : 'AI Generate'}
+                 </button>
+               </div>
+               <div className="grid grid-cols-1 gap-3">
+                 {partyVenues.map((v: any) => (
+                   <div key={v.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-700 space-y-2">
+                     <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-2">
+                         <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">{v.type || v.name}</h4>
+                         {v.cost && <span className="text-xs font-bold text-emerald-500">{v.cost}</span>}
+                       </div>
+                       <button onClick={() => handleVoteVenue(v.id, v.votes || [])} className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs rounded-xl border border-emerald-500/20 transition-all cursor-pointer">
+                         {(v.votes || []).includes(firebaseUser?.uid) ? 'Voted' : 'Vote'} ({(v.votes || []).length})
+                       </button>
+                     </div>
+                     {v.why && <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed"><strong className="text-zinc-700 dark:text-zinc-200">Why it fits:</strong> {v.why}</p>}
+                     {v.tips && <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed"><strong className="text-zinc-700 dark:text-zinc-200">Tips:</strong> {v.tips}</p>}
+                   </div>
+                 ))}
+                 {partyVenues.length === 0 && (
+                   <p className="text-xs text-zinc-400 italic text-center py-4">No venues proposed yet. Tap AI Generate or add your venue idea below!</p>
+                 )}
+               </div>
+
+               {showCustomVenueForm ? (
+                 <div className="space-y-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                   <input value={customVenueType} onChange={(e) => setCustomVenueType(e.target.value)} placeholder="Venue Style / Name..." className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 outline-none" />
+                   <input value={customVenueWhy} onChange={(e) => setCustomVenueWhy(e.target.value)} placeholder="Why it fits this event..." className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 outline-none" />
+                   <input value={customVenueTips} onChange={(e) => setCustomVenueTips(e.target.value)} placeholder="Booking tips / logistics..." className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 outline-none" />
+                   <div className="flex gap-2">
+                     <button onClick={() => setShowCustomVenueForm(false)} className="px-4 py-2.5 text-xs font-bold text-zinc-500 cursor-pointer">Cancel</button>
+                     <button onClick={handleAddCustomVenue} className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all">Add Venue</button>
+                   </div>
+                 </div>
+               ) : (
+                 <button onClick={() => setShowCustomVenueForm(true)} className="w-full py-2.5 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-bold text-xs rounded-xl border border-zinc-200 dark:border-zinc-700 transition-all cursor-pointer">
+                   + Add Custom Venue
+                 </button>
+               )}
+             </section>
+
+             <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+               <div className="flex items-center justify-between">
+                 <h3 className="font-extrabold text-base flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                   <Gamepad2 size={20} className="text-emerald-500" />
+                   Game Ideas & Proposals
+                 </h3>
+                 <button onClick={handleGenerateAiGames} disabled={isGeneratingGameIdeas} className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1 cursor-pointer hover:text-emerald-400 transition-colors">
+                   {isGeneratingGameIdeas ? 'Generating...' : 'AI Generate'}
+                 </button>
+               </div>
+               <div className="grid grid-cols-1 gap-3">
+                 {partyGameIdeas.map((g: any) => (
+                   <div key={g.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-700 space-y-2">
+                     <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-2">
+                         <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">{g.name || g.title}</h4>
+                         {g.duration && <span className="text-xs font-bold text-emerald-500">{g.duration}</span>}
+                       </div>
+                       <button onClick={() => handleVoteGameIdea(g.id, g.votes || [])} className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs rounded-xl border border-emerald-500/20 transition-all cursor-pointer">
+                         {(g.votes || []).includes(firebaseUser?.uid) ? 'Voted' : 'Vote'} ({(g.votes || []).length})
+                       </button>
+                     </div>
+                     {g.description && <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed"><strong className="text-zinc-700 dark:text-zinc-200">Rules & Setup:</strong> {g.description}</p>}
+                     {g.materials && <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed"><strong className="text-zinc-700 dark:text-zinc-200">Materials:</strong> {g.materials}</p>}
+                   </div>
+                 ))}
+                 {partyGameIdeas.length === 0 && (
+                   <p className="text-xs text-zinc-400 italic text-center py-4">No game proposals added yet. Tap AI Generate or propose a game below!</p>
+                 )}
+               </div>
+
+               {showCustomGameForm ? (
+                 <div className="space-y-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                   <input value={customGameName} onChange={(e) => setCustomGameName(e.target.value)} placeholder="Game Title..." className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 outline-none" />
+                   <input value={customGameDescription} onChange={(e) => setCustomGameDescription(e.target.value)} placeholder="Rules and instructions..." className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 outline-none" />
+                   <input value={customGameMaterials} onChange={(e) => setCustomGameMaterials(e.target.value)} placeholder="Required materials / props..." className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 outline-none" />
+                   <div className="flex gap-2">
+                     <button onClick={() => setShowCustomGameForm(false)} className="px-4 py-2.5 text-xs font-bold text-zinc-500 cursor-pointer">Cancel</button>
+                     <button onClick={handleAddCustomGame} className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all">Add Game</button>
+                   </div>
+                 </div>
+               ) : (
+                 <button onClick={() => setShowCustomGameForm(true)} className="w-full py-2.5 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-bold text-xs rounded-xl border border-zinc-200 dark:border-zinc-700 transition-all cursor-pointer">
+                   + Propose Party Game
+                 </button>
+               )}
+             </section>
+           </motion.div>
+         )}
+
+         {partyActiveTab === 'polls' && (
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+               <h3 className="font-extrabold text-base flex items-center gap-2">
+                 <Vote size={20} className="text-emerald-500" />
+                 Party Polls & Date Options
+               </h3>
+               <div className="space-y-4">
+                 {polls.map((poll: any) => (
+                   <div key={poll.id} className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl space-y-3">
+                     <p className="font-extrabold text-sm">{poll.question}</p>
+                     <div className="space-y-2">
+                       {(poll.options || []).map((opt: any, idx: number) => {
+                         const hasVoted = (opt.votes || []).includes(firebaseUser?.uid);
+                         return (
+                           <button
+                             key={idx}
+                             onClick={() => handleVotePoll(poll.id, idx)}
+                             className={cn(
+                               "w-full p-3 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border",
+                               hasVoted
+                                 ? "bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-300"
+                                 : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200"
+                             )}
+                           >
+                             <span>{opt.text}</span>
+                             <span className="text-[10px] font-black uppercase">{(opt.votes || []).length} Votes</span>
+                           </button>
+                         );
+                       })}
+                     </div>
+                   </div>
+                 ))}
+               </div>
+
+               <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl space-y-3 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                 <p className="text-xs font-extrabold uppercase text-zinc-400">Create New Poll</p>
+                 <input value={newPollQuestion} onChange={(e) => setNewPollQuestion(e.target.value)} placeholder="Poll Question..." className="w-full p-3 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none" />
+                 <div className="space-y-2">
+                   {newPollOptions.map((opt, i) => (
+                     <input key={i} value={opt} onChange={(e) => {
+                       const updated = [...newPollOptions];
+                       updated[i] = e.target.value;
+                       setNewPollOptions(updated);
+                     }} placeholder={`Option ${i + 1}...`} className="w-full p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none" />
+                   ))}
+                 </div>
+                 <div className="flex gap-2">
+                   <button onClick={() => setNewPollOptions([...newPollOptions, ''])} className="px-3 py-2 bg-zinc-200 dark:bg-zinc-700 text-xs font-bold rounded-xl cursor-pointer">Add Option</button>
+                   <button onClick={handleCreatePoll} className="flex-1 py-2 bg-emerald-500 text-white text-xs font-bold rounded-xl cursor-pointer">Create Poll</button>
+                 </div>
+               </div>
+             </section>
+           </motion.div>
+         )}
+
+         {partyActiveTab === 'guests' && (
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+             <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+               <div className="flex justify-between items-center">
+                 <div>
+                   <h3 className="font-extrabold text-base flex items-center gap-2">
+                     <Users size={20} className="text-emerald-500" />
+                     Guest List & Roles
+                   </h3>
+                   <p className="text-xs text-zinc-500 mt-0.5">
+                     Total Members: {group?.members?.length || 0}
+                   </p>
+                 </div>
+                 <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-black rounded-full">
+                   {Object.values(group?.rsvps || {}).filter(v => v === 'going').length} Going
+                 </span>
+               </div>
+
+               <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-between text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                 <span> 10 Core Planners (Admins/Planners)</span>
+                 <span> 30 General Guests</span>
+               </div>
+
+               <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                 {(group?.members || []).map((memberUid: string) => {
+                   const memberName = memberNames[memberUid] || (memberUid === firebaseUser?.uid ? (user?.name || 'You') : 'Member');
+                   const role = group?.roles?.[memberUid] || (group?.created_by === memberUid ? 'admin' : 'guest');
+                   const rsvp = group?.rsvps?.[memberUid] || 'going';
+
+                   return (
+                     <div key={memberUid} className="py-3.5 flex items-center justify-between gap-3">
+                       <div className="flex items-center gap-3">
+                         <div className="w-9 h-9 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center text-sm">
+                           {memberName.charAt(0).toUpperCase()}
+                         </div>
+                         <div>
+                           <p className="text-sm font-bold flex items-center gap-2">
+                             {memberName}
+                             {memberUid === firebaseUser?.uid && <span className="text-[10px] text-zinc-400 font-normal">(You)</span>}
+                           </p>
+                           <p className="text-[10px] text-zinc-400 uppercase font-semibold">
+                             RSVP: <span className="text-emerald-600 dark:text-emerald-400 font-bold capitalize">{rsvp}</span>
+                           </p>
+                         </div>
+                       </div>
+
+                       <div className="flex items-center gap-2">
+                         {isCrewAdminOrMod ? (
+                           <select
+                             value={role}
+                             onChange={(e) => handleUpdateMemberRole(memberUid, e.target.value as any)}
+                             className="p-1.5 px-2 bg-zinc-50 dark:bg-zinc-800 text-xs font-bold rounded-xl border border-zinc-200 dark:border-zinc-700 outline-none text-zinc-900 dark:text-zinc-100"
+                           >
+                             <option value="admin">Admin</option>
+                             <option value="planner">Planner</option>
+                             <option value="guest">Guest</option>
+                           </select>
+                         ) : (
+                           <span className="px-2.5 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-xs font-bold rounded-lg uppercase">
+                             {role}
+                           </span>
+                         )}
+                       </div>
+                     </div>
+                   );
+                 })}
+               </div>
+             </div>
+           </motion.div>
+         )}
+
+         {partyActiveTab === 'vibes' && (
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+               <h3 className="font-extrabold text-base flex items-center gap-2">
+                 <Music size={20} className="text-emerald-500" />
+                 Playlist & Vibes Board
+               </h3>
+               <p className="text-xs text-zinc-500">Add a Spotify or Apple Music link to sync the party music!</p>
+               <div className="flex gap-2">
+                 <input value={partyPlaylistUrl} onChange={(e) => setPartyPlaylistUrl(e.target.value)} placeholder="https://open.spotify.com/playlist/..." className="flex-1 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none text-xs outline-none" />
+                 <button onClick={handleSavePlaylistUrl} className="px-4 py-3 bg-emerald-500 text-white font-bold text-xs rounded-xl cursor-pointer">Save Link</button>
+               </div>
+               {group?.playlist_url && (
+                 <a href={group.playlist_url} target="_blank" rel="noopener noreferrer" className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-between text-xs font-bold text-emerald-600 dark:text-emerald-300">
+                   <span>Open Spotify Party Playlist</span>
+                   <ExternalLink size={16} />
+                 </a>
+               )}
+             </section>
+           </motion.div>
+         )}
+
+         {partyActiveTab === 'photos' && (
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+               <div className="flex justify-between items-center">
+                 <h3 className="font-extrabold text-base flex items-center gap-2">
+                   <Camera size={20} className="text-emerald-500" />
+                   Party Photo Dump
+                 </h3>
+                 <label className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold cursor-pointer hover:bg-emerald-600 transition-all">
+                   Upload Photo
+                   <input type="file" accept="image/*" onChange={handlePhotoDumpUpload} className="hidden" />
+                 </label>
+               </div>
+               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                 {photoDumpImages.map((imgUrl: string, idx: number) => (
+                   <img key={idx} src={imgUrl} alt={`Photo ${idx}`} className="w-full h-36 object-cover rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800" />
+                 ))}
+                 {photoDumpImages.length === 0 && (
+                   <div className="col-span-full p-8 text-center bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-700 text-xs text-zinc-400">
+                     No photo dump images yet! Upload the first party snap.
+                   </div>
+                 )}
+               </div>
+             </section>
+           </motion.div>
+         )}
+
+         {partyActiveTab === 'chat' && (
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col h-[600px] bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 overflow-hidden shadow-xl">
+             {isPlannerOrAdmin && (
+               <div className="flex border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/20 p-2.5 gap-2 shrink-0">
+                 <button onClick={() => setSelectedChatChannel('everyone')} className={cn("flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer font-sans", selectedChatChannel === 'everyone' ? "bg-emerald-500 text-white shadow-sm" : "bg-transparent text-zinc-400")}>
+                   Everyone Chat
+                 </button>
+                 <button onClick={() => setSelectedChatChannel('admin_planner')} className={cn("flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer font-sans", selectedChatChannel === 'admin_planner' ? "bg-emerald-500 text-white shadow-sm" : "bg-transparent text-zinc-400")}>
+                   Coordinator Chat (Admins & Planners)
+                 </button>
+               </div>
+             )}
+             <div className="flex-1 overflow-y-auto p-6 space-y-4 flex flex-col">
+               {chatMessages.length === 0 ? (
+                 <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 text-sm py-12 text-center">
+                   <MessageSquare size={32} className="mb-2 text-zinc-300" />
+                   <p>{selectedChatChannel === 'admin_planner' ? "No coordinator messages yet." : "No messages here yet. Say hello to the crew!"}</p>
+                 </div>
+               ) : (
+                 chatMessages.map((msg, i) => {
+                   const isOwn = msg.user_id === firebaseUser?.uid;
+                   return (
+                     <div key={msg.id || i} className={cn("flex flex-col max-w-[80%]", isOwn ? "self-end items-end" : "self-start items-start")}>
+                       <span className="text-[10px] text-zinc-500 font-bold uppercase mb-1">{msg.user_name}</span>
+                       <div className={cn("p-3.5 text-sm leading-relaxed", isOwn ? "bg-zinc-800 text-white rounded-[20px] rounded-tr-sm" : "bg-zinc-100 dark:bg-zinc-800/60 dark:text-zinc-100 text-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] rounded-tl-sm")}>
+                         {msg.text}
+                       </div>
+                     </div>
+                   );
+                 })
+               )}
+               <div ref={messagesEndRef} />
+             </div>
+             <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 flex gap-2 items-center">
+               <input value={newMessageText} onChange={(e) => setNewMessageText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSendChatMessage(); } }} className="flex-1 p-3 px-4 rounded-full bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-sm outline-none" placeholder="Send message..." />
+               <button onClick={handleSendChatMessage} className="p-3 bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0 w-11 h-11">
+                 <Send size={18} />
+               </button>
+             </div>
+           </motion.div>
+         )}
+
+         {partyActiveTab === 'trivia' && (
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+               <div className="flex items-center justify-between">
+                 <h3 className="font-extrabold text-base flex items-center gap-2">
+                   <Sparkles size={20} className="text-emerald-500" />
+                   Spark Game & Trivia Questions
+                 </h3>
+                 <button onClick={handleGenerateTrivia} disabled={isGeneratingTrivia} className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1 cursor-pointer">
+                   {isGeneratingTrivia ? 'Generating...' : 'AI Generate'}
+                 </button>
+               </div>
+               <div className="space-y-3">
+                 {triviaQuestions.map((q: any) => (
+                   <div key={q.id} className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl flex justify-between items-center">
+                     <div>
+                       <p className="font-bold text-sm">{q.question}</p>
+                       <p className="text-xs text-zinc-400 mt-0.5">Answer: {q.answer || 'TBD'}</p>
+                     </div>
+                     <button onClick={() => handlePublishTriviaToLocker(q.id)} className={cn("px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer", q.published_to_locker ? "bg-emerald-500 text-white" : "bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200")}>
+                       {q.published_to_locker ? 'In Locker ' : 'Send to Locker'}
+                     </button>
+                   </div>
+                 ))}
+               </div>
+               <div className="flex gap-2 pt-2">
+                 <input value={newTriviaQuestion} onChange={(e) => setNewTriviaQuestion(e.target.value)} placeholder="Add custom trivia question..." className="flex-1 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none text-xs outline-none" />
+                 <button onClick={handleAddTriviaQuestion} className="px-4 py-3 bg-emerald-500 text-white font-bold text-xs rounded-xl cursor-pointer">Add</button>
+               </div>
+             </section>
+           </motion.div>
+         )}
+
+         {partyActiveTab === 'ai_assistant' && (
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+             <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+               <div className="flex items-center justify-between">
+                 <div>
+                   <h3 className="font-extrabold text-base flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                     <Bot size={20} className="text-emerald-500" />
+                     Ask AI Assistant
+                   </h3>
+                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Real-time party planning strategist powered by Gemini.</p>
+                 </div>
+               </div>
+
+               {/* Quick Suggestion Chips */}
+               <div className="flex flex-wrap gap-2 pt-1">
+                 {[
+                   "Suggest 3 budget-friendly themes",
+                   "Draft a timeline for party day",
+                   "Write a fun invite message for guests",
+                   "Recommend icebreaker games"
+                 ].map((prompt, idx) => (
+                   <button
+                     key={idx}
+                     onClick={() => handleSendPlannerAiMessage(prompt)}
+                     disabled={isPlannerAiThinking}
+                     className="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-950 hover:bg-zinc-200 dark:hover:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-all cursor-pointer text-left"
+                   >
+                     + {prompt}
+                   </button>
+                 ))}
+               </div>
+
+               {/* Chat History Box */}
+               <div className="h-80 overflow-y-auto space-y-3 p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-700">
+                 {plannerAiMessages.length === 0 && (
+                   <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2">
+                     <Sparkles size={28} className="text-emerald-500 animate-pulse" />
+                     <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300">How can I help plan {group?.person_name || 'the party'}?</p>
+                     <p className="text-[11px] text-zinc-500 dark:text-zinc-400 max-w-xs">Ask me for theme ideas, budget breakdowns, schedules, or guest list tips.</p>
+                   </div>
+                 )}
+                 {plannerAiMessages.map((m: any) => (
+                   <div
+                     key={m.id || m.created_at}
+                     className={cn(
+                       "p-3.5 rounded-2xl text-xs max-w-[85%] space-y-1 leading-relaxed",
+                       m.is_ai
+                         ? "bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700 shadow-sm"
+                         : "ml-auto bg-emerald-500 text-white font-medium"
+                     )}
+                   >
+                     <div className="flex items-center justify-between text-[10px] opacity-75 font-semibold">
+                       <span>{m.is_ai ? 'AI Assistant' : (m.sender_name || 'You')}</span>
+                     </div>
+                     <p className="whitespace-pre-wrap">{m.text}</p>
+                   </div>
+                 ))}
+                 {isPlannerAiThinking && (
+                   <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 p-3.5 rounded-2xl text-xs max-w-[85%] space-y-1 text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
+                     <Sparkles size={14} className="text-emerald-500 animate-spin" />
+                     <span>AI is thinking & drafting response...</span>
+                   </div>
+                 )}
+                 <div ref={plannerAiEndRef} />
+               </div>
+
+               {/* Chat Input */}
+               <div className="flex gap-2 pt-1">
+                 <input
+                   value={newPlannerAiText}
+                   onChange={(e) => setNewPlannerAiText(e.target.value)}
+                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendPlannerAiMessage())}
+                   placeholder="Ask AI for advice or party ideas..."
+                   disabled={isPlannerAiThinking}
+                   className="flex-1 p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 outline-none focus:border-emerald-500 dark:focus:border-emerald-500 transition-all"
+                 />
+                 <button
+                   onClick={() => handleSendPlannerAiMessage()}
+                   disabled={isPlannerAiThinking || !newPlannerAiText.trim()}
+                   className="px-5 py-3.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold text-xs rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
+                 >
+                   <Send size={14} />
+                   Send
+                 </button>
+               </div>
+             </section>
+           </motion.div>
+         )}
+
+         {partyActiveTab === 'settings' && (
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+               <h3 className="font-extrabold text-base flex items-center gap-2">
+                 <Settings size={20} className="text-emerald-500" />
+                 Party Room Settings
+               </h3>
+               <div className="space-y-3">
+                 <div>
+                   <label className="text-xs font-bold uppercase text-zinc-400 block mb-1">Custom Join Code</label>
+                   <div className="flex gap-2">
+                     <input value={editableJoinCode} onChange={(e) => setEditableJoinCode(e.target.value.toUpperCase())} className="flex-1 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none text-xs font-mono font-bold outline-none" />
+                     <button onClick={handleSaveJoinCode} disabled={isSavingJoinCode} className="px-4 py-3 bg-emerald-500 text-white font-bold text-xs rounded-xl cursor-pointer">Save Code</button>
+                   </div>
+                 </div>
+                 <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                   <div>
+                     <p className="text-sm font-bold">Attendance Gating</p>
+                     <p className="text-xs text-zinc-400">Require members to RSVP "Going" before seeing party plan</p>
+                   </div>
+                   <button onClick={handleToggleRequiresAttendance} className={cn("px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer", group?.requires_attendance ? "bg-emerald-500 text-white" : "bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200")}>
+                     {group?.requires_attendance ? 'Enabled' : 'Disabled'}
+                   </button>
+                 </div>
+               </div>
+             </section>
+           </motion.div>
+         )}
+       </>
+     )}
+   </div>
+ ) : (
+ <>
  {activeTab === 'planning' && (
  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
  {/* Full Party Overview Banner */}
@@ -2650,6 +4096,8 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  </div>
  </motion.div>
  )}
+ </>
+ )}
  </div>
 
  {/* Notify Crew Modal overlay */}
@@ -2717,7 +4165,6 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  )}
  </AnimatePresence>
 
- <Navigation />
  </div>
  );
 }
