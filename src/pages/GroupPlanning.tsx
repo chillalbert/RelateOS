@@ -363,7 +363,7 @@ export default function GroupPlanning() {
  
  const [group, setGroup] = React.useState<any>(null);
  const [loading, setLoading] = React.useState(true);
- const [activeTab, setActiveTab] = React.useState<'planning' | 'vault' | 'chat'>('planning');
+ const [activeTab, setActiveTab] = React.useState<'planning' | 'guests' | 'vault' | 'chat'>('planning');
 
  // Room Type Selection State
  const [roomType, setRoomType] = React.useState<'select' | 'birthday' | 'party'>('select');
@@ -1508,6 +1508,8 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
 
       let roomPayload: any = {
         room_type: isPartyRoom ? 'party' : 'birthday',
+        is_party: isPartyRoom,
+        isPartyRoom: isPartyRoom,
         name: roomName,
         code_name: codeNameInput || '',
         person_id: personId || null,
@@ -1940,6 +1942,32 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  const isBirthday = isBirthdayToday(group?.person_birthday);
  const isUnlocked = isBirthday || group?.isMember;
  const isCrewAdminOrMod = group?.admins?.includes(firebaseUser?.uid) || group?.mods?.includes(firebaseUser?.uid) || group?.created_by === firebaseUser?.uid;
+ const isFullParty = group?.room_type === 'party' || group?.is_party === true || group?.isPartyRoom === true;
+
+ const handleUpdateRsvp = async (newRsvp: 'going' | 'maybe' | 'not_going') => {
+   if (!id || !firebaseUser) return;
+   try {
+     const roomRef = doc(db, 'rooms', id);
+     await updateDoc(roomRef, {
+       [`rsvps.${firebaseUser.uid}`]: newRsvp,
+       [`attendance.${firebaseUser.uid}`]: newRsvp
+     });
+   } catch (err) {
+     console.error("Error updating RSVP:", err);
+   }
+ };
+
+ const handleUpdateMemberRole = async (targetUid: string, newRole: 'admin' | 'planner' | 'guest') => {
+   if (!id || !firebaseUser || !isCrewAdminOrMod) return;
+   try {
+     const roomRef = doc(db, 'rooms', id);
+     await updateDoc(roomRef, {
+       [`roles.${targetUid}`]: newRole
+     });
+   } catch (err) {
+     console.error("Error updating member role:", err);
+   }
+ };
 
  return (
  <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
@@ -1947,7 +1975,14 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  <div className="flex items-center justify-between">
  <button onClick={() => navigate(-1)} className="p-2 -ml-2"><ArrowLeft size={24} /></button>
  <div className="text-center">
+ <div className="flex items-center justify-center gap-1.5">
  <h1 className="font-bold">{group?.code_name || group?.name}</h1>
+ {isFullParty && (
+ <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider rounded-full border border-emerald-500/20">
+ Full Party
+ </span>
+ )}
+ </div>
  <p className="text-[10px] text-zinc-400 uppercase font-bold">For {group?.person_name}</p>
  </div>
  <button 
@@ -1959,7 +1994,10 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  </div>
 
  <div className="flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl">
- {(['planning', 'vault', 'chat'] as const).map((tab) => (
+ {(isFullParty 
+   ? (['planning', 'guests', 'vault', 'chat'] as const)
+   : (['planning', 'vault', 'chat'] as const)
+ ).map((tab) => (
  <button
  key={tab}
  onClick={() => setActiveTab(tab)}
@@ -1970,7 +2008,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  : "text-zinc-400"
  )}
  >
- {tab === 'vault' ? 'Locker' : tab === 'chat' ? 'Chat' : tab}
+ {tab === 'vault' ? 'Locker' : tab === 'guests' ? 'Guests' : tab === 'chat' ? 'Chat' : isFullParty ? 'Party Plan' : 'Plan'}
  </button>
  ))}
  </div>
@@ -1979,6 +2017,67 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  <div className="p-6 space-y-8 max-w-2xl mx-auto">
  {activeTab === 'planning' && (
  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+ {/* Full Party Overview Banner */}
+ {isFullParty && (
+ <div className="p-6 bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-3xl shadow-xl space-y-4 relative overflow-hidden">
+ <div className="flex items-center justify-between">
+ <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest">
+ Full Party Mode
+ </span>
+ {group?.vibe && (
+ <span className="text-xs font-bold bg-black/20 px-3 py-1 rounded-full">
+ Vibe: {group.vibe}
+ </span>
+ )}
+ </div>
+
+ <div>
+ <h2 className="text-2xl font-black tracking-tight">{group?.name}</h2>
+ {group?.notes && <p className="text-xs opacity-90 mt-1">{group.notes}</p>}
+ </div>
+
+ <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-white/20">
+ {group?.party_date && (
+ <div>
+ <p className="text-[9px] uppercase font-bold text-emerald-200">Date & Time</p>
+ <p className="text-xs font-extrabold">{group.party_date} {group?.party_time && `@ ${group.party_time}`}</p>
+ </div>
+ )}
+ <div>
+ <p className="text-[9px] uppercase font-bold text-emerald-200">Guest Count</p>
+ <p className="text-xs font-extrabold">{group?.guest_count || (group?.members?.length || 1)} Guests</p>
+ </div>
+ <div>
+ <p className="text-[9px] uppercase font-bold text-emerald-200">My RSVP</p>
+ <p className="text-xs font-extrabold capitalize">{group?.rsvps?.[firebaseUser?.uid] || 'Going'}</p>
+ </div>
+ </div>
+
+ <div className="pt-2 border-t border-white/20 flex flex-wrap items-center justify-between gap-2">
+ <span className="text-xs font-bold">Update My RSVP:</span>
+ <div className="flex gap-1.5">
+ {(['going', 'maybe', 'not_going'] as const).map((status) => {
+ const currentRsvp = group?.rsvps?.[firebaseUser?.uid] || 'going';
+ const isSel = currentRsvp === status;
+ return (
+ <button
+ key={status}
+ onClick={() => handleUpdateRsvp(status)}
+ className={cn(
+ "px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer",
+ isSel
+ ? "bg-white text-emerald-800 shadow-md"
+ : "bg-white/10 hover:bg-white/20 text-white"
+ )}
+ >
+ {status === 'not_going' ? 'Not Going' : status}
+ </button>
+ );
+ })}
+ </div>
+ </div>
+ </div>
+ )}
  {/* Birthday Countdown */}
  {group?.person_birthday && (
  (() => {
@@ -2229,6 +2328,74 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  </button>
  </div>
  </section>
+ </motion.div>
+ )}
+
+ {activeTab === 'guests' && (
+ <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+ <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+ <div className="flex justify-between items-center">
+ <div>
+ <h3 className="font-extrabold text-base flex items-center gap-2">
+ <Users size={20} className="text-emerald-500" />
+ Guest List & Roles
+ </h3>
+ <p className="text-xs text-zinc-500 mt-0.5">
+ Total Members: {group?.members?.length || 0}
+ </p>
+ </div>
+ <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-black rounded-full">
+ {Object.values(group?.rsvps || {}).filter(v => v === 'going').length} Going
+ </span>
+ </div>
+
+ <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+ {(group?.members || []).map((memberUid: string) => {
+ const memberName = memberNames[memberUid] || (memberUid === firebaseUser?.uid ? (user?.name || 'You') : 'Member');
+ const role = group?.roles?.[memberUid] || (group?.created_by === memberUid ? 'admin' : 'guest');
+ const rsvp = group?.rsvps?.[memberUid] || 'going';
+
+ return (
+ <div key={memberUid} className="py-3.5 flex items-center justify-between gap-3">
+ <div className="flex items-center gap-3">
+ <div className="w-9 h-9 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center text-sm">
+ {memberName.charAt(0).toUpperCase()}
+ </div>
+ <div>
+ <p className="text-sm font-bold flex items-center gap-2">
+ {memberName}
+ {memberUid === firebaseUser?.uid && (
+ <span className="text-[10px] text-zinc-400 font-normal">(You)</span>
+ )}
+ </p>
+ <p className="text-[10px] text-zinc-400 uppercase font-semibold">
+ RSVP: <span className="text-emerald-600 dark:text-emerald-400 font-bold capitalize">{rsvp}</span>
+ </p>
+ </div>
+ </div>
+
+ <div className="flex items-center gap-2">
+ {isCrewAdminOrMod ? (
+ <select
+ value={role}
+ onChange={(e) => handleUpdateMemberRole(memberUid, e.target.value as any)}
+ className="p-1.5 px-2 bg-zinc-50 dark:bg-zinc-800 text-xs font-bold rounded-xl border border-zinc-200 dark:border-zinc-700 outline-none text-zinc-900 dark:text-zinc-100"
+ >
+ <option value="admin">Admin</option>
+ <option value="planner">Planner</option>
+ <option value="guest">Guest</option>
+ </select>
+ ) : (
+ <span className="px-2.5 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-xs font-bold rounded-lg uppercase">
+ {role}
+ </span>
+ )}
+ </div>
+ </div>
+ );
+ })}
+ </div>
+ </div>
  </motion.div>
  )}
 
