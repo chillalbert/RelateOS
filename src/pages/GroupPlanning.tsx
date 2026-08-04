@@ -1,7 +1,10 @@
 import React from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { 
+import {
+  useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  useAuth } from '../context/AuthContext';
+import {
+  MapPin, CheckSquare, User, 
  ArrowLeft, 
  Users, 
  Plus, 
@@ -11,7 +14,7 @@ import {
  ChevronUp, 
  ChevronDown,
  MoreHorizontal,
- Sparkles, 
+ Sparkles, HelpCircle, 
  ExternalLink,
  Lock,
  Unlock,
@@ -40,15 +43,21 @@ import {
  LayoutDashboard,
  Palette,
  Eye,
- EyeOff
+ EyeOff,
+ PartyPopper
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import {
+   motion, AnimatePresence } from 'motion/react';
 import Navigation from '../components/Navigation';
 import HelpTip from '../components/HelpTip';
-import { generateGiftSuggestions, callCoachModel } from '../services/geminiService';
-import { triggerSystemNotification } from '../lib/pushManager';
-import { db } from '../lib/firebase';
-import { 
+import {
+   generateGiftSuggestions, callCoachModel } from '../services/geminiService';
+import {
+   triggerSystemNotification } from '../lib/pushManager';
+import {
+   db } from '../lib/firebase';
+import {
+   
  doc, 
  getDoc, 
  updateDoc, 
@@ -66,7 +75,8 @@ import {
  deleteField,
  arrayRemove
 } from 'firebase/firestore';
-import { cn, getDaysUntil, isBirthdayToday, formatTime as utilsFormatTime } from '../lib/utils';
+import {
+   cn, getDaysUntil, isBirthdayToday, formatTime as utilsFormatTime } from '../lib/utils';
 
 const CHARS_JOIN_CODE = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
@@ -367,7 +377,13 @@ export default function GroupPlanning() {
  
  const [group, setGroup] = React.useState<any>(null);
  const [loading, setLoading] = React.useState(true);
- const [activeTab, setActiveTab] = React.useState<'planning' | 'guests' | 'vault' | 'chat'>('planning');
+ const [hasDismissedPublishHint, setHasDismissedPublishHint] = React.useState(false);
+  const lastTapRef = React.useRef<{ [key: string]: number }>({});
+  const [sendToLockerEnabled, setSendToLockerEnabled] = React.useState(true);
+  const [keepInPersonEnabled, setKeepInPersonEnabled] = React.useState(false);
+  const [guessWhoEnabled, setGuessWhoEnabled] = React.useState(true);
+  const [customLockerNote, setCustomLockerNote] = React.useState('');
+  const [activeTab, setActiveTab] = React.useState<'planning' | 'guests' | 'vault' | 'chat'>('planning');
 
  // Room Type Selection State
  const [roomType, setRoomType] = React.useState<'select' | 'birthday' | 'party'>('select');
@@ -383,7 +399,7 @@ export default function GroupPlanning() {
  const [roomStructure, setRoomStructure] = React.useState<'flat' | 'roles'>('flat');
 
  // Party active tab state
- const [partyActiveTab, setPartyActiveTab] = React.useState<'setup' | 'plan' | 'polls' | 'guests' | 'vibes' | 'photos' | 'chat' | 'settings' | 'trivia' | 'ai_assistant'>('setup');
+ const [partyActiveTab, setPartyActiveTab] = React.useState<'party_setup' | 'setup' | 'plan' | 'polls' | 'guests' | 'vibes' | 'photos' | 'chat' | 'settings' | 'trivia' | 'ai_assistant'>('party_setup');
  const [isTabMenuOpen, setIsTabMenuOpen] = React.useState(false);
 
  // Planner AI Chat States
@@ -403,6 +419,13 @@ export default function GroupPlanning() {
  const [isSavingPlannerNotes, setIsSavingPlannerNotes] = React.useState(false);
  const [editPartyDate, setEditPartyDate] = React.useState('');
  const [isSavingPartyDate, setIsSavingPartyDate] = React.useState(false);
+ const [editVisibility, setEditVisibility] = React.useState<{not_going: string, undecided: string, going: string}>({
+   not_going: 'none',
+   undecided: 'limited',
+   going: 'full'
+ });
+ const [editPhotoAccess, setEditPhotoAccess] = React.useState<string>('guests_can_add');
+ const [editQuestionDepth, setEditQuestionDepth] = React.useState<'light' | 'medium' | 'deep'>('light');
 
  // Birthday Questions and Responses states
  const [birthdayQuestions, setBirthdayQuestions] = React.useState<any[]>([]);
@@ -652,7 +675,22 @@ export default function GroupPlanning() {
  const messagesEndRef = React.useRef<HTMLDivElement>(null);
  const [selectedChatChannel, setSelectedChatChannel] = React.useState<'admin_planner' | 'everyone'>('everyone');
 
- const isPlannerOrAdmin = React.useMemo(() => {
+   const isLockDatePassed = React.useMemo(() => {
+    if (!group?.responses_lock_date) return false;
+    const lockTime = new Date(group.responses_lock_date).getTime();
+    return !isNaN(lockTime) && Date.now() > lockTime;
+  }, [group?.responses_lock_date]);
+
+  const handlePublishQuestion = async (questionId: string) => {
+    if (!id) return;
+    try {
+      await updateDoc(doc(db, 'rooms', id, 'birthday_questions', questionId), {
+        published: true
+      });
+    } catch (err) { console.error('Error publishing question:', err); }
+  };
+
+  const isPlannerOrAdmin = React.useMemo(() => {
  if (!group || !firebaseUser) return false;
  const isFlat = group.room_structure === 'flat';
  const userRole = group.roles?.[firebaseUser.uid] || 'guest';
@@ -906,14 +944,23 @@ export default function GroupPlanning() {
  }, [id, firebaseUser, user?.email]);
 
  React.useEffect(() => {
- if (group) {
- setEditRoomName(group.name || '');
- setEditRoomNotes(group.notes || '');
- setEditPlannerNotes(group.planner_notes || '');
- setEditPartyDate(group.party_date || '');
- setResponsesLockDate(group.responses_lock_date || '');
- }
- }, [group?.name, group?.notes, group?.planner_notes, group?.party_date, group?.responses_lock_date]);
+   if (group) {
+     setEditRoomName(group.name || '');
+     setEditRoomNotes(group.notes || '');
+     setEditPlannerNotes(group.planner_notes || '');
+     setEditPartyDate(group.party_date || '');
+     setResponsesLockDate(group.responses_lock_date || '');
+     if (group.visibility_by_status) {
+       setEditVisibility(group.visibility_by_status);
+     }
+     if (group.photo_access) {
+       setEditPhotoAccess(group.photo_access);
+     }
+     if (group.question_depth) {
+       setEditQuestionDepth(group.question_depth as any);
+     }
+   }
+ }, [group?.name, group?.notes, group?.planner_notes, group?.party_date, group?.responses_lock_date, group?.visibility_by_status, group?.photo_access, group?.question_depth]);
 
  // Load user answers from subcollection
  React.useEffect(() => {
@@ -1109,7 +1156,36 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  }
  };
 
- const handleToggleTaskPublish = async (taskId: string, currentPublished: boolean) => {
+   const handleCreateTask = async () => {
+    if (!id || !newTaskTitle.trim()) return;
+    try {
+      await addDoc(collection(db, 'rooms', id, 'tasks'), {
+        title: newTaskTitle.trim(),
+        assignee: newTaskAssignee || null,
+        published: false,
+        completed: false,
+        created_at: serverTimestamp()
+      });
+      setNewTaskTitle('');
+      setNewTaskAssignee('');
+    } catch (err) { console.error("Error creating task:", err); }
+  };
+
+  const handleToggleTaskCompleted = async (taskId: string, currentCompleted: boolean) => {
+    if (!id || !firebaseUser) return;
+    try {
+      await updateDoc(doc(db, 'rooms', id, 'tasks', taskId), { completed: !currentCompleted });
+    } catch (err) { console.error("Error toggling task completion:", err); }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!id || !isCrewAdminOrMod) return;
+    try {
+      await deleteDoc(doc(db, 'rooms', id, 'tasks', taskId));
+    } catch (err) { console.error("Error deleting task:", err); }
+  };
+
+  const handleToggleTaskPublish = async (taskId: string, currentPublished: boolean) => {
  if (!id || !firebaseUser) return;
  try {
  const taskDocRef = doc(db, 'rooms', id, 'tasks', taskId);
@@ -1456,7 +1532,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  const members = group.members || [];
  
  // 1. Try direct fetch of group.person_id if it exists (only works if current user owns it)
- if (group?.person_id) {
+ if (group?.person_id && firebaseUser && (group?.host_uid === firebaseUser.uid || group?.created_by === firebaseUser.uid)) {
  try {
  const personSnap = await getDoc(doc(db, 'people', group.person_id));
  if (personSnap.exists()) {
@@ -2112,7 +2188,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
        decorations: customThemeDecorations.trim(),
        vibe: customThemeVibe.trim(),
        food: customThemeFood.trim(),
-       published: true,
+       published: false,
        created_at: serverTimestamp()
      });
      setCustomThemeName(''); setCustomThemeCost(''); setCustomThemeDecorations(''); setCustomThemeVibe(''); setCustomThemeFood('');
@@ -2120,7 +2196,243 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
    } catch (err) { console.error("Error adding theme:", err); }
  };
 
- const handleGenerateAiThemes = async () => {
+ 
+  const renderGuestConsolidatedView = () => {
+    const myRsvp = group?.rsvps?.[firebaseUser?.uid || ''] || 'undecided';
+    const requiresAttendance = !!group?.requires_attendance;
+    
+    let tier: 'none' | 'limited' | 'full' = 'full';
+    if (requiresAttendance) {
+      const visSetting = group?.visibility_by_status || { not_going: 'none', undecided: 'limited', going: 'full' };
+      if (myRsvp === 'not_going') tier = visSetting.not_going || 'none';
+      else if (myRsvp === 'going') tier = visSetting.going || 'full';
+      else tier = visSetting.undecided || 'limited';
+    }
+
+    const publishedThemes = partyThemes.filter((t: any) => t.published);
+    const publishedVenues = partyVenues.filter((v: any) => v.published);
+    const publishedGameIdeas = partyGameIdeas.filter((g: any) => g.published);
+    const publishedPlaylist = playlistConcept?.published ? playlistConcept : null;
+    const publishedTasks = tasks.filter((t: any) => t.published);
+
+    const hasPublishedItems = publishedThemes.length > 0 || publishedVenues.length > 0 || publishedGameIdeas.length > 0 || !!publishedPlaylist || publishedTasks.length > 0;
+
+    return (
+      <div className="space-y-6">
+        <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-black text-lg text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                <Calendar size={20} className="text-emerald-500" />
+                {group?.name || 'Party'} Attendance RSVP
+              </h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                Let the organizers know if you will be attending on {group?.date ? new Date(group.date).toLocaleDateString() : 'TBD'}.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              {(['going', 'maybe', 'not_going'] as const).map((status) => {
+                const isActive = myRsvp === status;
+                const label = status === 'going' ? 'Going' : status === 'maybe' ? 'Maybe' : 'Not Going';
+                return (
+                  <button
+                    key={status}
+                    onClick={() => handleUpdateRsvp(status)}
+                    className={cn(
+                      "flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer shadow-sm",
+                      isActive
+                        ? status === 'going'
+                          ? "bg-emerald-500 text-white"
+                          : status === 'maybe'
+                          ? "bg-amber-500 text-white"
+                          : "bg-rose-500 text-white"
+                        : "bg-zinc-100 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-900"
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {tier === 'none' && (
+          <div className="p-8 text-center bg-white dark:bg-zinc-800 rounded-3xl border border-zinc-200 dark:border-zinc-700 space-y-3 shadow-sm">
+            <Shield size={32} className="mx-auto text-amber-500" />
+            <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300 max-w-sm mx-auto">
+              Your current RSVP status is Declined (Not Going). Update your RSVP above to access party plans and content.
+            </p>
+          </div>
+        )}
+
+        {(tier === 'limited' || tier === 'full') && (
+          <div className="space-y-6">
+            {!hasPublishedItems ? (
+              <div className="p-10 text-center text-zinc-500 dark:text-zinc-400 font-extrabold text-sm bg-white dark:bg-zinc-800 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg">
+                Nothing to see yet — check back soon!
+              </div>
+            ) : (
+              <>
+                {publishedThemes.length > 0 && (
+                  <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+                    <h3 className="font-black text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2 uppercase tracking-wider">
+                      <Palette size={18} className="text-emerald-500" />
+                      Party Theme
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      {publishedThemes.map((t: any) => (
+                        <div key={t.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">{t.name}</h4>
+                            {t.cost && <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-black text-[10px] rounded-full border border-emerald-500/20">{t.cost}</span>}
+                          </div>
+                          {t.vibe && <p className="text-xs text-zinc-600 dark:text-zinc-300"><strong>Vibe:</strong> {t.vibe}</p>}
+                          {t.decorations && <p className="text-xs text-zinc-600 dark:text-zinc-300"><strong>Decorations:</strong> {t.decorations}</p>}
+                          {t.food && <p className="text-xs text-zinc-600 dark:text-zinc-300"><strong>Food & Cocktails:</strong> {t.food}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {publishedVenues.length > 0 && (
+                  <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+                    <h3 className="font-black text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2 uppercase tracking-wider">
+                      <MapPin size={18} className="text-emerald-500" />
+                      Venue Details
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      {publishedVenues.map((v: any) => (
+                        <div key={v.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">{v.type}</h4>
+                            {v.cost && <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-black text-[10px] rounded-full border border-emerald-500/20">{v.cost}</span>}
+                          </div>
+                          {v.why && <p className="text-xs text-zinc-600 dark:text-zinc-300"><strong>Why it fits:</strong> {v.why}</p>}
+                          {v.tips && <p className="text-xs text-zinc-600 dark:text-zinc-300"><strong>Tips & Parking:</strong> {v.tips}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {publishedGameIdeas.length > 0 && (
+                  <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+                    <h3 className="font-black text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2 uppercase tracking-wider">
+                      <Sparkles size={18} className="text-emerald-500" />
+                      Games & Activities
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      {publishedGameIdeas.map((g: any) => (
+                        <div key={g.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">{g.name}</h4>
+                            {g.duration && <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">{g.duration}</span>}
+                          </div>
+                          {g.description && <p className="text-xs text-zinc-600 dark:text-zinc-300">{g.description}</p>}
+                          {g.materials && <p className="text-xs text-zinc-500 dark:text-zinc-400"><strong>Materials:</strong> {g.materials}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {publishedPlaylist && (
+                  <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+                    <h3 className="font-black text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2 uppercase tracking-wider">
+                      <Music size={18} className="text-emerald-500" />
+                      Party Playlist & Vibes
+                    </h3>
+                    <div className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 space-y-3">
+                      {publishedPlaylist.vibe && <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">Vibe: {publishedPlaylist.vibe}</p>}
+                      {publishedPlaylist.hype_tracks && <p className="text-xs text-zinc-600 dark:text-zinc-300"><strong>Hype Tracks:</strong> {publishedPlaylist.hype_tracks}</p>}
+                      {publishedPlaylist.mid_tracks && <p className="text-xs text-zinc-600 dark:text-zinc-300"><strong>Mid-tempo:</strong> {publishedPlaylist.mid_tracks}</p>}
+                      {publishedPlaylist.chill_tracks && <p className="text-xs text-zinc-600 dark:text-zinc-300"><strong>Chill:</strong> {publishedPlaylist.chill_tracks}</p>}
+                    </div>
+                  </section>
+                )}
+
+                {publishedTasks.length > 0 && (
+                  <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+                    <h3 className="font-black text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2 uppercase tracking-wider">
+                      <CheckSquare size={18} className="text-emerald-500" />
+                      Party Checklist & Tasks
+                    </h3>
+                    <div className="space-y-2.5">
+                      {publishedTasks.map((t: any) => {
+                        const assigneeName = group?.members?.find((m: any) => m.uid === t.assignee)?.name || t.assignee;
+                        return (
+                          <div key={t.id} className="p-3.5 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <input
+                                type="checkbox"
+                                checked={!!t.completed}
+                                onChange={() => handleToggleTaskCompleted(t.id, !!t.completed)}
+                                className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className={cn("text-xs font-bold transition-all", t.completed ? "line-through text-zinc-400" : "text-zinc-800 dark:text-zinc-200")}>
+                                  {t.title}
+                                </p>
+                                {assigneeName && (
+                                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+                                    <User size={10} /> Assigned to: {assigneeName}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className={cn("px-2 py-0.5 text-[10px] font-bold rounded-full", t.completed ? "bg-emerald-500/10 text-emerald-500" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-500")}>
+                              {t.completed ? 'Completed' : 'To Do'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
+
+            {tier === 'full' && (
+              <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+                <h3 className="font-black text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2 uppercase tracking-wider">
+                  <MessageSquare size={18} className="text-emerald-500" />
+                  Party Chat
+                </h3>
+                <div className="h-64 overflow-y-auto space-y-3 p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-700">
+                  {chatMessages.filter((m: any) => (m.channel || 'everyone') === 'everyone').length === 0 ? (
+                    <p className="text-xs text-zinc-400 italic text-center p-4">No messages yet. Say hi!</p>
+                  ) : (
+                    chatMessages.filter((m: any) => (m.channel || 'everyone') === 'everyone').map((m: any) => (
+                      <div key={m.id} className={cn("p-3 rounded-2xl text-xs max-w-[85%] space-y-1", m.user_id === firebaseUser?.uid ? "ml-auto bg-emerald-500 text-white font-medium" : "bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700")}>
+                        <p className="text-[10px] opacity-75 font-bold">{m.user_name || 'Guest'}</p>
+                        <p>{m.text}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={newMessageText}
+                    onChange={(e) => setNewMessageText(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
+                    placeholder="Type a message to everyone..."
+                    className="flex-1 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs outline-none focus:border-emerald-500"
+                  />
+                  <button onClick={() => handleSendChatMessage()} className="px-4 py-3 bg-emerald-500 text-white text-xs font-bold rounded-xl cursor-pointer">
+                    <Send size={14} />
+                  </button>
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const handleGenerateAiThemes = async () => {
    if (!id) return;
    setIsGeneratingThemes(true);
    try {
@@ -2145,7 +2457,7 @@ CRITICAL: Provide rich, multi-sentence descriptive content for decorations, vibe
            decorations: item.decorations || '',
            vibe: item.vibe || '',
            food: item.food || '',
-           published: true,
+           published: false,
            created_at: serverTimestamp()
          });
        }
@@ -2162,7 +2474,7 @@ CRITICAL: Provide rich, multi-sentence descriptive content for decorations, vibe
        cost: customVenueCost.trim() || '$$',
        why: customVenueWhy.trim(),
        tips: customVenueTips.trim(),
-       published: true,
+       published: false,
        created_at: serverTimestamp()
      });
      setCustomVenueType(''); setCustomVenueCost(''); setCustomVenueWhy(''); setCustomVenueTips('');
@@ -2193,7 +2505,7 @@ CRITICAL: Provide rich, multi-sentence descriptive content for why and tips. Do 
            cost: item.cost || '$$',
            why: item.why || '',
            tips: item.tips || '',
-           published: true,
+           published: false,
            created_at: serverTimestamp()
          });
        }
@@ -2209,8 +2521,8 @@ CRITICAL: Provide rich, multi-sentence descriptive content for why and tips. Do 
        name: customGameName.trim(),
        description: customGameDescription.trim(),
        duration: customGameDuration.trim() || '15 mins',
-       materials: customGameMaterials.trim(),
-       published: true,
+       materials: customGameMaterials.trim() || 'None',
+       published: false,
        created_at: serverTimestamp()
      });
      setCustomGameName(''); setCustomGameDescription(''); setCustomGameDuration(''); setCustomGameMaterials('');
@@ -2223,14 +2535,14 @@ CRITICAL: Provide rich, multi-sentence descriptive content for why and tips. Do 
    setIsGeneratingGameIdeas(true);
    try {
      const prompt = `Generate 3 party game or activity ideas for event "${group?.name || 'Party'}".
-Party Vibe/Notes: ${group?.vibe || group?.planner_notes || 'Fun and memorable'}.
+Party Ideas/Notes: ${group?.planner_notes || group?.vibe || 'Fun and memorable'}.
 Return a JSON array of objects with keys:
 - "name": String (game title)
-- "description": String (detailed multi-sentence explanation of how to play, rules, and host instructions)
-- "duration": String (e.g. "20-30 mins")
-- "materials": String (detailed multi-sentence list of required items, props, or setup needed)
+- "description": String (brief explanation of how to play, rules, and host instructions)
+- "duration": String (estimated time e.g. "15-20 mins")
+- "materials": String (list of required items, props, or setup needed, or "None")
 
-CRITICAL: Provide rich, multi-sentence descriptive content for description and materials. Do NOT use emojis. Output ONLY valid raw JSON array.`;
+CRITICAL: Provide clear, creative game descriptions and materials needed. Do NOT use emojis. Output ONLY valid raw JSON array.`;
      const resText = await callCoachModel([{ role: 'user', parts: [{ text: prompt }] }]);
      const jsonMatch = resText.match(/\[[\s\S]*\]/);
      if (jsonMatch) {
@@ -2241,7 +2553,7 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
            description: item.description || '',
            duration: item.duration || '15 mins',
            materials: item.materials || 'None',
-           published: true,
+           published: false,
            created_at: serverTimestamp()
          });
        }
@@ -2258,7 +2570,7 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
        hype_tracks: customPlaylistHype.trim(),
        mid_tracks: customPlaylistMid.trim(),
        chill_tracks: customPlaylistChill.trim(),
-       published: true,
+       published: false,
        created_at: serverTimestamp()
      });
      setCustomPlaylistVibe(''); setCustomPlaylistHype(''); setCustomPlaylistMid(''); setCustomPlaylistChill('');
@@ -2280,7 +2592,7 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
          hype_tracks: item.hype_tracks || '',
          mid_tracks: item.mid_tracks || '',
          chill_tracks: item.chill_tracks || '',
-         published: true,
+         published: false,
          created_at: serverTimestamp()
        });
      }
@@ -2307,7 +2619,21 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
    if (!id) return;
    setIsGeneratingAIQuestions(true);
    try {
-     const prompt = `Generate 3 fun trivia questions about guest of honor "${group?.person_name || 'Friend'}". Return a JSON array of strings. Output JSON array only.`;
+     const currentDepth = group?.question_depth || editQuestionDepth || 'light';
+     let depthInstruction = '';
+     if (currentDepth === 'light') {
+       depthInstruction = `Tone/Depth: LIGHT - explicitly fun, silly, lighthearted, surface-level questions (e.g. "What's their most-used emoji?", "What's their go-to late night snack?", "What's a funny quirk they have?"). Keep it light and fun so it's not awkward for the birthday person.`;
+     } else if (currentDepth === 'medium') {
+       depthInstruction = `Tone/Depth: MEDIUM - a balance of fun, playful questions and slightly more personal or reflective questions (e.g. "What's their favorite memory with this group?", "What superpower best describes them?").`;
+     } else if (currentDepth === 'deep') {
+       depthInstruction = `Tone/Depth: DEEP - meaningful, warm, and sentimental questions (e.g. "What's a moment this person made you feel truly supported?", "What's something you deeply admire about them?"). Still tasteful, appropriate, and non-invasive.`;
+     }
+
+     const prompt = `Generate 3 Spark Game trivia questions about guest of honor "${group?.person_name || 'Friend'}".
+Context & Ideas for AI: ${group?.planner_notes || group?.vibe || 'Friendly party'}.
+${depthInstruction}
+Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only.`;
+
      const resText = await callCoachModel([{ role: 'user', parts: [{ text: prompt }] }]);
      const jsonMatch = resText.match(/\[[\s\S]*\]/);
      if (jsonMatch) {
@@ -2317,6 +2643,7 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
            question_text: typeof qText === 'string' ? qText : qText.question,
            created_by: firebaseUser?.uid || 'ai',
            created_by_name: 'AI Spark Assistant',
+           published: false,
            created_at: serverTimestamp()
          });
        }
@@ -2343,27 +2670,49 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
    finally { setIsSavingAnswers(prev => ({ ...prev, [questionId]: false })); }
  };
 
- const handleSendTriviaToVault = async () => {
-   if (!id || !firebaseUser) return;
-   setIsSendingToVaults(true);
-   try {
-     const compiledText = birthdayQuestions.map(q => {
-       const qResps = birthdayResponses.filter(r => r.question_id === q.id);
-       const respStr = qResps.map(r => `${r.user_name}: "${r.answer_text}"`).join(', ');
-       return `Q: ${q.question_text}\nAnswers: ${respStr || 'No answers yet'}`;
-     }).join('\n\n');
+  const handleSendTriviaToVault = async () => {
+    if (!id || !firebaseUser) return;
+    setIsSendingToVaults(true);
+    try {
+      if (sendToLockerEnabled) {
+        const compiledText = birthdayQuestions.map(q => {
+          const qResps = birthdayResponses.filter(r => r.question_id === q.id);
+          const respStr = qResps.map(r => `${r.user_name || 'Guest'}: "${r.answer_text}"`).join(', ');
+          return "Q: " + q.question_text + "\nAnswers: " + (respStr || 'No answers yet');
+        }).join('\n\n');
 
-     await addDoc(collection(db, 'rooms', id, 'surprises'), {
-       type: 'spark',
-       content: compiledText,
-       user_id: 'spark',
-       user_name: 'Spark Game Results',
-       created_at: serverTimestamp()
-     });
-     alert("Spark Game results compiled & sent to the Locker!");
-   } catch (err) { console.error("Error compiling trivia to vault:", err); }
-   finally { setIsSendingToVaults(false); }
- };
+        await addDoc(collection(db, 'rooms', id, 'surprises'), {
+          type: 'spark',
+          content: compiledText,
+          questions: birthdayQuestions.map(q => ({ id: q.id, text: q.question_text })),
+          responses: birthdayResponses.map(r => ({
+            id: r.id,
+            question_id: r.question_id,
+            user_id: r.user_id,
+            user_name: r.user_name || 'Guest',
+            answer_text: r.answer_text
+          })),
+          guess_who: guessWhoEnabled,
+          user_id: firebaseUser.uid,
+          user_name: 'Spark Game Results',
+          created_at: serverTimestamp()
+        });
+        alert("Spark Game results compiled & sent to recipient's Locker!");
+      } else if (customLockerNote.trim()) {
+        await addDoc(collection(db, 'rooms', id, 'surprises'), {
+          type: 'note',
+          content: customLockerNote.trim(),
+          user_id: firebaseUser.uid,
+          user_name: 'Planner Note',
+          created_at: serverTimestamp()
+        });
+        alert("Custom note saved to recipient's Locker!");
+      } else {
+        alert("Spark Game settings saved!");
+      }
+    } catch (err) { console.error("Error compiling trivia to vault:", err); }
+    finally { setIsSendingToVaults(false); }
+  };
 
  const handleAddDatePoll = async () => {
    if (!id || !newPollDate.trim()) return;
@@ -2488,6 +2837,48 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
    finally { setIsSavingPartyDate(false); }
  };
 
+ const handleSaveVisibility = async (newVis: {not_going: string, undecided: string, going: string}) => {
+   if (!id) return;
+   try {
+     await updateDoc(doc(db, 'rooms', id), {
+       visibility_by_status: newVis
+     });
+     setEditVisibility(newVis);
+   } catch (err) { console.error("Save visibility error:", err); }
+ };
+
+ const handleSavePhotoAccess = async (newAccess: string) => {
+   if (!id) return;
+   try {
+     await updateDoc(doc(db, 'rooms', id), {
+       photo_access: newAccess
+     });
+     setEditPhotoAccess(newAccess);
+   } catch (err) { console.error("Save photo access error:", err); }
+ };
+
+ const handleSaveQuestionDepth = async (newDepth: 'light' | 'medium' | 'deep') => {
+   if (!id) return;
+   try {
+     await updateDoc(doc(db, 'rooms', id), {
+       question_depth: newDepth
+     });
+     setEditQuestionDepth(newDepth);
+   } catch (err) { console.error("Save question depth error:", err); }
+ };
+
+ const handleSaveLockDate = async () => {
+   if (!id) return;
+   setIsSavingLockDate(true);
+   try {
+     await updateDoc(doc(db, 'rooms', id), {
+       responses_lock_date: responsesLockDate
+     });
+     alert("Lock date updated!");
+   } catch (err) { console.error("Save lock date error:", err); }
+   finally { setIsSavingLockDate(false); }
+ };
+
  const handleSaveJoinCode = async () => {
    if (!id || !editJoinCode.trim()) return;
    const cleanCode = editJoinCode.trim().toUpperCase();
@@ -2540,15 +2931,16 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
 
  return (
  <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
- <header className="p-6 pt-[calc(1.5rem+var(--sat))] flex flex-col gap-4 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10">
+ <header className="p-6 pt-[calc(1.5rem+var(--sat))] flex flex-col gap-4 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10 overflow-hidden">
+ <div className="h-1.5 -mx-6 -mt-6 mb-1 bg-gradient-to-r from-rose-500 via-amber-400 via-emerald-400 via-sky-400 via-indigo-500 to-purple-500 rounded-t-xl opacity-90" />
  <div className="flex items-center justify-between">
  <button onClick={() => navigate(-1)} className="p-2 -ml-2"><ArrowLeft size={24} /></button>
  <div className="text-center">
  <div className="flex items-center justify-center gap-1.5">
  <h1 className="font-bold">{group?.code_name || group?.name}</h1>
  {isFullParty && (
- <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider rounded-full border border-emerald-500/20">
- Full Party
+ <span className="px-2.5 py-0.5 bg-gradient-to-r from-emerald-500/15 via-teal-500/15 to-indigo-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider rounded-full border border-emerald-500/30 shadow-sm">
+ 🎉 Full Party
  </span>
  )}
  </div>
@@ -2563,78 +2955,137 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
  </div>
 
  {isFullParty ? (
- <div className="relative">
-   <button
-     onClick={() => setIsTabMenuOpen(!isTabMenuOpen)}
-     className="w-full flex items-center justify-between p-3 bg-zinc-100 dark:bg-zinc-800 rounded-2xl font-extrabold text-xs uppercase tracking-wider text-zinc-900 dark:text-zinc-100 border border-zinc-200/50 dark:border-zinc-700/50 shadow-sm transition-all hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
-   >
-     <div className="flex items-center gap-2">
-       <Sparkles size={16} className="text-emerald-500" />
-       <span>
-         {partyActiveTab === 'setup' && ' Overview & Setup'}
-         {partyActiveTab === 'plan' && ' Themes, Venues & Ideas'}
-         {partyActiveTab === 'polls' && ' Polls & Date Options'}
-         {partyActiveTab === 'guests' && ' Guest List & Roles'}
-         {partyActiveTab === 'vibes' && ' Playlist & Vibes'}
-         {partyActiveTab === 'photos' && ' Photo Dump'}
-         {partyActiveTab === 'chat' && ' Party Chat'}
-         {partyActiveTab === 'trivia' && ' Spark & Trivia Builder'}
-         {partyActiveTab === 'ai_assistant' && ' Ask AI'}
-         {partyActiveTab === 'settings' && ' Room Settings'}
-       </span>
-     </div>
-     <ChevronDown size={16} className={cn("text-zinc-400 transition-transform duration-200", isTabMenuOpen && "rotate-180")} />
-   </button>
+   (() => {
+     const getTabColorConfig = (tabId: string) => {
+       switch (tabId) {
+         case 'party_setup':
+           return { active: 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/20', icon: 'text-purple-500 dark:text-purple-400' };
+         case 'setup':
+           return { active: 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/20', icon: 'text-emerald-500 dark:text-emerald-400' };
+         case 'plan':
+           return { active: 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-md shadow-amber-500/20', icon: 'text-amber-500 dark:text-amber-400' };
+         case 'polls':
+           return { active: 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/20', icon: 'text-sky-500 dark:text-sky-400' };
+         case 'guests':
+           return { active: 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/20', icon: 'text-indigo-500 dark:text-indigo-400' };
+         case 'vibes':
+           return { active: 'bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-md shadow-rose-500/20', icon: 'text-rose-500 dark:text-rose-400' };
+         case 'photos':
+           return { active: 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-md shadow-fuchsia-500/20', icon: 'text-fuchsia-500 dark:text-fuchsia-400' };
+         case 'chat':
+           return { active: 'bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md shadow-teal-500/20', icon: 'text-teal-500 dark:text-teal-400' };
+         case 'trivia':
+           return { active: 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white shadow-md shadow-amber-500/20', icon: 'text-amber-500 dark:text-amber-400' };
+         case 'ai_assistant':
+           return { active: 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-500/20', icon: 'text-cyan-500 dark:text-cyan-400' };
+         case 'settings':
+           return { active: 'bg-gradient-to-r from-zinc-700 to-zinc-900 text-white shadow-md shadow-zinc-500/20', icon: 'text-zinc-500 dark:text-zinc-400' };
+         default:
+           return { active: 'bg-emerald-500 text-white', icon: 'text-emerald-500' };
+       }
+     };
 
-   <AnimatePresence>
-     {isTabMenuOpen && (
-       <>
-         <div className="fixed inset-0 z-20" onClick={() => setIsTabMenuOpen(false)} />
-         <motion.div
-           initial={{ opacity: 0, y: -8, scale: 0.98 }}
-           animate={{ opacity: 1, y: 0, scale: 1 }}
-           exit={{ opacity: 0, y: -8, scale: 0.98 }}
-           className="absolute left-0 right-0 top-full mt-2 z-30 bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 rounded-2xl dark:shadow-lg overflow-hidden p-1.5 space-y-1"
-         >
-           {[
-             { id: 'setup', label: ' Overview & Setup', icon: LayoutDashboard },
-             { id: 'plan', label: ' Themes, Venues & Ideas', icon: Palette },
-             { id: 'polls', label: ' Polls & Date Options', icon: Vote },
-             { id: 'guests', label: ' Guest List & Roles', icon: Users },
-             { id: 'vibes', label: ' Playlist & Vibes', icon: Music },
-             { id: 'photos', label: ' Photo Dump', icon: ImageIcon },
-             { id: 'chat', label: ' Party Chat', icon: MessageSquare },
-             { id: 'trivia', label: ' Spark & Trivia Builder', icon: Sparkles },
-             ...(isCrewAdminOrMod ? [
-               { id: 'ai_assistant', label: ' Ask AI', icon: Bot },
-               { id: 'settings', label: ' Room Settings', icon: Settings },
-             ] : []),
-           ].map(tabItem => (
-             <button
-               key={tabItem.id}
-               onClick={() => {
-                 setPartyActiveTab(tabItem.id as any);
-                 setIsTabMenuOpen(false);
-               }}
-               className={cn(
-                 "w-full flex items-center justify-between p-2.5 px-3 rounded-xl text-xs font-bold transition-all text-left cursor-pointer",
-                 partyActiveTab === tabItem.id
-                   ? "bg-emerald-500 text-white font-extrabold shadow-sm"
-                   : "text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-               )}
-             >
-               <div className="flex items-center gap-2.5">
-                 <tabItem.icon size={15} />
+     const partyTabsList = [
+       ...(isCrewAdminOrMod ? [{ id: 'party_setup', label: 'Party Setup', icon: Settings }] : []),
+       { id: 'setup', label: 'Overview', icon: LayoutDashboard },
+       { id: 'plan', label: 'Themes & Ideas', icon: Palette },
+       { id: 'polls', label: 'Polls & Dates', icon: Vote },
+       { id: 'guests', label: 'Guest List', icon: Users },
+       { id: 'vibes', label: 'Playlist & Vibes', icon: Music },
+       { id: 'photos', label: 'Photo Dump', icon: ImageIcon },
+       { id: 'chat', label: 'Party Chat', icon: MessageSquare },
+       { id: 'trivia', label: 'Spark Game', icon: Sparkles },
+       ...(isCrewAdminOrMod ? [
+         { id: 'ai_assistant', label: 'Ask AI', icon: Bot },
+         { id: 'settings', label: 'Room Settings', icon: Sliders },
+       ] : []),
+     ];
+
+     const activeTabObj = partyTabsList.find(t => t.id === partyActiveTab) || partyTabsList[0];
+     const activeColorCfg = getTabColorConfig(activeTabObj.id);
+     const ActiveIcon = activeTabObj.icon;
+
+     return (
+       <div className="space-y-2">
+         {/* Mobile dropdown selector */}
+         <div className="block sm:hidden relative">
+           <button
+             onClick={() => setIsTabMenuOpen(!isTabMenuOpen)}
+             className="w-full flex items-center justify-between p-3 bg-zinc-100 dark:bg-zinc-800 rounded-2xl font-extrabold text-xs uppercase tracking-wider text-zinc-900 dark:text-zinc-100 border border-zinc-200/50 dark:border-zinc-700/50 shadow-sm transition-all hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
+           >
+             <div className="flex items-center gap-2">
+               <ActiveIcon size={16} className={activeColorCfg.icon} />
+               <span>{activeTabObj.label}</span>
+             </div>
+             <ChevronDown size={16} className={cn("text-zinc-400 transition-transform duration-200", isTabMenuOpen && "rotate-180")} />
+           </button>
+
+           <AnimatePresence>
+             {isTabMenuOpen && (
+               <>
+                 <div className="fixed inset-0 z-20" onClick={() => setIsTabMenuOpen(false)} />
+                 <motion.div
+                   initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                   animate={{ opacity: 1, y: 0, scale: 1 }}
+                   exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                   className="absolute left-0 right-0 top-full mt-2 z-30 bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 rounded-2xl shadow-xl overflow-hidden p-1.5 space-y-1"
+                 >
+                   {partyTabsList.map(tabItem => {
+                     const tabCfg = getTabColorConfig(tabItem.id);
+                     const isTabSel = partyActiveTab === tabItem.id;
+                     return (
+                       <button
+                         key={tabItem.id}
+                         onClick={() => {
+                           setPartyActiveTab(tabItem.id as any);
+                           setIsTabMenuOpen(false);
+                         }}
+                         className={cn(
+                           "w-full flex items-center justify-between p-2.5 px-3 rounded-xl text-xs font-bold transition-all text-left cursor-pointer",
+                           isTabSel
+                             ? `${tabCfg.active} font-extrabold`
+                             : "text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                         )}
+                       >
+                         <div className="flex items-center gap-2.5">
+                           <tabItem.icon size={15} className={isTabSel ? "text-white" : tabCfg.icon} />
+                           <span>{tabItem.label}</span>
+                         </div>
+                         {isTabSel && <Check size={14} className="text-white" />}
+                       </button>
+                     );
+                   })}
+                 </motion.div>
+               </>
+             )}
+           </AnimatePresence>
+         </div>
+
+         {/* Tablet & Desktop Horizontal Tab Bar */}
+         <div className="hidden sm:flex items-center overflow-x-auto whitespace-nowrap scrollbar-none gap-1.5 p-1.5 bg-zinc-100 dark:bg-zinc-800/80 rounded-2xl border border-zinc-200/50 dark:border-zinc-700/50">
+           {partyTabsList.map(tabItem => {
+             const tabCfg = getTabColorConfig(tabItem.id);
+             const isTabSel = partyActiveTab === tabItem.id;
+             return (
+               <button
+                 key={tabItem.id}
+                 onClick={() => setPartyActiveTab(tabItem.id as any)}
+                 className={cn(
+                   "shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer",
+                   isTabSel
+                     ? `${tabCfg.active} font-extrabold`
+                     : "text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700/50"
+                 )}
+               >
+                 <tabItem.icon size={14} className={isTabSel ? "text-white" : tabCfg.icon} />
                  <span>{tabItem.label}</span>
-               </div>
-               {partyActiveTab === tabItem.id && <Check size={14} />}
-             </button>
-           ))}
-         </motion.div>
-       </>
-     )}
-   </AnimatePresence>
- </div>
+               </button>
+             );
+           })}
+         </div>
+       </div>
+     );
+   })()
  ) : (
  <div className="flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl">
  {(['planning', 'vault', 'chat'] as const).map((tab) => (
@@ -2658,7 +3109,7 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
  <div className="p-6 space-y-8 max-w-2xl mx-auto">
  {isFullParty ? (
    <div className="space-y-8">
-     {isAttendanceGated && partyActiveTab !== 'setup' && partyActiveTab !== 'guests' ? (
+     {isAttendanceGated && partyActiveTab !== 'setup' && partyActiveTab !== 'party_setup' && partyActiveTab !== 'guests' ? (
        <div className="p-8 bg-amber-500/10 border border-amber-500/20 rounded-3xl text-center space-y-4">
          <Shield size={40} className="mx-auto text-amber-500" />
          <h3 className="text-lg font-black text-amber-900 dark:text-amber-200">Attendance RSVP Required</h3>
@@ -2676,26 +3127,346 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
        </div>
      ) : (
        <>
+         {partyActiveTab === 'party_setup' && isCrewAdminOrMod && (
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+             <div className="flex items-center justify-between p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+               <div>
+                 <h2 className="text-base font-extrabold text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
+                   <Settings size={18} className="text-emerald-500" />
+                   Consolidated Party Setup
+                 </h2>
+                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                   Manage room details, AI prompts, guest permissions, and Spark Game rules in one place.
+                 </p>
+               </div>
+             </div>
+
+             {/* Room Details */}
+             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+               <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                 <LayoutDashboard size={16} className="text-emerald-500" />
+                 Room Name & Notes
+               </h3>
+               <div className="space-y-3">
+                 <div>
+                   <label className="text-xs font-bold text-zinc-500 block mb-1">Party Room Name</label>
+                   <input
+                     value={editRoomName}
+                     onChange={(e) => setEditRoomName(e.target.value)}
+                     placeholder="e.g., Alex's 25th Birthday Bash"
+                     className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none"
+                   />
+                 </div>
+                 <div>
+                   <label className="text-xs font-bold text-zinc-500 block mb-1">General Description / Notes for Guests</label>
+                   <textarea
+                     value={editRoomNotes}
+                     onChange={(e) => setEditRoomNotes(e.target.value)}
+                     rows={2}
+                     placeholder="Welcome notes or general information for guests..."
+                     className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none"
+                   />
+                 </div>
+                 <button
+                   onClick={handleSaveRoomDetails}
+                   disabled={isSavingRoomDetails}
+                   className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all"
+                 >
+                   {isSavingRoomDetails ? 'Saving...' : 'Save Room Details'}
+                 </button>
+               </div>
+             </section>
+
+             {/* Ideas for the AI (planner_notes) */}
+             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+               <div className="flex items-center justify-between">
+                 <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                   <Sparkles size={16} className="text-amber-500" />
+                   Ideas for the AI (AI Spark Context)
+                 </h3>
+                 <span className="text-[10px] uppercase tracking-wider font-extrabold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-1 rounded-full">
+                   Editable by Admin & Planners
+                 </span>
+               </div>
+               <p className="text-xs text-zinc-500 leading-relaxed">
+                 Describe the vibe, theme ideas, recipient's interests, favorite movies, music genres, or language preferences. This directly feeds into AI generation for themes, venues, soundtracks, game ideas, and Spark questions.
+               </p>
+               <textarea
+                 value={editPlannerNotes}
+                 onChange={(e) => setEditPlannerNotes(e.target.value)}
+                 rows={3}
+                 placeholder="e.g. 'Tamil movie themed, likes K-pop and board games, budget-friendly retro vibe, late night snacks'"
+                 className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none"
+               />
+               <button
+                 onClick={handleSavePlannerNotes}
+                 disabled={isSavingPlannerNotes}
+                 className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all"
+               >
+                 {isSavingPlannerNotes ? 'Saving...' : 'Save AI Ideas'}
+               </button>
+             </section>
+
+             {/* Party Date Picker */}
+             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+               <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                 <Vote size={16} className="text-emerald-500" />
+                 Party Date & Time
+               </h3>
+               <div className="flex items-center gap-3">
+                 <input
+                   type="date"
+                   value={editPartyDate}
+                   onChange={(e) => setEditPartyDate(e.target.value)}
+                   className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none text-zinc-900 dark:text-zinc-100"
+                 />
+                 <button
+                   onClick={handleSavePartyDate}
+                   disabled={isSavingPartyDate}
+                   className="px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all"
+                 >
+                   {isSavingPartyDate ? 'Saving...' : 'Save Date'}
+                 </button>
+               </div>
+             </section>
+
+             {/* Attendance Requirement Toggle */}
+             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+               <div className="flex items-center justify-between">
+                 <div>
+                   <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                     <Shield size={16} className="text-emerald-500" />
+                     Attendance Requirement Gating
+                   </h3>
+                   <p className="text-xs text-zinc-500 mt-1">
+                     Require guests to RSVP "Going" before unlocking party plans and chat.
+                   </p>
+                 </div>
+                 <button
+                   onClick={async () => {
+                     if (!id) return;
+                     const nextVal = !(group?.requires_attendance ?? false);
+                     await updateDoc(doc(db, 'rooms', id), { requires_attendance: nextVal });
+                   }}
+                   className={cn(
+                     "px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                     group?.requires_attendance
+                       ? "bg-emerald-500 text-white"
+                       : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"
+                   )}
+                 >
+                   {group?.requires_attendance ? 'Gating Enabled' : 'Gating Disabled'}
+                 </button>
+               </div>
+             </section>
+
+             {/* Per-Status Guest Visibility Settings */}
+             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+               <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                 <Eye size={16} className="text-emerald-500" />
+                 Per-Status Guest Visibility Options
+               </h3>
+               <p className="text-xs text-zinc-500">
+                 Control what guests can see depending on their RSVP status.
+               </p>
+
+               <div className="space-y-4 pt-2">
+                 {[
+                   { key: 'not_going', label: 'Declined (Not Going)' },
+                   { key: 'undecided', label: 'Undecided / Maybe' },
+                   { key: 'going', label: 'Confirmed (Going)' },
+                 ].map((statusObj) => {
+                   const currentVal = (editVisibility as any)[statusObj.key] || 'limited';
+
+                   return (
+                     <div key={statusObj.key} className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-200/60 dark:border-zinc-700/60 space-y-2">
+                       <div className="flex items-center justify-between">
+                         <span className="text-xs font-extrabold text-zinc-900 dark:text-zinc-100">{statusObj.label}</span>
+                         <select
+                           value={currentVal}
+                           onChange={(e) => {
+                             const updated = { ...editVisibility, [statusObj.key]: e.target.value };
+                             handleSaveVisibility(updated);
+                           }}
+                           className="p-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-bold outline-none cursor-pointer"
+                         >
+                           <option value="none">None</option>
+                           <option value="limited">Limited</option>
+                           <option value="full">Full</option>
+                         </select>
+                       </div>
+
+                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
+                         {currentVal === 'none' && "None — they'll only see the option to update their RSVP, nothing else."}
+                         {currentVal === 'limited' && "Limited — they'll see published themes, venues, and soundtracks, but not chat or photos."}
+                         {currentVal === 'full' && "Full — they'll see everything: plans, chat, and photos, just like a confirmed guest."}
+                       </p>
+                     </div>
+                   );
+                 })}
+               </div>
+             </section>
+
+             {/* Photo Dump Access Settings */}
+             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+               <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                 <ImageIcon size={16} className="text-emerald-500" />
+                 Photo Dump Access
+               </h3>
+               <div className="space-y-2">
+                 {[
+                   { id: 'guests_can_add', label: 'View & Upload', desc: 'Guests can view and upload photos to the dump.' },
+                   { id: 'guests_view_only', label: 'View Only', desc: 'Guests can view photos, but only Admins/Planners can upload.' },
+                   { id: 'guests_hidden', label: 'Hidden', desc: 'Photo Dump is hidden from guests completely.' },
+                 ].map(option => (
+                   <label
+                     key={option.id}
+                     onClick={() => handleSavePhotoAccess(option.id)}
+                     className={cn(
+                       "flex items-start gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer",
+                       editPhotoAccess === option.id
+                         ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200"
+                         : "bg-zinc-50 dark:bg-zinc-800/40 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                     )}
+                   >
+                     <input
+                       type="radio"
+                       name="photo_access"
+                       checked={editPhotoAccess === option.id}
+                       onChange={() => {}}
+                       className="mt-0.5 accent-emerald-500"
+                     />
+                     <div>
+                       <p className="text-xs font-bold">{option.label}</p>
+                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">{option.desc}</p>
+                     </div>
+                   </label>
+                 ))}
+               </div>
+             </section>
+
+             {/* Spark Game Settings */}
+             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+               <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                 <Sparkles size={16} className="text-emerald-500" />
+                 Spark Game Locker & In-Person Mode
+               </h3>
+               <p className="text-xs text-zinc-500 leading-relaxed">
+                 Configure lock dates, send answers directly to the recipient's Locker, or keep answers for in-person party reveals.
+               </p>
+
+               <div className="space-y-3 pt-2">
+                 <div>
+                   <label className="text-xs font-bold text-zinc-500 block mb-1">Lock Answers On Date</label>
+                   <div className="flex gap-2">
+                     <input
+                       type="date"
+                       value={responsesLockDate}
+                       onChange={(e) => setResponsesLockDate(e.target.value)}
+                       className="flex-1 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none text-zinc-900 dark:text-zinc-100"
+                     />
+                     <button
+                       onClick={handleSaveLockDate}
+                       disabled={isSavingLockDate}
+                       className="px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all"
+                     >
+                       {isSavingLockDate ? 'Saving...' : 'Set Lock Date'}
+                     </button>
+                   </div>
+                 </div>
+
+                 <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-200/60 dark:border-zinc-700/60 space-y-2">
+                   <p className="text-xs font-extrabold text-zinc-900 dark:text-zinc-100">Guess Who Mechanic</p>
+                   <p className="text-[11px] text-zinc-500 leading-relaxed">
+                     When enabled, the birthday person gets to guess which guest submitted each answer when reviewing their Locker.
+                   </p>
+                 </div>
+
+                 {/* Spark Question Depth Setting */}
+                 <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-200/60 dark:border-zinc-700/60 space-y-3">
+                   <div>
+                     <h4 className="text-xs font-extrabold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                       <Sliders size={14} className="text-emerald-500" />
+                       Spark Question Depth Level
+                     </h4>
+                     <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                       Controls the tone and depth of AI-generated Spark questions. Does not affect custom questions written manually by members.
+                     </p>
+                   </div>
+
+                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                     {[
+                       {
+                         id: 'light',
+                         label: 'Light',
+                         desc: 'Fun, silly & surface-level (e.g. most-used emoji, favorite snack)'
+                       },
+                       {
+                         id: 'medium',
+                         label: 'Medium',
+                         desc: 'Mix of playful & slightly reflective group memories'
+                       },
+                       {
+                         id: 'deep',
+                         label: 'Deep',
+                         desc: 'Meaningful & sentimental (e.g. moments of support & admiration)'
+                       },
+                     ].map((depthObj) => {
+                       const isSelected = editQuestionDepth === depthObj.id;
+                       return (
+                         <button
+                           key={depthObj.id}
+                           type="button"
+                           onClick={() => handleSaveQuestionDepth(depthObj.id as any)}
+                           className={cn(
+                             "p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer",
+                             isSelected
+                               ? "bg-emerald-500/10 border-emerald-500 text-emerald-900 dark:text-emerald-200 shadow-sm"
+                               : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 text-zinc-700 dark:text-zinc-300"
+                           )}
+                         >
+                           <div>
+                             <div className="flex items-center justify-between mb-1">
+                               <span className="text-xs font-black">{depthObj.label}</span>
+                               {isSelected && <Check size={14} className="text-emerald-500" />}
+                             </div>
+                             <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight">
+                               {depthObj.desc}
+                             </p>
+                           </div>
+                         </button>
+                       );
+                     })}
+                   </div>
+                 </div>
+               </div>
+             </section>
+           </motion.div>
+         )}
          {partyActiveTab === 'setup' && (
            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-             <div className="p-6 bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-3xl shadow-xl space-y-4 relative overflow-hidden">
-               <div className="flex items-center justify-between">
-                 <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest">
-                   Full Party Mode
+             <div className="p-6 bg-gradient-to-br from-emerald-600 via-teal-600 via-indigo-600 to-purple-700 text-white rounded-3xl shadow-xl space-y-4 relative overflow-hidden">
+               <div className="absolute -top-12 -right-12 w-48 h-48 bg-amber-400/25 rounded-full blur-2xl pointer-events-none" />
+               <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-rose-500/25 rounded-full blur-2xl pointer-events-none" />
+               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-cyan-400/15 rounded-full blur-3xl pointer-events-none" />
+
+               <div className="flex items-center justify-between relative z-10">
+                 <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20 shadow-sm flex items-center gap-1">
+                   <span>🎉</span> Full Party Mode
                  </span>
                  {group?.vibe && (
-                   <span className="text-xs font-bold bg-black/20 px-3 py-1 rounded-full">
-                     Vibe: {group.vibe}
+                   <span className="text-xs font-bold bg-amber-400/20 backdrop-blur-md px-3 py-1 rounded-full border border-amber-300/30 text-amber-100 flex items-center gap-1">
+                     ✨ Vibe: {group.vibe}
                    </span>
                  )}
                </div>
 
-               <div>
-                 <h2 className="text-2xl font-black tracking-tight">{group?.name}</h2>
-                 {group?.notes && <p className="text-xs opacity-90 mt-1">{group.notes}</p>}
+               <div className="relative z-10">
+                 <h2 className="text-2xl font-black tracking-tight drop-shadow-sm">{group?.name}</h2>
+                 {group?.notes && <p className="text-xs opacity-90 mt-1 leading-relaxed">{group.notes}</p>}
                </div>
 
-               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-white/20">
+               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-white/20 relative z-10">
                  {group?.party_date && (
                    <div>
                      <p className="text-[9px] uppercase font-bold text-emerald-200">Date & Time</p>
@@ -2712,12 +3483,17 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
                  </div>
                </div>
 
-               <div className="pt-2 border-t border-white/20 flex flex-wrap items-center justify-between gap-2">
+               <div className="pt-3 border-t border-white/20 flex flex-wrap items-center justify-between gap-2 relative z-10">
                  <span className="text-xs font-bold">Update My RSVP:</span>
                  <div className="flex gap-1.5">
                    {(['going', 'maybe', 'not_going'] as const).map((status) => {
                      const currentRsvp = group?.rsvps?.[firebaseUser?.uid] || 'going';
                      const isSel = currentRsvp === status;
+                     const activeRsvpStyle = status === 'going' 
+                       ? 'bg-emerald-400 text-emerald-950 ring-2 ring-emerald-300 shadow-lg font-black' 
+                       : status === 'maybe' 
+                       ? 'bg-amber-400 text-amber-950 ring-2 ring-amber-300 shadow-lg font-black' 
+                       : 'bg-rose-400 text-rose-950 ring-2 ring-rose-300 shadow-lg font-black';
                      return (
                        <button
                          key={status}
@@ -2725,7 +3501,7 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
                          className={cn(
                            "px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer",
                            isSel
-                             ? "bg-white text-emerald-800 shadow-md"
+                             ? activeRsvpStyle
                              : "bg-white/10 hover:bg-white/20 text-white"
                          )}
                        >
@@ -2742,15 +3518,24 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
                  const days = getDaysUntil(group.person_birthday);
                  let text = "";
                  if (days === 0) {
-                   text = ` It's ${group?.person_name || 'Friend'}'s birthday TODAY!`;
+                   text = `It's ${group?.person_name || 'Friend'}'s birthday TODAY!`;
                  } else if (days === 1) {
-                   text = `Tomorrow is ${group?.person_name || 'Friend'}'s birthday! `;
+                   text = `Tomorrow is ${group?.person_name || 'Friend'}'s birthday!`;
                  } else {
-                   text = `${days} days until ${group?.person_name || 'Friend'}'s birthday `;
+                   text = `${days} days until ${group?.person_name || 'Friend'}'s birthday!`;
                  }
                  return (
-                   <div className="bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-3xl p-6 border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg">
-                     <p className="text-lg font-extrabold tracking-tight">{text}</p>
+                   <div className="bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-purple-500/10 dark:from-amber-500/20 dark:via-rose-500/20 dark:to-purple-500/20 text-zinc-900 dark:text-white rounded-3xl p-6 border border-amber-500/30 shadow-sm flex items-center justify-between gap-4">
+                     <div>
+                       <div className="flex items-center gap-2 mb-1">
+                         <Sparkles size={16} className="text-amber-500 animate-pulse" />
+                         <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Birthday Countdown</span>
+                       </div>
+                       <p className="text-lg font-extrabold tracking-tight">{text}</p>
+                     </div>
+                     <div className="p-3 bg-amber-500/20 text-amber-600 dark:text-amber-300 rounded-2xl shrink-0">
+                       <PartyPopper size={26} />
+                     </div>
                    </div>
                  );
                })()
@@ -2943,12 +3728,14 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
              <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
                <div className="flex items-center justify-between">
-                 <h3 className="font-extrabold text-base flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-                   <Palette size={20} className="text-emerald-500" />
+                 <h3 className="font-extrabold text-base flex items-center gap-2.5 text-zinc-900 dark:text-zinc-100">
+                   <div className="p-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 rounded-xl border border-amber-500/20 shadow-sm">
+                     <Palette size={18} />
+                   </div>
                    Party Themes & Aesthetics
                  </h3>
-                 <button onClick={handleGenerateAiThemes} disabled={isGeneratingThemes} className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1 cursor-pointer hover:text-emerald-400 transition-colors">
-                   {isGeneratingThemes ? 'Generating...' : 'AI Generate'}
+                 <button onClick={handleGenerateAiThemes} disabled={isGeneratingThemes} className="text-xs font-bold text-amber-500 uppercase flex items-center gap-1 cursor-pointer hover:text-amber-400 transition-colors bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/20">
+                   {isGeneratingThemes ? 'Generating...' : '✨ AI Generate'}
                  </button>
                </div>
                <div className="grid grid-cols-1 gap-3">
@@ -2992,12 +3779,14 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
 
              <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
                <div className="flex items-center justify-between">
-                 <h3 className="font-extrabold text-base flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-                   <Eye size={20} className="text-emerald-500" />
+                 <h3 className="font-extrabold text-base flex items-center gap-2.5 text-zinc-900 dark:text-zinc-100">
+                   <div className="p-2 bg-sky-500/10 dark:bg-sky-500/20 text-sky-500 rounded-xl border border-sky-500/20 shadow-sm">
+                     <Eye size={18} />
+                   </div>
                    Venues & Locations
                  </h3>
-                 <button onClick={handleGenerateAiVenues} disabled={isGeneratingVenues} className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1 cursor-pointer hover:text-emerald-400 transition-colors">
-                   {isGeneratingVenues ? 'Analyzing...' : 'AI Generate'}
+                 <button onClick={handleGenerateAiVenues} disabled={isGeneratingVenues} className="text-xs font-bold text-sky-500 uppercase flex items-center gap-1 cursor-pointer hover:text-sky-400 transition-colors bg-sky-500/10 px-3 py-1.5 rounded-xl border border-sky-500/20">
+                   {isGeneratingVenues ? 'Analyzing...' : '✨ AI Generate'}
                  </button>
                </div>
                <div className="grid grid-cols-1 gap-3">
@@ -3040,25 +3829,45 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
 
              <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
                <div className="flex items-center justify-between">
-                 <h3 className="font-extrabold text-base flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-                   <Gamepad2 size={20} className="text-emerald-500" />
+                 <h3 className="font-extrabold text-base flex items-center gap-2.5 text-zinc-900 dark:text-zinc-100">
+                   <div className="p-2 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-500 rounded-xl border border-indigo-500/20 shadow-sm">
+                     <Gamepad2 size={18} />
+                   </div>
                    Game Ideas & Proposals
                  </h3>
-                 <button onClick={handleGenerateAiGames} disabled={isGeneratingGameIdeas} className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1 cursor-pointer hover:text-emerald-400 transition-colors">
-                   {isGeneratingGameIdeas ? 'Generating...' : 'AI Generate'}
+                 <button onClick={handleGenerateAiGames} disabled={isGeneratingGameIdeas} className="text-xs font-bold text-indigo-500 uppercase flex items-center gap-1 cursor-pointer hover:text-indigo-400 transition-colors bg-indigo-500/10 px-3 py-1.5 rounded-xl border border-indigo-500/20">
+                   {isGeneratingGameIdeas ? 'Generating...' : '✨ AI Generate'}
                  </button>
                </div>
+               <p className="text-xs text-zinc-500 dark:text-zinc-400 -mt-2">
+                 Propose party games or generate AI suggestions using your AI Ideas context.
+               </p>
                <div className="grid grid-cols-1 gap-3">
                  {partyGameIdeas.map((g: any) => (
                    <div key={g.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-700 space-y-2">
-                     <div className="flex items-center justify-between">
-                       <div className="flex items-center gap-2">
-                         <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">{g.name || g.title}</h4>
-                         {g.duration && <span className="text-xs font-bold text-emerald-500">{g.duration}</span>}
+                     <div className="flex items-center justify-between gap-2">
+                       <div className="flex items-center gap-2 min-w-0">
+                         <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 truncate">{g.name || g.title}</h4>
+                         {g.duration && <span className="text-xs font-bold text-emerald-500 shrink-0">{g.duration}</span>}
                        </div>
-                       <button onClick={() => handleVoteGameIdea(g.id, g.votes || [])} className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs rounded-xl border border-emerald-500/20 transition-all cursor-pointer">
-                         {(g.votes || []).includes(firebaseUser?.uid) ? 'Voted' : 'Vote'} ({(g.votes || []).length})
-                       </button>
+                       <div className="flex items-center gap-2 shrink-0">
+                         {isCrewAdminOrMod && (
+                           <button
+                             onClick={() => handleToggleGameIdeaPublish(g.id, !!g.published)}
+                             className={cn(
+                               "px-2.5 py-1 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer",
+                               g.published
+                                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                                 : "bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500"
+                             )}
+                           >
+                             {g.published ? 'Published' : 'Publish'}
+                           </button>
+                         )}
+                         <button onClick={() => handleVoteGameIdea(g.id, g.votes || [])} className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs rounded-xl border border-emerald-500/20 transition-all cursor-pointer">
+                           {(g.votes || []).includes(firebaseUser?.uid) ? 'Voted' : 'Vote'} ({(g.votes || []).length})
+                         </button>
+                       </div>
                      </div>
                      {g.description && <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed"><strong className="text-zinc-700 dark:text-zinc-200">Rules & Setup:</strong> {g.description}</p>}
                      {g.materials && <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed"><strong className="text-zinc-700 dark:text-zinc-200">Materials:</strong> {g.materials}</p>}
@@ -3072,7 +3881,8 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
                {showCustomGameForm ? (
                  <div className="space-y-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
                    <input value={customGameName} onChange={(e) => setCustomGameName(e.target.value)} placeholder="Game Title..." className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 outline-none" />
-                   <input value={customGameDescription} onChange={(e) => setCustomGameDescription(e.target.value)} placeholder="Rules and instructions..." className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 outline-none" />
+                   <input value={customGameDuration} onChange={(e) => setCustomGameDuration(e.target.value)} placeholder="Estimated Time / Duration (e.g. 15-20 mins)..." className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 outline-none" />
+                   <textarea value={customGameDescription} onChange={(e) => setCustomGameDescription(e.target.value)} rows={2} placeholder="Rules and instructions..." className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 outline-none" />
                    <input value={customGameMaterials} onChange={(e) => setCustomGameMaterials(e.target.value)} placeholder="Required materials / props..." className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 outline-none" />
                    <div className="flex gap-2">
                      <button onClick={() => setShowCustomGameForm(false)} className="px-4 py-2.5 text-xs font-bold text-zinc-500 cursor-pointer">Cancel</button>
@@ -3307,39 +4117,243 @@ CRITICAL: Provide rich, multi-sentence descriptive content for description and m
          )}
 
          {partyActiveTab === 'trivia' && (
-           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
-               <div className="flex items-center justify-between">
-                 <h3 className="font-extrabold text-base flex items-center gap-2">
-                   <Sparkles size={20} className="text-emerald-500" />
-                   Spark Game & Trivia Questions
-                 </h3>
-                 <button onClick={handleGenerateTrivia} disabled={isGeneratingTrivia} className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1 cursor-pointer">
-                   {isGeneratingTrivia ? 'Generating...' : 'AI Generate'}
-                 </button>
-               </div>
-               <div className="space-y-3">
-                 {triviaQuestions.map((q: any) => (
-                   <div key={q.id} className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl flex justify-between items-center">
-                     <div>
-                       <p className="font-bold text-sm">{q.question}</p>
-                       <p className="text-xs text-zinc-400 mt-0.5">Answer: {q.answer || 'TBD'}</p>
-                     </div>
-                     <button onClick={() => handlePublishTriviaToLocker(q.id)} className={cn("px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer", q.published_to_locker ? "bg-emerald-500 text-white" : "bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200")}>
-                       {q.published_to_locker ? 'In Locker ' : 'Send to Locker'}
-                     </button>
-                   </div>
-                 ))}
-               </div>
-               <div className="flex gap-2 pt-2">
-                 <input value={newTriviaQuestion} onChange={(e) => setNewTriviaQuestion(e.target.value)} placeholder="Add custom trivia question..." className="flex-1 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none text-xs outline-none" />
-                 <button onClick={handleAddTriviaQuestion} className="px-4 py-3 bg-emerald-500 text-white font-bold text-xs rounded-xl cursor-pointer">Add</button>
-               </div>
-             </section>
-           </motion.div>
-         )}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+              {isCrewAdminOrMod && (
+                <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-black text-base text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                        <Sparkles size={20} className="text-emerald-500" />
+                        Spark Game Question Creator
+                      </h3>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                        Create custom questions or generate AI ideas about {group?.person_name || 'the birthday person'}.
+                      </p>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
+                        Suggestions use what you wrote in Party Setup → Ideas for the AI
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleGenerateAiQuestions}
+                      disabled={isGeneratingAIQuestions}
+                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shrink-0 self-start sm:self-auto cursor-pointer"
+                    >
+                      <Sparkles size={14} />
+                      {isGeneratingAIQuestions ? 'Generating...' : 'AI Suggest Questions'}
+                    </button>
+                  </div>
 
-         {partyActiveTab === 'ai_assistant' && (
+                  {birthdayQuestions.filter((q: any) => q.published === false).length > 0 && (
+                    <div className="space-y-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                      <h4 className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                        AI Suggested Draft Questions (Double-tap or click Publish to add to live list)
+                      </h4>
+                      <div className="space-y-2">
+                        {birthdayQuestions.filter((q: any) => q.published === false).map((q: any) => (
+                          <div
+                            key={q.id}
+                            onDoubleClick={() => handlePublishQuestion(q.id)}
+                            className="p-3.5 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 flex items-center justify-between gap-3 cursor-pointer hover:border-emerald-500 transition-all"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{q.question_text}</p>
+                              <span className="text-[10px] text-zinc-400">Suggested by AI</span>
+                            </div>
+                            <button
+                              onClick={() => handlePublishQuestion(q.id)}
+                              className="px-3 py-1.5 bg-emerald-500 text-white rounded-xl text-xs font-bold cursor-pointer hover:bg-emerald-600 shrink-0"
+                            >
+                              Publish Question
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-2">
+                    <input
+                      value={newQuestionText}
+                      onChange={(e) => setNewQuestionText(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleProposeQuestion()}
+                      placeholder="Ask a custom question..."
+                      className="flex-1 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs outline-none text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
+                    />
+                    <button
+                      onClick={handleProposeQuestion}
+                      disabled={isProposingQuestion || !newQuestionText.trim()}
+                      className="px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer disabled:opacity-50"
+                    >
+                      {isProposingQuestion ? 'Adding...' : 'Add Question'}
+                    </button>
+                  </div>
+                </section>
+              )}
+
+              <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                      <HelpCircle size={18} className="text-emerald-500" />
+                      Live Spark Game Questions
+                    </h3>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                      Answer questions about {group?.person_name || 'the birthday person'}. When Guess Who is enabled, {group?.person_name || 'they'} will guess who submitted each answer in their Locker!
+                    </p>
+                  </div>
+                  {isLockDatePassed && (
+                    <span className="px-2.5 py-1 bg-amber-500/10 text-amber-500 rounded-full text-[10px] font-bold">
+                      Answers Locked
+                    </span>
+                  )}
+                </div>
+
+                {birthdayQuestions.filter((q: any) => q.published !== false).length === 0 ? (
+                  <p className="text-xs text-zinc-400 italic py-4 text-center">
+                    No questions live yet. Click 'AI Suggest Questions' or add a custom question above!
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {birthdayQuestions.filter((q: any) => q.published !== false).map((q: any) => {
+                      const currentAnswer = userAnswers[q.id] || '';
+                      const existingResp = birthdayResponses.find(r => r.question_id === q.id && r.user_id === firebaseUser?.uid);
+                      return (
+                        <div key={q.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100">{q.question_text}</p>
+                            <span className="text-[10px] text-zinc-400 shrink-0">
+                              By {q.created_by_name || 'Member'}
+                            </span>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <input
+                              value={currentAnswer}
+                              disabled={isLockDatePassed}
+                              onChange={(e) => setUserAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                              placeholder={isLockDatePassed ? "Submissions locked" : "Write your answer here..."}
+                              className="flex-1 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs outline-none text-zinc-900 dark:text-zinc-100 disabled:opacity-50"
+                            />
+                            {!isLockDatePassed && (
+                              <button
+                                onClick={() => handleSaveAnswer(q.id)}
+                                disabled={isSavingAnswers[q.id] || !currentAnswer.trim()}
+                                className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shrink-0 cursor-pointer disabled:opacity-50"
+                              >
+                                {existingResp ? 'Update' : 'Submit'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              {isPlannerOrAdmin && (
+                <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-6">
+                  <div className="border-b border-zinc-100 dark:border-zinc-700 pb-4">
+                    <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                      <Lock size={18} className="text-emerald-500" />
+                      Spark Results & Locker Settings (Admin / Planner)
+                    </h3>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                      Review all submitted answers and configure options for {group?.person_name || 'the birthday person'}.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-extrabold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider">
+                      Compiled Guest Answers
+                    </h4>
+                    {birthdayQuestions.filter((q: any) => q.published !== false).map((q: any) => {
+                      const qResponses = birthdayResponses.filter(r => r.question_id === q.id);
+                      return (
+                        <div key={q.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 space-y-2">
+                          <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100">{q.question_text}</p>
+                          {qResponses.length === 0 ? (
+                            <p className="text-[11px] text-zinc-400 italic">No answers submitted yet.</p>
+                          ) : (
+                            <div className="space-y-1.5 pt-1">
+                              {qResponses.map(r => (
+                                <div key={r.id} className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800 text-xs flex justify-between gap-2">
+                                  <span className="font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">{r.user_name}:</span>
+                                  <span className="text-zinc-700 dark:text-zinc-300 text-right">"{r.answer_text}"</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-700">
+                    <h4 className="text-xs font-extrabold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider">
+                      Locker & In-Person Party Options
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <label className="p-3.5 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 flex items-center justify-between cursor-pointer">
+                        <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Send responses to their Locker</span>
+                        <input
+                          type="checkbox"
+                          checked={sendToLockerEnabled}
+                          onChange={(e) => setSendToLockerEnabled(e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500"
+                        />
+                      </label>
+
+                      <label className="p-3.5 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 flex items-center justify-between cursor-pointer">
+                        <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Keep for in-person party use</span>
+                        <input
+                          type="checkbox"
+                          checked={keepInPersonEnabled}
+                          onChange={(e) => setKeepInPersonEnabled(e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500"
+                        />
+                      </label>
+
+                      <label className="p-3.5 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 flex items-center justify-between cursor-pointer sm:col-span-2">
+                        <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Let them guess who said what (guessing game in Locker)</span>
+                        <input
+                          type="checkbox"
+                          checked={guessWhoEnabled}
+                          onChange={(e) => setGuessWhoEnabled(e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500"
+                        />
+                      </label>
+                    </div>
+
+                    {!sendToLockerEnabled && (
+                      <div className="space-y-1.5 pt-2">
+                        <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                          Custom Locker Placeholder Note (optional)
+                        </label>
+                        <input
+                          value={customLockerNote}
+                          onChange={(e) => setCustomLockerNote(e.target.value)}
+                          placeholder="e.g. There's a surprise waiting for you at the party!"
+                          className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs outline-none text-zinc-900 dark:text-zinc-100"
+                        />
+                      </div>
+                    )}
+
+                    <button
+                      onClick={handleSendTriviaToVault}
+                      disabled={isSendingToVaults}
+                      className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-2xl shadow-lg shadow-emerald-500/20 cursor-pointer disabled:opacity-50 transition-all"
+                    >
+                      {isSendingToVaults ? 'Saving Spark Settings...' : 'Save Spark Settings & Save to Locker'}
+                    </button>
+                  </div>
+                </section>
+              )}
+            </motion.div>
+          )}
+
+          {partyActiveTab === 'ai_assistant' && (
            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
              <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
                <div className="flex items-center justify-between">
