@@ -406,11 +406,38 @@ export default function GroupPlanning() {
  // Party active tab state
  const [partyActiveTab, setPartyActiveTab] = React.useState<'setup' | 'plan' | 'polls' | 'guests' | 'vibes' | 'photos' | 'chat' | 'settings' | 'trivia' | 'ai_assistant' | 'guest_room'>('setup');
 
+  const isRoomAdmin = group?.created_by === firebaseUser?.uid || group?.admins?.includes(firebaseUser?.uid) || group?.roles?.[firebaseUser?.uid] === 'admin';
+  const isCrewAdminOrMod = isRoomAdmin || group?.mods?.includes(firebaseUser?.uid) || group?.roles?.[firebaseUser?.uid] === 'planner';
+
   React.useEffect(() => {
     if (!isCrewAdminOrMod && partyActiveTab !== 'guest_room' && partyActiveTab !== 'photos') {
       setPartyActiveTab('guest_room');
     }
   }, [isCrewAdminOrMod, partyActiveTab]);
+
+  const isPhotoDumpUnlocked = React.useMemo(() => {
+    if (isCrewAdminOrMod) return true;
+    if (!group?.party_date) return false;
+    try {
+      const dateStr = group.party_date;
+      let partyDateTime: Date;
+      if (group.party_time) {
+        partyDateTime = new Date(`${dateStr}T${group.party_time}`);
+        if (isNaN(partyDateTime.getTime())) {
+          partyDateTime = new Date(`${dateStr} ${group.party_time}`);
+        }
+      } else {
+        partyDateTime = new Date(dateStr);
+      }
+      if (isNaN(partyDateTime.getTime())) {
+        partyDateTime = new Date(dateStr);
+      }
+      if (isNaN(partyDateTime.getTime())) return false;
+      return new Date() >= partyDateTime;
+    } catch {
+      return false;
+    }
+  }, [isCrewAdminOrMod, group?.party_date, group?.party_time]);
 
  const [isTabMenuOpen, setIsTabMenuOpen] = React.useState(false);
 
@@ -591,6 +618,18 @@ export default function GroupPlanning() {
   const [plannerNotesTab, setPlannerNotesTab] = React.useState<'my_notes' | 'group_wide'>('my_notes');
   const [groupNeutralizedNotes, setGroupNeutralizedNotes] = React.useState<string[]>([]);
   const [isLoadingGroupNotes, setIsLoadingGroupNotes] = React.useState(false);
+
+  const { publishedThemes, publishedVenues, publishedGameIdeas, publishedPlaylist, publishedTasks, hasPublishedItems } = React.useMemo(() => {
+    const publishedThemes = (partyThemes || []).filter((t: any) => t.published);
+    const publishedVenues = (partyVenues || []).filter((v: any) => v.published);
+    const publishedGameIdeas = (partyGameIdeas || []).filter((g: any) => g.published);
+    const publishedPlaylist = playlistConcept?.published ? playlistConcept : null;
+    const publishedTasks = (tasks || []).filter((t: any) => t.published);
+
+    const hasPublishedItems = publishedThemes.length > 0 || publishedVenues.length > 0 || publishedGameIdeas.length > 0 || !!publishedPlaylist || publishedTasks.length > 0;
+
+    return { publishedThemes, publishedVenues, publishedGameIdeas, publishedPlaylist, publishedTasks, hasPublishedItems };
+  }, [partyThemes, partyVenues, partyGameIdeas, playlistConcept, tasks]);
 
   React.useEffect(() => {
     if (!id || !firebaseUser) return;
@@ -2205,8 +2244,6 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  // Check if it's the birthday
  const isBirthday = isBirthdayToday(group?.person_birthday);
  const isUnlocked = isBirthday || group?.isMember;
- const isRoomAdmin = group?.created_by === firebaseUser?.uid || group?.admins?.includes(firebaseUser?.uid) || group?.roles?.[firebaseUser?.uid] === 'admin';
-  const isCrewAdminOrMod = isRoomAdmin || group?.mods?.includes(firebaseUser?.uid) || group?.roles?.[firebaseUser?.uid] === 'planner';
  const isFullParty = group?.room_type === 'party' || group?.is_party === true || group?.isPartyRoom === true;
 
  const userRole = group?.roles?.[firebaseUser?.uid] || (group?.created_by === firebaseUser?.uid ? 'admin' : 'guest');
@@ -2214,30 +2251,6 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  const requiresAttendance = group?.requires_attendance || group?.attendance?.requires_attendance;
  const myRsvp = group?.rsvps?.[firebaseUser?.uid] || 'going';
  const isAttendanceGated = requiresAttendance && isGuest && myRsvp !== 'going';
-
-  const isPhotoDumpUnlocked = React.useMemo(() => {
-    if (isCrewAdminOrMod) return true;
-    if (!group?.party_date) return false;
-    try {
-      const dateStr = group.party_date;
-      let partyDateTime: Date;
-      if (group.party_time) {
-        partyDateTime = new Date(`${dateStr}T${group.party_time}`);
-        if (isNaN(partyDateTime.getTime())) {
-          partyDateTime = new Date(`${dateStr} ${group.party_time}`);
-        }
-      } else {
-        partyDateTime = new Date(dateStr);
-      }
-      if (isNaN(partyDateTime.getTime())) {
-        partyDateTime = new Date(dateStr);
-      }
-      if (isNaN(partyDateTime.getTime())) return false;
-      return new Date() >= partyDateTime;
-    } catch {
-      return false;
-    }
-  }, [isCrewAdminOrMod, group?.party_date, group?.party_time]);
 
  // Helper action handlers
  const handleVoteTheme = async (themeId: string, currentVotes: string[] = []) => {
@@ -3792,7 +3805,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => setNewPollOptions(prev => [...prev, ''])} className="flex-1 py-2 bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold">+ Option</button>
-                    <button onClick={handleCreatePoll} disabled={isCreatingPoll || !newPollQuestion.trim()} className="flex-1 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold disabled:opacity-50">{isCreatingPoll ? 'Creating...' : 'Post Poll'}</button>
+                    <button onClick={handleAddCustomPoll} disabled={!newPollQuestion.trim()} className="flex-1 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold disabled:opacity-50">Post Poll</button>
                   </div>
                 </div>
               </section>
