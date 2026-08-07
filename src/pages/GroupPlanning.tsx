@@ -56,7 +56,7 @@ import {
 import Navigation from '../components/Navigation';
 import HelpTip from '../components/HelpTip';
 import {
-   generateGiftSuggestions, callCoachModel } from '../services/geminiService';
+   generateGiftSuggestions, generateNeutralizedNote, callCoachModel } from '../services/geminiService';
 import {
    triggerSystemNotification } from '../lib/pushManager';
 import {
@@ -581,6 +581,85 @@ export default function GroupPlanning() {
   const [newTriviaQuestion, setNewTriviaQuestion] = React.useState('');
   const [editableJoinCode, setEditableJoinCode] = React.useState('');
   const [isGeneratingTrivia, setIsGeneratingTrivia] = React.useState(false);
+
+  // Guest Private AI Note state
+  const [guestNoteText, setGuestNoteText] = React.useState('');
+  const [isSavingGuestNote, setIsSavingGuestNote] = React.useState(false);
+  const [guestNoteSavedSuccess, setGuestNoteSavedSuccess] = React.useState(false);
+
+  // Planner Ideas for AI toggle state
+  const [plannerNotesTab, setPlannerNotesTab] = React.useState<'my_notes' | 'group_wide'>('my_notes');
+  const [groupNeutralizedNotes, setGroupNeutralizedNotes] = React.useState<string[]>([]);
+  const [isLoadingGroupNotes, setIsLoadingGroupNotes] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!id || !firebaseUser) return;
+    const fetchGuestPrivateNote = async () => {
+      try {
+        const noteSnap = await getDoc(doc(db, 'rooms', id, 'guest_ai_notes_private', firebaseUser.uid));
+        if (noteSnap.exists()) {
+          setGuestNoteText(noteSnap.data()?.raw_text || '');
+        }
+      } catch (err) {
+        console.error("Error loading guest private AI note:", err);
+      }
+    };
+    fetchGuestPrivateNote();
+  }, [id, firebaseUser]);
+
+  const handleSaveGuestAiNote = async () => {
+    if (!id || !firebaseUser) return;
+    const trimmed = guestNoteText.trim();
+    setIsSavingGuestNote(true);
+    setGuestNoteSavedSuccess(false);
+    try {
+      // 1. Write raw text to guest_ai_notes_private/{uid}
+      const privateRef = doc(db, 'rooms', id, 'guest_ai_notes_private', firebaseUser.uid);
+      await setDoc(privateRef, {
+        raw_text: trimmed,
+        user_id: firebaseUser.uid,
+        updated_at: serverTimestamp()
+      });
+
+      // 2. Neutralize note via Gemini
+      const neutralizedText = trimmed ? await generateNeutralizedNote(trimmed) : '';
+
+      // 3. Write neutralized text to guest_ai_notes_neutralized/{uid}
+      const neutralizedRef = doc(db, 'rooms', id, 'guest_ai_notes_neutralized', firebaseUser.uid);
+      await setDoc(neutralizedRef, {
+        neutralized_text: neutralizedText,
+        user_id: firebaseUser.uid,
+        updated_at: serverTimestamp()
+      });
+
+      setGuestNoteSavedSuccess(true);
+      setTimeout(() => setGuestNoteSavedSuccess(false), 2500);
+    } catch (err) {
+      console.error("Error saving guest AI note:", err);
+    } finally {
+      setIsSavingGuestNote(false);
+    }
+  };
+
+  const fetchGroupNeutralizedNotes = async () => {
+    if (!id) return;
+    setIsLoadingGroupNotes(true);
+    try {
+      const snap = await getDocs(collection(db, 'rooms', id, 'guest_ai_notes_neutralized'));
+      const notes: string[] = [];
+      snap.docs.forEach(docSnap => {
+        const text = docSnap.data()?.neutralized_text;
+        if (text && text.trim()) {
+          notes.push(text.trim());
+        }
+      });
+      setGroupNeutralizedNotes(notes);
+    } catch (err) {
+      console.error("Error fetching group neutralized notes:", err);
+    } finally {
+      setIsLoadingGroupNotes(false);
+    }
+  };
 
   const venues = partyVenues;
   const gameProposals = partyGameIdeas;
@@ -1546,6 +1625,24 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  if (group?.person_notes) combinedInterestsList.push(group.person_notes);
  if (matchedInterests.length > 0) combinedInterestsList.push(matchedInterests.join(', '));
  if (matchedNotes.length > 0) combinedInterestsList.push(matchedNotes.join(', '));
+
+ try {
+   const neutralizedRef = collection(db, 'rooms', id, 'guest_ai_notes_neutralized');
+   const neutralizedSnap = await getDocs(neutralizedRef);
+   const guestNotesList: string[] = [];
+   neutralizedSnap.docs.forEach(docSnap => {
+     const data = docSnap.data();
+     if (data.neutralized_text && data.neutralized_text.trim()) {
+       guestNotesList.push(data.neutralized_text.trim());
+     }
+   });
+   if (guestNotesList.length > 0) {
+     combinedInterestsList.push(`Guests' collective notes: ${guestNotesList.join(', ')}`);
+   }
+ } catch (err) {
+   console.error("Error fetching neutralized guest notes for AI suggestions:", err);
+ }
+
  let combinedInterests = combinedInterestsList.join(', ') || 'General interests';
  
  let imageUrls: string[] = [];
@@ -4030,6 +4127,38 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                </AnimatePresence>
              </section>
 
+             {/* Guest Private Ideas for the AI section */}
+             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-3">
+               <div className="flex items-center justify-between">
+                 <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                   <Sparkles size={16} className="text-amber-500" />
+                   Ideas for the AI
+                 </h3>
+               </div>
+               <p className="text-xs text-zinc-500 leading-relaxed">
+                 Tell the AI something about the birthday person — only you can see what you write here.
+               </p>
+               <textarea
+                 value={guestNoteText}
+                 onChange={(e) => setGuestNoteText(e.target.value)}
+                 rows={3}
+                 placeholder="Write a note, interest, or trait for the AI..."
+                 className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none text-zinc-900 dark:text-zinc-100"
+               />
+               <div className="flex items-center gap-3">
+                 <button
+                   onClick={handleSaveGuestAiNote}
+                   disabled={isSavingGuestNote}
+                   className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all disabled:opacity-50"
+                 >
+                   {isSavingGuestNote ? 'Saving...' : 'Save Notes'}
+                 </button>
+                 {guestNoteSavedSuccess && (
+                   <span className="text-xs font-bold text-emerald-500">Saved!</span>
+                 )}
+               </div>
+             </section>
+
              <section className="space-y-4">
                <div className="flex justify-between items-center">
                  <h2 className="text-lg font-bold flex items-center gap-2">
@@ -5164,20 +5293,68 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                <p className="text-xs text-zinc-500 leading-relaxed">
                  Describe the vibe, theme ideas, recipient's interests, favorite movies, music genres, or language preferences. This directly feeds into AI generation for themes, venues, soundtracks, game ideas, and Spark questions.
                </p>
-               <textarea
-                 value={editPlannerNotes}
-                 onChange={(e) => setEditPlannerNotes(e.target.value)}
-                 rows={3}
-                 placeholder="e.g. 'Tamil movie themed, likes K-pop and board games, budget-friendly retro vibe, late night snacks'"
-                 className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none"
-               />
-               <button
-                 onClick={handleSavePlannerNotes}
-                 disabled={isSavingPlannerNotes}
-                 className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all"
-               >
-                 {isSavingPlannerNotes ? 'Saving...' : 'Save AI Ideas'}
-               </button>
+
+               <div className="flex items-center gap-2 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl w-fit text-xs font-bold">
+                 <button
+                   onClick={() => setPlannerNotesTab('my_notes')}
+                   className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                     plannerNotesTab === 'my_notes'
+                       ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
+                       : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                   }`}
+                 >
+                   My Notes
+                 </button>
+                 <button
+                   onClick={() => {
+                     setPlannerNotesTab('group_wide');
+                     fetchGroupNeutralizedNotes();
+                   }}
+                   className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                     plannerNotesTab === 'group_wide'
+                       ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
+                       : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                   }`}
+                 >
+                   Group-Wide
+                 </button>
+               </div>
+
+               {plannerNotesTab === 'my_notes' ? (
+                 <div className="space-y-3">
+                   <textarea
+                     value={editPlannerNotes}
+                     onChange={(e) => setEditPlannerNotes(e.target.value)}
+                     rows={3}
+                     placeholder="e.g. 'Tamil movie themed, likes K-pop and board games, budget-friendly retro vibe, late night snacks'"
+                     className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none text-zinc-900 dark:text-zinc-100"
+                   />
+                   <button
+                     onClick={handleSavePlannerNotes}
+                     disabled={isSavingPlannerNotes}
+                     className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all"
+                   >
+                     {isSavingPlannerNotes ? 'Saving...' : 'Save AI Ideas'}
+                   </button>
+                 </div>
+               ) : (
+                 <div className="space-y-3">
+                   {isLoadingGroupNotes ? (
+                     <p className="text-xs text-zinc-500 italic">Loading guest notes...</p>
+                   ) : groupNeutralizedNotes.length > 0 ? (
+                     <ul className="space-y-2 pt-1">
+                       {groupNeutralizedNotes.map((note, idx) => (
+                         <li key={idx} className="p-3 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl text-xs text-zinc-800 dark:text-zinc-200 border border-zinc-200/50 dark:border-zinc-700/50 flex items-start gap-2">
+                           <span className="text-amber-500 font-bold">•</span>
+                           <span>{note}</span>
+                         </li>
+                       ))}
+                     </ul>
+                   ) : (
+                     <p className="text-xs text-zinc-400 italic">No guest notes submitted yet.</p>
+                   )}
+                 </div>
+               )}
              </section>
 
              {/* 3. Party Date & Time */}
