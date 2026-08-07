@@ -537,3 +537,26 @@ Keep it warm, practical, and clear.
   }
 }
 
+export async function generateNeutralizedNote(rawText: string): Promise<string> {
+  const prompt = `
+# TASK
+A party guest wrote a private note about the birthday person to help generate gift ideas. Strip out any personal anecdotes, specific shared memories, or identifying details about the guest's relationship with the person. Keep ONLY the factual interest, preference, or trait being described, in as few words as possible.
+
+Example: "she loves pizza because we always used to grab a slice after our Tuesday night study sessions back in college" becomes "loves pizza"
+Example: "I got him into hiking when we dated for two years and he still talks about it" becomes "enjoys hiking"
+
+Input note: "${rawText}"
+
+# OUTPUT
+Return ONLY the neutralized phrase, nothing else. No quotes, no preamble, no explanation. If the input contains nothing usable (empty, gibberish, or already fully neutral with no personal detail to strip), return it trimmed as-is.
+`;
+
+  try {
+    const text = await callGemini(prompt);
+    return (text || rawText).trim();
+  } catch (error) {
+    console.error("Neutralization error:", error);
+    return rawText.trim();
+  }
+}
+
