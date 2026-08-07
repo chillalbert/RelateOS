@@ -260,13 +260,20 @@ service cloud.firestore {
       }
       match /birthday_questions/{questionId} {
         allow read: if isRoomMember(roomId);
-        allow create, update, delete: if isRoomMember(roomId);
+        allow create, update, delete: if isRoomMember(roomId) && isRoomAdminOrPlanner(roomId);
       }
       match /birthday_responses/{responseId} {
         allow read: if isRoomMember(roomId) && (isRoomAdminOrPlanner(roomId) || resource == null || resource.data.user_id == request.auth.uid);
         allow create: if isRoomMember(roomId) && isResponsesNotLocked(roomId) && request.auth.uid != get(/databases/$(database)/documents/rooms/$(roomId)).data.get('recipient_uid', 'celebrant') && request.resource.data.user_id == request.auth.uid;
         allow update: if isRoomMember(roomId) && isResponsesNotLocked(roomId) && resource.data.user_id == request.auth.uid;
         allow delete: if isRoomMember(roomId) && isResponsesNotLocked(roomId) && resource.data.user_id == request.auth.uid;
+      }
+      match /guest_ai_notes_private/{uid} {
+        allow read, write: if isSignedIn() && request.auth.uid == uid;
+      }
+      match /guest_ai_notes_neutralized/{uid} {
+        allow read: if isRoomMember(roomId);
+        allow write: if isSignedIn() && request.auth.uid == uid;
       }
     }
 
