@@ -4,6 +4,7 @@ import { doc, getDoc, updateDoc, increment, onSnapshot, arrayUnion } from 'fireb
 import { useAuth } from './AuthContext';
 import { GamificationConfig } from '../types';
 import DailyCompletionPopup, { CompletionPopupData } from '../components/DailyCompletionPopup';
+import StreakLossModal from '../components/StreakLossModal';
 import CycleTaskIntroModal from '../components/CycleTaskIntroModal';
 import FeatureUnlockedModal from '../components/FeatureUnlockedModal';
 import PostTourNudgeModal from '../components/PostTourNudgeModal';
@@ -34,6 +35,61 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const { firebaseUser, user, isLoading } = useAuth();
   const [popupData, setPopupData] = useState<CompletionPopupData | null>(null);
   const [config, setConfig] = useState<GamificationConfig | null>(null);
+  const [showStreakLossModal, setShowStreakLossModal] = useState(false);
+  const [lostStreakCount, setLostStreakCount] = useState<number>(0);
+
+  // Proactive streak-loss detection on app load / session start
+  useEffect(() => {
+    if (isLoading || !firebaseUser || !user) return;
+
+    const checkStreakLoss = async () => {
+      const streakProgress = user.streakProgress;
+      if (!streakProgress) return;
+
+      const lastCompletedDate = streakProgress.lastCompletedDate;
+      const currentCount = streakProgress.currentCount || 0;
+      const today = getLocalDateString();
+      const yesterday = getLocalYesterdayString();
+
+      // Detect genuine missed day: lastCompletedDate exists, is not today, is not yesterday,
+      // active streak was > 0, and streak freeze was not available/applicable.
+      if (
+        lastCompletedDate &&
+        lastCompletedDate !== today &&
+        lastCompletedDate !== yesterday &&
+        currentCount > 0 &&
+        (!user.streakFreezeAvailable || user.streakFreezeAvailable <= 0)
+      ) {
+        const ackKey = `streak_loss_shown_${firebaseUser.uid}_${lastCompletedDate}`;
+        if (localStorage.getItem(ackKey)) return;
+
+        localStorage.setItem(ackKey, 'true');
+
+        try {
+          const userRef = doc(db, 'users', firebaseUser.uid);
+          await updateDoc(userRef, {
+            'streakProgress.currentCount': 0,
+            'streakProgress.cycleStartDate': today,
+            'streakProgress.lastCompletedDate': null,
+            streak: 0
+          });
+
+          setLostStreakCount(currentCount);
+          setShowStreakLossModal(true);
+        } catch (err) {
+          console.error('Error handling proactive streak loss:', err);
+        }
+      }
+    };
+
+    checkStreakLoss();
+  }, [
+    isLoading,
+    firebaseUser?.uid,
+    user?.streakProgress?.lastCompletedDate,
+    user?.streakProgress?.currentCount,
+    user?.streakFreezeAvailable
+  ]);
 
   useEffect(() => {
     if (isLoading || !firebaseUser) return;
@@ -223,6 +279,11 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     <GamificationContext.Provider value={{ recordDailyAction, popupData, clearPopupData, config }}>
       {children}
       <DailyCompletionPopup data={popupData} onClose={clearPopupData} />
+      <StreakLossModal
+        isOpen={showStreakLossModal}
+        lostStreakCount={lostStreakCount}
+        onClose={() => setShowStreakLossModal(false)}
+      />
       <CycleTaskIntroModal />
       <FeatureUnlockedModal />
       <PostTourNudgeModal />
