@@ -66,14 +66,10 @@ export default function LeaderboardLocked({ title = '?????', subtitle = 'Locked 
 
           <div className="space-y-2 max-w-sm mx-auto">
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">
-              {isLeaderboardNext 
-                ? 'Unlock Leaderboard by completing your daily cycle!'
-                : `Next Unlock: ${currentNextUnlock.name || 'Next Feature'}`}
+              Unlock the next feature by completing your daily cycle!
             </h2>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
-              {isLeaderboardNext
-                ? 'Keep up your daily task momentum to finish your current cycle and unlock Leaderboards.'
-                : `Your next cycle completion will unlock ${currentNextUnlock.name || 'your next feature'}. Complete current and future cycles to reach Leaderboards!`}
+              Keep up your daily task momentum to finish your current cycle and reveal what's behind this tab.
             </p>
           </div>
 
@@ -86,10 +82,10 @@ export default function LeaderboardLocked({ title = '?????', subtitle = 'Locked 
                 </div>
                 <div>
                   <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                    {isLeaderboardNext ? 'Leaderboard Progress' : `Cycle Unlock: ${currentNextUnlock.name}`}
+                    Cycle Unlock Progress
                   </p>
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {isLeaderboardNext ? 'Target feature in sequence' : `Unlocks ${currentNextUnlock.name} next`}
+                    Finish your cycle to unlock the next mystery feature
                   </p>
                 </div>
               </div>
