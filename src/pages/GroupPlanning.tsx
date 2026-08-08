@@ -629,7 +629,8 @@ export default function GroupPlanning() {
     const publishedThemes = (partyThemes || []).filter((t: any) => t.published);
     const publishedVenues = (partyVenues || []).filter((v: any) => v.published);
     const publishedGameIdeas = (partyGameIdeas || []).filter((g: any) => g.published);
-    const publishedPlaylist = playlistConcept?.published ? playlistConcept : null;
+    const publishedPlaylistTracks = (playlistConcept?.tracks || []).filter((t: any) => t.published === true);
+    const publishedPlaylist = publishedPlaylistTracks.length > 0 ? { ...playlistConcept, tracks: publishedPlaylistTracks } : null;
     const publishedTasks = (tasks || []).filter((t: any) => t.published);
 
     const hasPublishedItems = publishedThemes.length > 0 || publishedVenues.length > 0 || publishedGameIdeas.length > 0 || !!publishedPlaylist || publishedTasks.length > 0;
@@ -1258,16 +1259,43 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  }
  };
 
- const handleTogglePlaylistPublish = async (currentPublished: boolean) => {
- if (!id || !firebaseUser) return;
- try {
- const playlistDocRef = doc(db, 'rooms', id, 'playlists', 'current');
- await updateDoc(playlistDocRef, {
- published: !currentPublished
- });
- } catch (err) {
- console.error("Error toggling playlist publish:", err);
- }
+ const handleToggleTrackPublish = async (trackId: string, currentPublished: boolean) => {
+   if (!id || !firebaseUser || !playlistConcept?.tracks) return;
+   try {
+     const updatedTracks = playlistConcept.tracks.map((t: any) => {
+       const isMatch = (t.id && t.id === trackId) || (!t.id && t.title === trackId);
+       if (isMatch) {
+         return { ...t, published: !currentPublished };
+       }
+       return t;
+     });
+     const hasAnyPublished = updatedTracks.some((t: any) => t.published === true);
+     const playlistDocRef = doc(db, 'rooms', id, 'playlists', 'current');
+     await updateDoc(playlistDocRef, {
+       tracks: updatedTracks,
+       published: hasAnyPublished
+     });
+   } catch (err) {
+     console.error("Error toggling track publish:", err);
+   }
+ };
+
+ const handleTogglePlaylistPublish = async (allCurrentlyPublished: boolean) => {
+   if (!id || !firebaseUser || !playlistConcept?.tracks) return;
+   try {
+     const targetPublished = !allCurrentlyPublished;
+     const updatedTracks = playlistConcept.tracks.map((t: any) => ({
+       ...t,
+       published: targetPublished
+     }));
+     const playlistDocRef = doc(db, 'rooms', id, 'playlists', 'current');
+     await updateDoc(playlistDocRef, {
+       tracks: updatedTracks,
+       published: targetPublished
+     });
+   } catch (err) {
+     console.error("Error toggling bulk playlist publish:", err);
+   }
  };
 
    const handleCreateTask = async () => {
@@ -2345,7 +2373,8 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
     const publishedThemes = partyThemes.filter((t: any) => t.published);
     const publishedVenues = partyVenues.filter((v: any) => v.published);
     const publishedGameIdeas = partyGameIdeas.filter((g: any) => g.published);
-    const publishedPlaylist = playlistConcept?.published ? playlistConcept : null;
+    const publishedPlaylistTracks = (playlistConcept?.tracks || []).filter((t: any) => t.published === true);
+    const publishedPlaylist = publishedPlaylistTracks.length > 0 ? { ...playlistConcept, tracks: publishedPlaylistTracks } : null;
     const publishedTasks = tasks.filter((t: any) => t.published);
 
     const hasPublishedItems = publishedThemes.length > 0 || publishedVenues.length > 0 || publishedGameIdeas.length > 0 || !!publishedPlaylist || publishedTasks.length > 0;
@@ -2899,7 +2928,8 @@ Output ONLY valid raw JSON object. No markdown formatting.`;
         why: newTrackWhy.trim() || `Added by ${user?.name || 'Crew Member'}`,
         added_by: firebaseUser?.uid || 'guest',
         added_by_name: user?.name || 'Crew Member',
-        votes: [firebaseUser?.uid].filter(Boolean)
+        votes: [firebaseUser?.uid].filter(Boolean),
+        published: false
       };
       const updatedTracks = [...existingTracks, newTrack];
       await setDoc(doc(db, 'rooms', id, 'playlists', 'current'), {
@@ -4685,17 +4715,20 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                         <Plus size={16} />
                         Add Song
                       </button>
-                      {playlistConcept && (
+                      {playlistConcept && playlistConcept.tracks && playlistConcept.tracks.length > 0 && (
                         <button
-                          onClick={() => handleTogglePlaylistPublish(playlistConcept?.published || false)}
+                          onClick={() => {
+                            const allPub = playlistConcept.tracks.every((t: any) => t.published === true);
+                            handleTogglePlaylistPublish(allPub);
+                          }}
                           className={cn(
                             "px-3.5 py-2.5 font-black text-xs rounded-2xl flex items-center gap-1.5 cursor-pointer transition-all shadow-sm",
-                            playlistConcept?.published 
+                            playlistConcept.tracks.every((t: any) => t.published === true)
                               ? "bg-amber-400 text-zinc-950 hover:bg-amber-300" 
                               : "bg-emerald-400 text-emerald-950 hover:bg-emerald-300"
                           )}
                         >
-                          {playlistConcept?.published ? 'Unpublish Draft' : 'Publish to Guests'}
+                          {playlistConcept.tracks.every((t: any) => t.published === true) ? 'Unpublish All' : 'Publish All'}
                         </button>
                       )}
                     </div>
@@ -4705,8 +4738,20 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                 {/* Published / Draft Status Pill */}
                 {playlistConcept && (
                   <div className="flex items-center gap-2 text-xs font-semibold text-emerald-100 pt-2 border-t border-white/10">
-                    <span className={cn("w-2 h-2 rounded-full", playlistConcept.published ? "bg-emerald-300 animate-ping" : "bg-amber-300")} />
-                    <span>{playlistConcept.published ? "LIVE: Published to all party guests" : "DRAFT: Visible to planners (tap 'Publish to Guests' when ready)"}</span>
+                    {(() => {
+                      const pubCount = (playlistConcept.tracks || []).filter((t: any) => t.published === true).length;
+                      const totalCount = playlistConcept.tracks?.length || 0;
+                      return (
+                        <>
+                          <span className={cn("w-2 h-2 rounded-full", pubCount > 0 ? "bg-emerald-300 animate-ping" : "bg-amber-300")} />
+                          <span>
+                            {pubCount > 0 
+                              ? `LIVE: ${pubCount} of ${totalCount} song${totalCount === 1 ? '' : 's'} published to guests` 
+                              : "DRAFT: No songs published to guests yet (toggle per track or tap 'Publish All')"}
+                          </span>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </section>
@@ -4850,6 +4895,23 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
 
                               {/* Actions */}
                               <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                {/* Per-track Publish Toggle (Admin/Planner) */}
+                                {isCrewAdminOrMod && (
+                                  <button
+                                    onClick={() => handleToggleTrackPublish(track.id || track.title, !!track.published)}
+                                    className={cn(
+                                      "px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer",
+                                      track.published
+                                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                                        : "bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:border-zinc-400"
+                                    )}
+                                    title={track.published ? "Unpublish song from guests" : "Publish song to guests"}
+                                  >
+                                    <span className={cn("w-1.5 h-1.5 rounded-full", track.published ? "bg-emerald-500" : "bg-amber-500")} />
+                                    <span>{track.published ? "Published" : "Draft"}</span>
+                                  </button>
+                                )}
+
                                 {/* Upvote */}
                                 <button
                                   onClick={() => handleToggleTrackVote(track.id || track.title)}
