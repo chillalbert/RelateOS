@@ -409,6 +409,12 @@ export default function GroupPlanning() {
   const isRoomAdmin = group?.created_by === firebaseUser?.uid || group?.admins?.includes(firebaseUser?.uid) || group?.roles?.[firebaseUser?.uid] === 'admin';
   const isCrewAdminOrMod = isRoomAdmin || group?.mods?.includes(firebaseUser?.uid) || group?.roles?.[firebaseUser?.uid] === 'planner';
 
+  const myRsvp = group?.rsvps?.[firebaseUser?.uid] || 'undecided';
+  const myVisibilityLevel = group?.visibility_by_status?.[myRsvp] || (myRsvp === 'going' ? 'full' : myRsvp === 'not_going' ? 'none' : 'limited');
+
+  const canSeeBasicPlans = isCrewAdminOrMod || myVisibilityLevel === 'limited' || myVisibilityLevel === 'full';
+  const canSeeFullDetails = isCrewAdminOrMod || myVisibilityLevel === 'full';
+
   React.useEffect(() => {
     if (!isCrewAdminOrMod && partyActiveTab !== 'guest_room' && partyActiveTab !== 'photos') {
       setPartyActiveTab('guest_room');
@@ -832,26 +838,30 @@ export default function GroupPlanning() {
   };
 
  const handleLeaveRoom = async () => {
- if (!id || !firebaseUser || !group) return;
- if (window.confirm("Are you sure you want to leave this workspace? If you are the last member, this temporary room will be automatically deleted completely.")) {
- try {
- const roomRef = doc(db, 'rooms', id);
- const currentMembers = group.members || [];
- 
- if (currentMembers.length <= 1) {
- console.log("[Lifecycle] Last member left, deleting temporary room:", id);
- await deleteDoc(roomRef);
- navigate('/rooms');
- } else {
- await updateDoc(roomRef, {
- members: arrayRemove(firebaseUser.uid)
- });
- navigate('/rooms');
- }
- } catch (err) {
- console.error("Error leaving room:", err);
- }
- }
+  if (!id || !firebaseUser || !group) return;
+  if (window.confirm("Are you sure you want to leave this workspace? If you are the last member, this temporary room will be automatically deleted completely.")) {
+    try {
+      const roomRef = doc(db, 'rooms', id);
+      const currentMembers = group.members || [];
+      
+      if (currentMembers.length <= 1) {
+        console.log("[Lifecycle] Last member left, deleting temporary room:", id);
+        await deleteDoc(roomRef);
+        navigate('/rooms');
+      } else {
+        await updateDoc(roomRef, {
+          members: arrayRemove(firebaseUser.uid),
+          [`roles.${firebaseUser.uid}`]: deleteField(),
+          admins: arrayRemove(firebaseUser.uid),
+          mods: arrayRemove(firebaseUser.uid),
+          [`rsvps.${firebaseUser.uid}`]: deleteField()
+        });
+        navigate('/rooms');
+      }
+    } catch (err) {
+      console.error("Error leaving room:", err);
+    }
+  }
  };
 
  React.useEffect(() => {
@@ -2260,7 +2270,6 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  const userRole = group?.roles?.[firebaseUser?.uid] || (group?.created_by === firebaseUser?.uid ? 'admin' : 'guest');
  const isGuest = userRole === 'guest';
  const requiresAttendance = group?.requires_attendance || group?.attendance?.requires_attendance;
- const myRsvp = group?.rsvps?.[firebaseUser?.uid] || 'going';
  const isAttendanceGated = requiresAttendance && isGuest && myRsvp !== 'going';
 
  // Helper action handlers
@@ -3566,34 +3575,49 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                 })()
               )}
 
-              {/* 3. Party Join Code Display */}
-              <div className="space-y-3">
-                <div className="p-4 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-2xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg flex justify-between items-center">
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-zinc-400">Party Join Code</p>
-                    <p className="text-xl font-mono font-bold tracking-widest">{group?.join_code || group?.invite_code}</p>
-                  </div>
-                  <button className="px-4 py-2 bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-900 text-zinc-800 dark:text-zinc-100 rounded-xl text-xs font-bold cursor-pointer transition-all" onClick={() => {
-                    navigator.clipboard.writeText(group?.join_code || group?.invite_code || '');
-                    alert('Join Code copied!');
-                  }}>Copy Code</button>
+              {/* RSVP None Notice */}
+              {!isCrewAdminOrMod && myVisibilityLevel === 'none' && (
+                <div className="p-6 bg-zinc-100 dark:bg-zinc-800/60 rounded-3xl text-center space-y-2 border border-zinc-200 dark:border-zinc-700">
+                  <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300">
+                    RSVP to see more about this party
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Update your RSVP status above to unlock party details, plans, and activities.
+                  </p>
                 </div>
+              )}
 
-                <button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/surprise/${id}`);
-                    setLinkCopied(true);
-                    setTimeout(() => setLinkCopied(false), 2000);
-                  }} 
-                  className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.99] text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/10 text-sm cursor-pointer"
-                >
-                  <Share2 size={16} />
-                  {linkCopied ? "Link copied!" : "Share Party Link"}
-                </button>
-              </div>
+              {/* 3. Party Join Code Display */}
+              {canSeeBasicPlans && (
+                <div className="space-y-3">
+                  <div className="p-4 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-2xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg flex justify-between items-center">
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-zinc-400">Party Join Code</p>
+                      <p className="text-xl font-mono font-bold tracking-widest">{group?.join_code || group?.invite_code}</p>
+                    </div>
+                    <button className="px-4 py-2 bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-900 text-zinc-800 dark:text-zinc-100 rounded-xl text-xs font-bold cursor-pointer transition-all" onClick={() => {
+                      navigator.clipboard.writeText(group?.join_code || group?.invite_code || '');
+                      alert('Join Code copied!');
+                    }}>Copy Code</button>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/surprise/${id}`);
+                      setLinkCopied(true);
+                      setTimeout(() => setLinkCopied(false), 2000);
+                    }} 
+                    className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.99] text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/10 text-sm cursor-pointer"
+                  >
+                    <Share2 size={16} />
+                    {linkCopied ? "Link copied!" : "Share Party Link"}
+                  </button>
+                </div>
+              )}
 
               {/* 4. Gift Pool Section */}
-              <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+              {canSeeFullDetails && (
+                <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
                 <div>
                   <div className="flex justify-between items-center">
                     <h3 className="font-bold flex items-center gap-2">
@@ -3669,75 +3693,80 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                   )}
                 </AnimatePresence>
               </section>
+              )}
 
               {/* 5. AI Gift Suggestions Section */}
-              <section className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-bold flex items-center gap-2">
-                    <Sparkles size={20} className="text-amber-500" />
-                    AI Gift Suggestions
-                  </h2>
-                  <button onClick={handleGenerateSuggestions} disabled={isGeneratingSuggestions} className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1 cursor-pointer">
-                    {isGeneratingSuggestions ? 'Analyzing...' : 'Refresh Suggestions'}
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 gap-4">
-                  {aiSuggestions.length > 0 ? aiSuggestions.map((suggestion, i) => (
-                    <motion.a key={i} href={suggestion.searchUrl} target="_blank" rel="noopener noreferrer" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }} className="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex justify-between items-center group hover:border-emerald-500 transition-all">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold">{suggestion.title}</h4>
-                          <span className="text-xs font-bold text-emerald-500">{suggestion.price}</span>
+              {canSeeFullDetails && (
+                <section className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-lg font-bold flex items-center gap-2">
+                      <Sparkles size={20} className="text-amber-500" />
+                      AI Gift Suggestions
+                    </h2>
+                    <button onClick={handleGenerateSuggestions} disabled={isGeneratingSuggestions} className="text-xs font-bold text-emerald-500 uppercase flex items-center gap-1 cursor-pointer">
+                      {isGeneratingSuggestions ? 'Analyzing...' : 'Refresh Suggestions'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    {aiSuggestions.length > 0 ? aiSuggestions.map((suggestion, i) => (
+                      <motion.a key={i} href={suggestion.searchUrl} target="_blank" rel="noopener noreferrer" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }} className="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex justify-between items-center group hover:border-emerald-500 transition-all">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold">{suggestion.title}</h4>
+                            <span className="text-xs font-bold text-emerald-500">{suggestion.price}</span>
+                          </div>
+                          <p className="text-xs text-zinc-500 mt-1">{suggestion.reason}</p>
                         </div>
-                        <p className="text-xs text-zinc-500 mt-1">{suggestion.reason}</p>
+                        <div className="p-2 text-zinc-300 group-hover:text-emerald-500 transition-colors">
+                          <ExternalLink size={18} />
+                        </div>
+                      </motion.a>
+                    )) : (
+                      <div className="p-8 text-center bg-zinc-50 dark:bg-zinc-800/50 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-700">
+                        <p className="text-zinc-500 text-sm">Tap refresh to see AI gift ideas based on the current pool and interests.</p>
                       </div>
-                      <div className="p-2 text-zinc-300 group-hover:text-emerald-500 transition-colors">
-                        <ExternalLink size={18} />
-                      </div>
-                    </motion.a>
-                  )) : (
-                    <div className="p-8 text-center bg-zinc-50 dark:bg-zinc-800/50 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-700">
-                      <p className="text-zinc-500 text-sm">Tap refresh to see AI gift ideas based on the current pool and interests.</p>
-                    </div>
-                  )}
-                </div>
-              </section>
+                    )}
+                  </div>
+                </section>
+              )}
 
               {/* Guest Private Ideas for the AI section */}
-              <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                    <Sparkles size={16} className="text-amber-500" />
-                    Ideas for the AI
-                  </h3>
-                </div>
-                <p className="text-xs text-zinc-500 leading-relaxed">
-                  Tell the AI something about the birthday person — only you can see what you write here.
-                </p>
-                <textarea
-                  value={guestNoteText}
-                  onChange={(e) => setGuestNoteText(e.target.value)}
-                  rows={3}
-                  placeholder="Write a note, interest, or trait for the AI..."
-                  className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none text-zinc-900 dark:text-zinc-100"
-                />
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleSaveGuestAiNote}
-                    disabled={isSavingGuestNote}
-                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all disabled:opacity-50"
-                  >
-                    {isSavingGuestNote ? 'Saving...' : 'Save Notes'}
-                  </button>
-                  {guestNoteSavedSuccess && (
-                    <span className="text-xs font-bold text-emerald-500">Saved!</span>
-                  )}
-                </div>
-              </section>
+              {canSeeFullDetails && (
+                <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                      <Sparkles size={16} className="text-amber-500" />
+                      Ideas for the AI
+                    </h3>
+                  </div>
+                  <p className="text-xs text-zinc-500 leading-relaxed">
+                    Tell the AI something about the birthday person — only you can see what you write here.
+                  </p>
+                  <textarea
+                    value={guestNoteText}
+                    onChange={(e) => setGuestNoteText(e.target.value)}
+                    rows={3}
+                    placeholder="Write a note, interest, or trait for the AI..."
+                    className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none text-zinc-900 dark:text-zinc-100"
+                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleSaveGuestAiNote}
+                      disabled={isSavingGuestNote}
+                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      {isSavingGuestNote ? 'Saving...' : 'Save Notes'}
+                    </button>
+                    {guestNoteSavedSuccess && (
+                      <span className="text-xs font-bold text-emerald-500">Saved!</span>
+                    )}
+                  </div>
+                </section>
+              )}
 
 
               {/* 6. Published Ideas/Themes/Venue/Playlist Content */}
-              {hasPublishedItems && (
+              {canSeeBasicPlans && hasPublishedItems && (
                 <div className="space-y-6">
                   {publishedThemes.length > 0 && (
                     <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
@@ -3863,168 +3892,174 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
               )}
 
               {/* 7. Polls */}
-              <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
-                <h3 className="font-extrabold text-base flex items-center gap-2">
-                  <Vote size={20} className="text-emerald-500" />
-                  Party Polls & Date Options
-                </h3>
-                <div className="space-y-4">
-                  {polls.map((poll: any) => (
-                    <div key={poll.id} className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl space-y-3">
-                      <p className="font-extrabold text-sm">{poll.question}</p>
-                      <div className="space-y-2">
-                        {(poll.options || []).map((opt: any, idx: number) => {
-                          const hasVoted = (opt.votes || []).includes(firebaseUser?.uid);
-                          return (
-                            <button
-                              key={idx}
-                              onClick={() => handleVotePollOption(poll.id, idx, poll)}
-                              className={cn(
-                                "w-full p-3 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border",
-                                hasVoted
-                                  ? "bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-300"
-                                  : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200"
-                              )}
-                            >
-                              <span>{opt.text}</span>
-                              <span className="text-[10px] font-black uppercase">{(opt.votes || []).length} Votes</span>
-                            </button>
-                          );
-                        })}
+              {canSeeBasicPlans && (
+                <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-4">
+                  <h3 className="font-extrabold text-base flex items-center gap-2">
+                    <Vote size={20} className="text-emerald-500" />
+                    Party Polls & Date Options
+                  </h3>
+                  <div className="space-y-4">
+                    {polls.map((poll: any) => (
+                      <div key={poll.id} className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl space-y-3">
+                        <p className="font-extrabold text-sm">{poll.question}</p>
+                        <div className="space-y-2">
+                          {(poll.options || []).map((opt: any, idx: number) => {
+                            const hasVoted = (opt.votes || []).includes(firebaseUser?.uid);
+                            return (
+                              <button
+                                key={idx}
+                                onClick={() => handleVotePollOption(poll.id, idx, poll)}
+                                className={cn(
+                                  "w-full p-3 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border",
+                                  hasVoted
+                                    ? "bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-300"
+                                    : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200"
+                                )}
+                              >
+                                <span>{opt.text}</span>
+                                <span className="text-[10px] font-black uppercase">{(opt.votes || []).length} Votes</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-
-                {isCrewAdminOrMod && (
-                  <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl space-y-3 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                    <p className="text-xs font-extrabold uppercase text-zinc-400">Create New Poll</p>
-                    <input value={newPollQuestion} onChange={(e) => setNewPollQuestion(e.target.value)} placeholder="Poll Question..." className="w-full p-3 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none" />
-                    <div className="space-y-2">
-                      {newPollOptions.map((opt, i) => (
-                        <input key={i} value={opt} onChange={(e) => {
-                          const updated = [...newPollOptions];
-                          updated[i] = e.target.value;
-                          setNewPollOptions(updated);
-                        }} placeholder={`Option ${i + 1}...`} className="w-full p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none" />
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => setNewPollOptions(prev => [...prev, ''])} className="flex-1 py-2 bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold">+ Option</button>
-                      <button onClick={handleAddCustomPoll} disabled={!newPollQuestion.trim()} className="flex-1 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold disabled:opacity-50">Post Poll</button>
-                    </div>
+                    ))}
                   </div>
-                )}
-              </section>
 
-              {/* 8. Party Chat */}
-              <section className="space-y-4">
-                <h3 className="font-extrabold text-base flex items-center gap-2">
-                  <MessageSquare size={20} className="text-emerald-500" />
-                  Party Chat
-                </h3>
-                <div className="flex flex-col h-[500px] bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 overflow-hidden shadow-xl">
-                  {isPlannerOrAdmin && (
-                    <div className="flex border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/20 p-2.5 gap-2 shrink-0">
-                      <button onClick={() => setSelectedChatChannel('everyone')} className={cn("flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer font-sans", selectedChatChannel === 'everyone' ? "bg-emerald-500 text-white shadow-sm" : "bg-transparent text-zinc-400")}>
-                        Everyone Chat
-                      </button>
-                      <button onClick={() => setSelectedChatChannel('admin_planner')} className={cn("flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer font-sans", selectedChatChannel === 'admin_planner' ? "bg-emerald-500 text-white shadow-sm" : "bg-transparent text-zinc-400")}>
-                        Coordinator Chat (Admins & Planners)
-                      </button>
+                  {isCrewAdminOrMod && (
+                    <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl space-y-3 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                      <p className="text-xs font-extrabold uppercase text-zinc-400">Create New Poll</p>
+                      <input value={newPollQuestion} onChange={(e) => setNewPollQuestion(e.target.value)} placeholder="Poll Question..." className="w-full p-3 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none" />
+                      <div className="space-y-2">
+                        {newPollOptions.map((opt, i) => (
+                          <input key={i} value={opt} onChange={(e) => {
+                            const updated = [...newPollOptions];
+                            updated[i] = e.target.value;
+                            setNewPollOptions(updated);
+                          }} placeholder={`Option ${i + 1}...`} className="w-full p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none" />
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setNewPollOptions(prev => [...prev, ''])} className="flex-1 py-2 bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold">+ Option</button>
+                        <button onClick={handleAddCustomPoll} disabled={!newPollQuestion.trim()} className="flex-1 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold disabled:opacity-50">Post Poll</button>
+                      </div>
                     </div>
                   )}
-                  <div className="flex-1 overflow-y-auto p-6 space-y-4 flex flex-col">
-                    {chatMessages.length === 0 ? (
-                      <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 text-sm py-12 text-center">
-                        <MessageSquare size={32} className="mb-2 text-zinc-300" />
-                        <p>{selectedChatChannel === 'admin_planner' ? "No coordinator messages yet." : "No messages here yet. Say hello to the crew!"}</p>
+                </section>
+              )}
+
+              {/* 8. Party Chat */}
+              {canSeeFullDetails && (
+                <section className="space-y-4">
+                  <h3 className="font-extrabold text-base flex items-center gap-2">
+                    <MessageSquare size={20} className="text-emerald-500" />
+                    Party Chat
+                  </h3>
+                  <div className="flex flex-col h-[500px] bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 overflow-hidden shadow-xl">
+                    {isPlannerOrAdmin && (
+                      <div className="flex border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/20 p-2.5 gap-2 shrink-0">
+                        <button onClick={() => setSelectedChatChannel('everyone')} className={cn("flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer font-sans", selectedChatChannel === 'everyone' ? "bg-emerald-500 text-white shadow-sm" : "bg-transparent text-zinc-400")}>
+                          Everyone Chat
+                        </button>
+                        <button onClick={() => setSelectedChatChannel('admin_planner')} className={cn("flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer font-sans", selectedChatChannel === 'admin_planner' ? "bg-emerald-500 text-white shadow-sm" : "bg-transparent text-zinc-400")}>
+                          Coordinator Chat (Admins & Planners)
+                        </button>
                       </div>
-                    ) : (
-                      chatMessages.map((msg, i) => {
-                        const isOwn = msg.user_id === firebaseUser?.uid;
+                    )}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-4 flex flex-col">
+                      {chatMessages.length === 0 ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 text-sm py-12 text-center">
+                          <MessageSquare size={32} className="mb-2 text-zinc-300" />
+                          <p>{selectedChatChannel === 'admin_planner' ? "No coordinator messages yet." : "No messages here yet. Say hello to the crew!"}</p>
+                        </div>
+                      ) : (
+                        chatMessages.map((msg, i) => {
+                          const isOwn = msg.user_id === firebaseUser?.uid;
+                          return (
+                            <div key={msg.id || i} className={cn("flex flex-col max-w-[80%]", isOwn ? "self-end items-end" : "self-start items-start")}>
+                              <span className="text-[10px] text-zinc-500 font-bold uppercase mb-1">{msg.user_name}</span>
+                              <div className={cn("p-3.5 text-sm leading-relaxed", isOwn ? "bg-zinc-800 text-white rounded-[20px] rounded-tr-sm" : "bg-zinc-100 dark:bg-zinc-800/60 dark:text-zinc-100 text-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] rounded-tl-sm")}>
+                                {msg.text}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                      <div ref={messagesEndRef} />
+                    </div>
+                    <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 flex gap-2 items-center">
+                      <input value={newMessageText} onChange={(e) => setNewMessageText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSendChatMessage(); } }} className="flex-1 p-3 px-4 rounded-full bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-sm outline-none" placeholder="Send message..." />
+                      <button onClick={handleSendChatMessage} className="p-3 bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0 w-11 h-11">
+                        <Send size={18} />
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* 9. Spark Game */}
+              {canSeeFullDetails && (
+                <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                        <HelpCircle size={18} className="text-emerald-500" />
+                        Live Spark Game Questions
+                      </h3>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        Answer questions about {group?.person_name || 'the birthday person'}. When Guess Who is enabled, {group?.person_name || 'they'} will guess who submitted each answer in their Locker!
+                      </p>
+                    </div>
+                    {isLockDatePassed && (
+                      <span className="px-2.5 py-1 bg-amber-500/10 text-amber-500 rounded-full text-[10px] font-bold">
+                        Answers Locked
+                      </span>
+                    )}
+                  </div>
+
+                  {birthdayQuestions.filter((q: any) => q.published !== false).length === 0 ? (
+                    <p className="text-xs text-zinc-400 italic py-4 text-center">
+                      No questions live yet.
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {birthdayQuestions.filter((q: any) => q.published !== false).map((q: any) => {
+                        const currentAnswer = userAnswers[q.id] || '';
+                        const existingResp = birthdayResponses.find(r => r.question_id === q.id && r.user_id === firebaseUser?.uid);
                         return (
-                          <div key={msg.id || i} className={cn("flex flex-col max-w-[80%]", isOwn ? "self-end items-end" : "self-start items-start")}>
-                            <span className="text-[10px] text-zinc-500 font-bold uppercase mb-1">{msg.user_name}</span>
-                            <div className={cn("p-3.5 text-sm leading-relaxed", isOwn ? "bg-zinc-800 text-white rounded-[20px] rounded-tr-sm" : "bg-zinc-100 dark:bg-zinc-800/60 dark:text-zinc-100 text-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] rounded-tl-sm")}>
-                              {msg.text}
+                          <div key={q.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 space-y-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100">{q.question_text}</p>
+                              <span className="text-[10px] text-zinc-400 shrink-0">
+                                By {q.created_by_name || 'Member'}
+                              </span>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <input
+                                value={currentAnswer}
+                                disabled={isLockDatePassed}
+                                onChange={(e) => setUserAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                                placeholder={isLockDatePassed ? "Submissions locked" : "Write your answer here..."}
+                                className="flex-1 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs outline-none text-zinc-900 dark:text-zinc-100 disabled:opacity-50"
+                              />
+                              {!isLockDatePassed && (
+                                <button
+                                  onClick={() => handleSaveAnswer(q.id)}
+                                  disabled={isSavingAnswers[q.id] || !currentAnswer.trim()}
+                                  className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shrink-0 cursor-pointer disabled:opacity-50"
+                                >
+                                  {existingResp ? 'Update' : 'Submit'}
+                                </button>
+                              )}
                             </div>
                           </div>
                         );
-                      })
-                    )}
-                    <div ref={messagesEndRef} />
-                  </div>
-                  <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 flex gap-2 items-center">
-                    <input value={newMessageText} onChange={(e) => setNewMessageText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSendChatMessage(); } }} className="flex-1 p-3 px-4 rounded-full bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-sm outline-none" placeholder="Send message..." />
-                    <button onClick={handleSendChatMessage} className="p-3 bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0 w-11 h-11">
-                      <Send size={18} />
-                    </button>
-                  </div>
-                </div>
-              </section>
-
-              {/* 9. Spark Game */}
-              <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                      <HelpCircle size={18} className="text-emerald-500" />
-                      Live Spark Game Questions
-                    </h3>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                      Answer questions about {group?.person_name || 'the birthday person'}. When Guess Who is enabled, {group?.person_name || 'they'} will guess who submitted each answer in their Locker!
-                    </p>
-                  </div>
-                  {isLockDatePassed && (
-                    <span className="px-2.5 py-1 bg-amber-500/10 text-amber-500 rounded-full text-[10px] font-bold">
-                      Answers Locked
-                    </span>
+                      })}
+                    </div>
                   )}
-                </div>
-
-                {birthdayQuestions.filter((q: any) => q.published !== false).length === 0 ? (
-                  <p className="text-xs text-zinc-400 italic py-4 text-center">
-                    No questions live yet.
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {birthdayQuestions.filter((q: any) => q.published !== false).map((q: any) => {
-                      const currentAnswer = userAnswers[q.id] || '';
-                      const existingResp = birthdayResponses.find(r => r.question_id === q.id && r.user_id === firebaseUser?.uid);
-                      return (
-                        <div key={q.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 space-y-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100">{q.question_text}</p>
-                            <span className="text-[10px] text-zinc-400 shrink-0">
-                              By {q.created_by_name || 'Member'}
-                            </span>
-                          </div>
-
-                          <div className="flex gap-2">
-                            <input
-                              value={currentAnswer}
-                              disabled={isLockDatePassed}
-                              onChange={(e) => setUserAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
-                              placeholder={isLockDatePassed ? "Submissions locked" : "Write your answer here..."}
-                              className="flex-1 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs outline-none text-zinc-900 dark:text-zinc-100 disabled:opacity-50"
-                            />
-                            {!isLockDatePassed && (
-                              <button
-                                onClick={() => handleSaveAnswer(q.id)}
-                                disabled={isSavingAnswers[q.id] || !currentAnswer.trim()}
-                                className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shrink-0 cursor-pointer disabled:opacity-50"
-                              >
-                                {existingResp ? 'Update' : 'Submit'}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
+                </section>
+              )}
             </motion.div>
           )}
 
@@ -4909,7 +4944,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                    <Camera size={20} className="text-emerald-500" />
                    Party Photo Dump
                  </h3>
-                 {isPhotoDumpUnlocked && (
+                 {canSeeFullDetails && isPhotoDumpUnlocked && (
                    <label className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold cursor-pointer hover:bg-emerald-600 transition-all">
                      {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
                      <input type="file" accept="image/*" onChange={handlePhotoUpload} disabled={isUploadingPhoto} className="hidden" />
@@ -4917,7 +4952,16 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                  )}
                </div>
 
-               {!isPhotoDumpUnlocked ? (
+               {!canSeeFullDetails ? (
+                 <div className="p-12 text-center bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-700 flex flex-col items-center justify-center space-y-3">
+                   <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400">
+                     <Lock size={20} />
+                   </div>
+                   <p className="text-sm font-semibold text-zinc-600 dark:text-zinc-300">
+                     Photos are only available for confirmed party guests
+                   </p>
+                 </div>
+               ) : !isPhotoDumpUnlocked ? (
                  <div className="p-12 text-center bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-700 flex flex-col items-center justify-center space-y-3">
                    <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400">
                      <Lock size={20} />
