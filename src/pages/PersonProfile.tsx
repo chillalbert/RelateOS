@@ -33,7 +33,7 @@ import HelpTip from '../components/HelpTip';
 import EmptyState from '../components/EmptyState';
 import { formatDate, getDaysUntil, getConnectionScore, cn, getTurningAge, getAIAccent, getLocalDateString } from '../lib/utils';
 import { HealthScoreBadge } from '../components/HealthScoreBadge';
-import { generateBirthdayMessage, generateRecoveryPlan, generateEnrichedAINotes } from '../services/geminiService';
+import { generateBirthdayMessage, generateRecoveryPlan, generateEnrichedAINotes, analyzePhotoMemory } from '../services/geminiService';
 import { db, storage } from '../lib/firebase';
 import confetti from 'canvas-confetti';
 import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, setDoc, deleteDoc, increment, arrayRemove, onSnapshot } from 'firebase/firestore';
@@ -364,7 +364,7 @@ export default function PersonProfile() {
  const downloadUrl = cloudinaryData.secure_url;
  console.log("Successfully uploaded to Cloudinary! URL:", downloadUrl);
 
- // 2. Read the image as base64 to send to server-side Gemini Vision API
+ // 2. Read the image as base64 for Gemini Vision API
  const base64Data = await new Promise<string>((resolve, reject) => {
  const reader = new FileReader();
  reader.readAsDataURL(file);
@@ -372,18 +372,8 @@ export default function PersonProfile() {
  reader.onerror = (err) => reject(err);
  });
 
- // 3. Perform server-side Gemini multi-modal Vision API inquiry
- const res = await fetch("/api/analyze-photo", {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ imageBase64: base64Data }),
- });
-
- if (!res.ok) {
- throw new Error("Failed to analyze image with server Gemini Vision engine");
- }
-
- const { description } = await res.json();
+ // 3. Perform Gemini multi-modal Vision API inquiry
+ const description = await analyzePhotoMemory(base64Data);
 
  // 4. Update the Firestore logged entries inside the photos sub-collection
  const photosRef = collection(db, 'people', targetId, 'photos');
@@ -747,12 +737,23 @@ export default function PersonProfile() {
  }));
  
  const memoriesRef = collection(db, 'people', targetId, 'memories');
- await addDoc(memoriesRef, {
+ const memoryDocRef = await addDoc(memoriesRef, {
  year: new Date().getFullYear(),
  type: 'milestone',
  content: `Wished a Happy Birthday! Streak increased to ${newStreak}.`,
  created_at: serverTimestamp()
  });
+
+ setPerson((prev: any) => ({
+ ...prev,
+ memories: [...(prev?.memories || []), {
+ id: memoryDocRef.id,
+ year: new Date().getFullYear(),
+ type: 'milestone',
+ content: `Wished a Happy Birthday! Streak increased to ${newStreak}.`,
+ created_at: new Date()
+ }]
+ }));
  await recordDailyAction('memory_added');
 
  const cardTask = displayPerson.tasks?.find((t: any) => t.title === 'Card Message');
