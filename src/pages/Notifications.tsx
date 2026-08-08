@@ -11,7 +11,7 @@ import AuraHeaderBadge from '../components/AuraHeaderBadge';
 import { formatDate, getDisplayName, formatDateTime } from '../lib/utils';
 import { db } from '../lib/firebase';
 import { 
-  collection, query, where, getDocs, doc, updateDoc, deleteDoc, 
+  collection, query, where, getDocs, getDoc, doc, updateDoc, deleteDoc, 
   orderBy, addDoc, serverTimestamp, arrayUnion, onSnapshot 
 } from 'firebase/firestore';
 
@@ -281,23 +281,44 @@ export default function Notifications() {
       const psnap = await getDocs(pq);
       
       if (psnap.empty) {
-        // Query target users's profile card details if exists
-        const userRef = collection(db, 'users');
-        const userSnap = doc(userRef, senderUid);
-        let bMonth = 1;
-        let bDay = 1;
-        let bPhotoUrl = '';
+        // Query target user's profile card details if exists
+        let uData: any = null;
         try {
-          const uDoc = await getDocs(query(userRef, where('name', '==', senderName)));
-          if (!uDoc.empty) {
-            const uData = uDoc.docs[0].data();
-            bMonth = uData.birthday_month || 1;
-            bDay = uData.birthday_day || 1;
-            bPhotoUrl = uData.profile_picture_url || '';
+          const senderDocRef = doc(db, 'users', senderUid);
+          const uDocSnap = await getDoc(senderDocRef);
+          if (uDocSnap.exists()) {
+            uData = uDocSnap.data();
+          } else {
+            const userRef = collection(db, 'users');
+            const uDocs = await getDocs(query(userRef, where('name', '==', senderName)));
+            if (!uDocs.empty) {
+              uData = uDocs.docs[0].data();
+            }
           }
         } catch (e) {
           console.warn('Failed querying profile stats for acceptor:', e);
         }
+
+        const bMonth = uData?.birthday_month || 1;
+        const bDay = uData?.birthday_day || 1;
+        const bPhotoUrl = uData?.profile_picture_url || '';
+
+        const favSports = uData?.fav_sports_teams?.trim() || '';
+        const favArtists = uData?.fav_artists?.trim() || '';
+        const weekendVibes = uData?.weekend_activities?.trim() || '';
+        const extraDetails = uData?.anything_extra?.trim() || '';
+        const userBio = uData?.bio?.trim() || uData?.about?.trim() || uData?.notes?.trim() || '';
+        const userInterests = uData?.interests?.trim() || [favArtists, weekendVibes].filter(Boolean).join(', ') || '';
+
+        const detailParts: string[] = [];
+        if (userBio) detailParts.push(userBio);
+        if (favSports) detailParts.push(`Favorite Sports Teams: ${favSports}`);
+        if (favArtists) detailParts.push(`Favorite Artists: ${favArtists}`);
+        if (weekendVibes) detailParts.push(`Weekend Activities: ${weekendVibes}`);
+        if (extraDetails) detailParts.push(extraDetails);
+
+        const detailsText = detailParts.join('. ');
+        const compiledNotes = detailsText ? `Accepted friend request. ${detailsText}` : `Accepted friend request`;
 
         const formattedMonth = String(bMonth).padStart(2, '0');
         const formattedDay = String(bDay).padStart(2, '0');
@@ -309,7 +330,12 @@ export default function Notifications() {
           birthday: bDayStr,
           birthYearUnknown: true,
           category: 'friend',
-          notes: `Accepted friend request`,
+          notes: compiledNotes,
+          ai_notes: compiledNotes,
+          interests: userInterests,
+          fav_sports_teams: favSports,
+          fav_artists: favArtists,
+          anything_extra: extraDetails,
           user_id: firebaseUser.uid,
           photo_url: bPhotoUrl,
           host_uid: senderUid,
