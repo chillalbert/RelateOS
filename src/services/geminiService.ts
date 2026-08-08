@@ -560,3 +560,35 @@ Return ONLY the neutralized phrase, nothing else. No quotes, no preamble, no exp
   }
 }
 
+export async function analyzePhotoMemory(base64ImageDataUri: string): Promise<string> {
+  const match = base64ImageDataUri.match(/^data:([^;]+);base64,(.+)$/);
+  const mimeType = match ? match[1] : "image/jpeg";
+  const base64Data = match ? match[2] : base64ImageDataUri;
+
+  try {
+    let apiKey = cleanKey(await initializeGeminiKey());
+    if (!apiKey) apiKey = cleanKey(process.env.GEMINI_API_KEY);
+    if (!apiKey) apiKey = cleanKey((import.meta as any).env?.VITE_GEMINI_API_KEY);
+    if (!apiKey) apiKey = cleanKey((import.meta as any).env?.GEMINI_API_KEY);
+    if (!apiKey) apiKey = cleanKey(localStorage.getItem('GEMINI_API_KEY'));
+
+    if (!apiKey) return "No description could be generated.";
+
+    const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: {
+        parts: [
+          { inlineData: { mimeType, data: base64Data } },
+          { text: "Analyze this photo containing a memory with my friend. Write a concise 2-3 sentence descriptive summary profiling the context, shared activities, or vibe of this image to help me write personalized milestone letters later." }
+        ]
+      },
+    });
+
+    return response.text || "No description could be generated.";
+  } catch (error: any) {
+    console.error("[GeminiService] Photo analysis error:", error);
+    return "No description could be generated.";
+  }
+}
+
