@@ -165,9 +165,19 @@ service cloud.firestore {
            request.resource.data.roles.size() == resource.data.roles.size() + 1 && 
            request.resource.data.roles.get(request.auth.uid, 'guest') == 'guest' &&
            request.resource.data.roles.keys().hasAll(resource.data.roles.keys()))
+        ) ||
+        (
+          'roles' in resource.data &&
+          resource.data.roles.keys().size() == request.resource.data.get('roles', {}).keys().size() + 1 &&
+          resource.data.roles.keys().hasAll(request.resource.data.get('roles', {}).keys()) &&
+          !(request.auth.uid in request.resource.data.get('roles', {}))
         )
       ) && isAttendanceRequirementUnchanged() && isAttendanceUnchangedOrSelfOnly();
-      allow delete: if isSignedIn() && (resource.data.get('created_by', '') == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (
+        resource.data.get('created_by', '') == request.auth.uid || 
+        isAdmin() ||
+        (request.auth.uid in resource.data.get('members', []) && resource.data.get('members', []).size() <= 1)
+      );
 
       function isCurrentRoomAdmin() {
         return isSignedIn() && (
