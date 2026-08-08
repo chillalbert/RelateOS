@@ -35,7 +35,7 @@ import { HealthScoreCompactBadge } from '../components/HealthScoreBadge';
 import { Gift, MessageSquare, Sparkles as SparklesIcon, Trash2, ShieldAlert, Lock as LockIcon } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit, setDoc, addDoc, serverTimestamp, increment, deleteDoc, onSnapshot, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, updateDoc, orderBy, limit, setDoc, addDoc, serverTimestamp, increment, deleteDoc, onSnapshot, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { generateGiftSuggestions, generateBirthdayMessage } from '../services/geminiService';
 import { subscribeUserToPush } from '../lib/pushManager';
 
@@ -621,39 +621,66 @@ export default function Dashboard() {
  const psnap = await getDocs(pq);
  
  if (psnap.empty) {
- const userRef = collection(db, 'users');
- let bMonth = 1;
- let bDay = 1;
- let bPhotoUrl = '';
- try {
- const uSnap = await getDocs(query(userRef, where('name', '==', senderName)));
- if (!uSnap.empty) {
- const uData = uSnap.docs[0].data();
- bMonth = uData.birthday_month || 1;
- bDay = uData.birthday_day || 1;
- bPhotoUrl = uData.profile_picture_url || '';
- }
- } catch (e) {
- console.warn(e);
- }
+  let uData: any = null;
+  try {
+    const senderDocRef = doc(db, 'users', senderUid);
+    const uDocSnap = await getDoc(senderDocRef);
+    if (uDocSnap.exists()) {
+      uData = uDocSnap.data();
+    } else {
+      const userRef = collection(db, 'users');
+      const uDocs = await getDocs(query(userRef, where('name', '==', senderName)));
+      if (!uDocs.empty) {
+        uData = uDocs.docs[0].data();
+      }
+    }
+  } catch (e) {
+    console.warn('Failed querying profile stats for acceptor:', e);
+  }
 
- const formattedMonth = String(bMonth).padStart(2, '0');
- const formattedDay = String(bDay).padStart(2, '0');
- const bDayStr = `2000-${formattedMonth}-${formattedDay}`;
+  const bMonth = uData?.birthday_month || 1;
+  const bDay = uData?.birthday_day || 1;
+  const bPhotoUrl = uData?.profile_picture_url || '';
 
- await addDoc(peopleRef, {
- name: senderName,
- nickname: senderName,
- birthday: bDayStr,
- birthYearUnknown: true,
- category: 'friend',
- notes: `Accepted friend request `,
- user_id: firebaseUser.uid,
- photo_url: bPhotoUrl,
- host_uid: senderUid,
- created_at: serverTimestamp(),
- updated_at: serverTimestamp()
- });
+  const favSports = uData?.fav_sports_teams?.trim() || '';
+  const favArtists = uData?.fav_artists?.trim() || '';
+  const weekendVibes = uData?.weekend_activities?.trim() || '';
+  const extraDetails = uData?.anything_extra?.trim() || '';
+  const userBio = uData?.bio?.trim() || uData?.about?.trim() || uData?.notes?.trim() || '';
+  const userInterests = uData?.interests?.trim() || [favArtists, weekendVibes].filter(Boolean).join(', ') || '';
+
+  const detailParts: string[] = [];
+  if (userBio) detailParts.push(userBio);
+  if (favSports) detailParts.push(`Favorite Sports Teams: ${favSports}`);
+  if (favArtists) detailParts.push(`Favorite Artists: ${favArtists}`);
+  if (weekendVibes) detailParts.push(`Weekend Activities: ${weekendVibes}`);
+  if (extraDetails) detailParts.push(extraDetails);
+
+  const detailsText = detailParts.join('. ');
+  const compiledNotes = detailsText ? `Accepted friend request. ${detailsText}` : `Accepted friend request`;
+
+  const formattedMonth = String(bMonth).padStart(2, '0');
+  const formattedDay = String(bDay).padStart(2, '0');
+  const bDayStr = `2000-${formattedMonth}-${formattedDay}`;
+
+  await addDoc(peopleRef, {
+    name: senderName,
+    nickname: senderName,
+    birthday: bDayStr,
+    birthYearUnknown: true,
+    category: 'friend',
+    notes: compiledNotes,
+    ai_notes: compiledNotes,
+    interests: userInterests,
+    fav_sports_teams: favSports,
+    fav_artists: favArtists,
+    anything_extra: extraDetails,
+    user_id: firebaseUser.uid,
+    photo_url: bPhotoUrl,
+    host_uid: senderUid,
+    created_at: serverTimestamp(),
+    updated_at: serverTimestamp()
+  });
  }
  alert("Friend request accepted! ");
  } catch (err) {
