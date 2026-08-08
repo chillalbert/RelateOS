@@ -758,6 +758,17 @@ export default function GroupPlanning() {
       console.error(e);
     }
   };
+
+  const handleToggleShowGuestCount = async () => {
+    if (!id || !group) return;
+    try {
+      await updateDoc(doc(db, 'rooms', id), {
+        show_guest_count: !group.show_guest_count
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
  const [copiedCode, setCopiedCode] = React.useState(false);
  const [ideas, setIdeas] = React.useState<any[]>([]);
 
@@ -2587,8 +2598,23 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
    if (!id) return;
    setIsGeneratingThemes(true);
    try {
+     let guestNotesList: string[] = [];
+     try {
+       const neutralizedRef = collection(db, 'rooms', id, 'guest_ai_notes_neutralized');
+       const neutralizedSnap = await getDocs(neutralizedRef);
+       neutralizedSnap.docs.forEach(docSnap => {
+         const data = docSnap.data();
+         if (data.neutralized_text && data.neutralized_text.trim()) {
+           guestNotesList.push(data.neutralized_text.trim());
+         }
+       });
+     } catch (err) {
+       console.error("Error fetching neutralized guest notes for themes:", err);
+     }
+     const joinedGuestNotes = guestNotesList.join(', ');
+
      const prompt = `Generate 3 creative, immersive party theme ideas for event "${group?.name || 'Party'}".
-Party Vibe/Notes: ${group?.vibe || group?.planner_notes || 'Fun and memorable'}.
+Party Vibe/Notes: ${group?.vibe || group?.planner_notes || 'Fun and memorable'}.${joinedGuestNotes ? `\nGuests' collective notes: ${joinedGuestNotes}` : ''}
 Return a JSON array of objects with keys:
 - "name": String (unique theme title)
 - "cost": String (e.g. "$", "$$", "$$$")
@@ -2637,8 +2663,23 @@ CRITICAL: Provide rich, multi-sentence descriptive content for decorations, vibe
    if (!id) return;
    setIsGeneratingVenues(true);
    try {
+     let guestNotesList: string[] = [];
+     try {
+       const neutralizedRef = collection(db, 'rooms', id, 'guest_ai_notes_neutralized');
+       const neutralizedSnap = await getDocs(neutralizedRef);
+       neutralizedSnap.docs.forEach(docSnap => {
+         const data = docSnap.data();
+         if (data.neutralized_text && data.neutralized_text.trim()) {
+           guestNotesList.push(data.neutralized_text.trim());
+         }
+       });
+     } catch (err) {
+       console.error("Error fetching neutralized guest notes for venues:", err);
+     }
+     const joinedGuestNotes = guestNotesList.join(', ');
+
      const prompt = `Generate 3 venue ideas for event "${group?.name || 'Party'}".
-Party Vibe/Notes: ${group?.vibe || group?.planner_notes || 'Fun and memorable'}.
+Party Vibe/Notes: ${group?.vibe || group?.planner_notes || 'Fun and memorable'}.${joinedGuestNotes ? `\nGuests' collective notes: ${joinedGuestNotes}` : ''}
 Return a JSON array of objects with keys:
 - "type": String (venue style name)
 - "cost": String (e.g. "$", "$$", "$$$")
@@ -2685,8 +2726,23 @@ CRITICAL: Provide rich, multi-sentence descriptive content for why and tips. Do 
    if (!id) return;
    setIsGeneratingGameIdeas(true);
    try {
+     let guestNotesList: string[] = [];
+     try {
+       const neutralizedRef = collection(db, 'rooms', id, 'guest_ai_notes_neutralized');
+       const neutralizedSnap = await getDocs(neutralizedRef);
+       neutralizedSnap.docs.forEach(docSnap => {
+         const data = docSnap.data();
+         if (data.neutralized_text && data.neutralized_text.trim()) {
+           guestNotesList.push(data.neutralized_text.trim());
+         }
+       });
+     } catch (err) {
+       console.error("Error fetching neutralized guest notes for games:", err);
+     }
+     const joinedGuestNotes = guestNotesList.join(', ');
+
      const prompt = `Generate 3 party game or activity ideas for event "${group?.name || 'Party'}".
-Party Ideas/Notes: ${group?.planner_notes || group?.vibe || 'Fun and memorable'}.
+Party Ideas/Notes: ${group?.planner_notes || group?.vibe || 'Fun and memorable'}.${joinedGuestNotes ? `\nGuests' collective notes: ${joinedGuestNotes}` : ''}
 Return a JSON array of objects with keys:
 - "name": String (game title)
 - "description": String (brief explanation of how to play, rules, and host instructions)
@@ -2748,6 +2804,21 @@ CRITICAL: Provide clear, creative game descriptions and materials needed. Do NOT
 
       const ideasText = ideas?.map((i: any) => i.content || i.text || i.title).filter(Boolean).join('; ') || '';
 
+      let guestNotesList: string[] = [];
+      try {
+        const neutralizedRef = collection(db, 'rooms', id, 'guest_ai_notes_neutralized');
+        const neutralizedSnap = await getDocs(neutralizedRef);
+        neutralizedSnap.docs.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.neutralized_text && data.neutralized_text.trim()) {
+            guestNotesList.push(data.neutralized_text.trim());
+          }
+        });
+      } catch (err) {
+        console.error("Error fetching neutralized guest notes for playlist:", err);
+      }
+      const joinedGuestNotes = guestNotesList.join(', ');
+
       const prompt = `You are an expert DJ and party playlist curator. Create a personalized multi-song party playlist for ${personName}'s celebration.
 
 PARTY & PERSON DETAILS:
@@ -2757,6 +2828,7 @@ ${plannerNotes ? `- Notes & Interests: ${plannerNotes}` : ''}
 ${themesText ? `- Selected Party Themes: ${themesText}` : ''}
 ${surveyText ? `- Guest Survey Answers & Music Preferences: ${surveyText}` : ''}
 ${ideasText ? `- Member Ideas: ${ideasText}` : ''}
+${joinedGuestNotes ? `- Guests' collective notes: ${joinedGuestNotes}` : ''}
 
 Curate 10 to 12 real, iconic songs tailored to ${personName}'s vibe across different party energy phases.
 Return ONLY a valid JSON object with:
@@ -3236,8 +3308,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
   </header>
 
   {/* Sticky Dropdown & Tab Navigation Bar */}
-  {!isGuest && (
-    <div className="sticky top-0 z-20 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 px-4 sm:px-6 py-2.5 shadow-sm transition-all">
+  <div className="sticky top-0 z-20 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 px-4 sm:px-6 py-2.5 shadow-sm transition-all">
 
  {isFullParty ? (
    (() => {
@@ -3371,7 +3442,6 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
  </div>
  )}
  </div>
- )}
 
  <div className="p-6 space-y-8 max-w-2xl mx-auto">
  {isFullParty ? (
@@ -3425,10 +3495,12 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                       <p className="text-xs font-extrabold">{group.party_date} {group?.party_time && `@ ${group.party_time}`}</p>
                     </div>
                   )}
-                  <div>
-                    <p className="text-[9px] uppercase font-bold text-emerald-200">Guest Count</p>
-                    <p className="text-xs font-extrabold">{group?.guest_count || (group?.members?.length || 1)} Guests</p>
-                  </div>
+                  {(isCrewAdminOrMod || group?.show_guest_count === true) && (
+                    <div>
+                      <p className="text-[9px] uppercase font-bold text-emerald-200">Guest Count</p>
+                      <p className="text-xs font-extrabold">{group?.guest_count || (group?.members?.length || 1)} Guests</p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-[9px] uppercase font-bold text-emerald-200">My RSVP</p>
                     <p className="text-xs font-extrabold capitalize">{group?.rsvps?.[firebaseUser?.uid] || 'Going'}</p>
@@ -3631,6 +3703,39 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                 </div>
               </section>
 
+              {/* Guest Private Ideas for the AI section */}
+              <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                    <Sparkles size={16} className="text-amber-500" />
+                    Ideas for the AI
+                  </h3>
+                </div>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Tell the AI something about the birthday person — only you can see what you write here.
+                </p>
+                <textarea
+                  value={guestNoteText}
+                  onChange={(e) => setGuestNoteText(e.target.value)}
+                  rows={3}
+                  placeholder="Write a note, interest, or trait for the AI..."
+                  className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none text-zinc-900 dark:text-zinc-100"
+                />
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleSaveGuestAiNote}
+                    disabled={isSavingGuestNote}
+                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    {isSavingGuestNote ? 'Saving...' : 'Save Notes'}
+                  </button>
+                  {guestNoteSavedSuccess && (
+                    <span className="text-xs font-bold text-emerald-500">Saved!</span>
+                  )}
+                </div>
+              </section>
+
+
               {/* 6. Published Ideas/Themes/Venue/Playlist Content */}
               {hasPublishedItems && (
                 <div className="space-y-6">
@@ -3791,23 +3896,25 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                   ))}
                 </div>
 
-                <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl space-y-3 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                  <p className="text-xs font-extrabold uppercase text-zinc-400">Create New Poll</p>
-                  <input value={newPollQuestion} onChange={(e) => setNewPollQuestion(e.target.value)} placeholder="Poll Question..." className="w-full p-3 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none" />
-                  <div className="space-y-2">
-                    {newPollOptions.map((opt, i) => (
-                      <input key={i} value={opt} onChange={(e) => {
-                        const updated = [...newPollOptions];
-                        updated[i] = e.target.value;
-                        setNewPollOptions(updated);
-                      }} placeholder={`Option ${i + 1}...`} className="w-full p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none" />
-                    ))}
+                {isCrewAdminOrMod && (
+                  <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl space-y-3 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                    <p className="text-xs font-extrabold uppercase text-zinc-400">Create New Poll</p>
+                    <input value={newPollQuestion} onChange={(e) => setNewPollQuestion(e.target.value)} placeholder="Poll Question..." className="w-full p-3 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none" />
+                    <div className="space-y-2">
+                      {newPollOptions.map((opt, i) => (
+                        <input key={i} value={opt} onChange={(e) => {
+                          const updated = [...newPollOptions];
+                          updated[i] = e.target.value;
+                          setNewPollOptions(updated);
+                        }} placeholder={`Option ${i + 1}...`} className="w-full p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none" />
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => setNewPollOptions(prev => [...prev, ''])} className="flex-1 py-2 bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold">+ Option</button>
+                      <button onClick={handleAddCustomPoll} disabled={!newPollQuestion.trim()} className="flex-1 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold disabled:opacity-50">Post Poll</button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setNewPollOptions(prev => [...prev, ''])} className="flex-1 py-2 bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold">+ Option</button>
-                    <button onClick={handleAddCustomPoll} disabled={!newPollQuestion.trim()} className="flex-1 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold disabled:opacity-50">Post Poll</button>
-                  </div>
-                </div>
+                )}
               </section>
 
               {/* 8. Party Chat */}
@@ -4140,37 +4247,6 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                </AnimatePresence>
              </section>
 
-             {/* Guest Private Ideas for the AI section */}
-             <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-3">
-               <div className="flex items-center justify-between">
-                 <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                   <Sparkles size={16} className="text-amber-500" />
-                   Ideas for the AI
-                 </h3>
-               </div>
-               <p className="text-xs text-zinc-500 leading-relaxed">
-                 Tell the AI something about the birthday person — only you can see what you write here.
-               </p>
-               <textarea
-                 value={guestNoteText}
-                 onChange={(e) => setGuestNoteText(e.target.value)}
-                 rows={3}
-                 placeholder="Write a note, interest, or trait for the AI..."
-                 className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs outline-none text-zinc-900 dark:text-zinc-100"
-               />
-               <div className="flex items-center gap-3">
-                 <button
-                   onClick={handleSaveGuestAiNote}
-                   disabled={isSavingGuestNote}
-                   className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all disabled:opacity-50"
-                 >
-                   {isSavingGuestNote ? 'Saving...' : 'Save Notes'}
-                 </button>
-                 {guestNoteSavedSuccess && (
-                   <span className="text-xs font-bold text-emerald-500">Saved!</span>
-                 )}
-               </div>
-             </section>
 
              <section className="space-y-4">
                <div className="flex justify-between items-center">
