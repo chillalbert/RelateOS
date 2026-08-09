@@ -407,8 +407,15 @@ export default function GroupPlanning() {
  // Party active tab state
  const [partyActiveTab, setPartyActiveTab] = React.useState<'setup' | 'plan' | 'polls' | 'guests' | 'vibes' | 'photos' | 'chat' | 'settings' | 'trivia' | 'ai_assistant' | 'guest_room'>('setup');
 
-  const isRoomAdmin = group?.created_by === firebaseUser?.uid || group?.admins?.includes(firebaseUser?.uid) || group?.roles?.[firebaseUser?.uid] === 'admin';
-  const isCrewAdminOrMod = isRoomAdmin || group?.mods?.includes(firebaseUser?.uid) || group?.roles?.[firebaseUser?.uid] === 'planner';
+  const isRoomAdmin = Boolean(firebaseUser?.uid) && (
+    (Boolean(group?.created_by) && group?.created_by === firebaseUser?.uid) ||
+    (Array.isArray(group?.admins) && group?.admins?.includes(firebaseUser?.uid)) ||
+    group?.roles?.[firebaseUser?.uid] === 'admin'
+  );
+  const isCrewAdminOrMod = isRoomAdmin || (Boolean(firebaseUser?.uid) && (
+    (Array.isArray(group?.mods) && group?.mods?.includes(firebaseUser?.uid)) ||
+    group?.roles?.[firebaseUser?.uid] === 'planner'
+  ));
 
   const myRsvp = group?.rsvps?.[firebaseUser?.uid] || 'undecided';
   const myVisibilityLevel = group?.visibility_by_status?.[myRsvp] || (myRsvp === 'going' ? 'full' : myRsvp === 'not_going' ? 'none' : 'limited');
@@ -806,7 +813,7 @@ export default function GroupPlanning() {
  if (!group || !firebaseUser) return false;
  const isFlat = group.room_structure === 'flat';
  const userRole = group.roles?.[firebaseUser.uid] || 'guest';
- return isFlat || userRole === 'admin' || userRole === 'planner' || group.created_by === firebaseUser.uid || group.admins?.includes(firebaseUser.uid);
+ return isFlat || userRole === 'admin' || userRole === 'planner' || (Boolean(group.created_by) && group.created_by === firebaseUser.uid) || group.admins?.includes(firebaseUser.uid);
  }, [group, firebaseUser]);
 
  // Image Upload states
@@ -942,7 +949,7 @@ export default function GroupPlanning() {
 
  setGroup({ ...groupData, isMember, isRecipient });
 
- if (!groupData.join_code && id && firebaseUser?.uid && (groupData.created_by === firebaseUser.uid || groupData.admins?.includes(firebaseUser.uid))) {
+ if (!groupData.join_code && id && firebaseUser?.uid && ((Boolean(groupData?.created_by) && groupData.created_by === firebaseUser.uid) || groupData.admins?.includes(firebaseUser.uid))) {
  generateUniqueJoinCode().then((newCode) => {
  updateDoc(doc(db, 'rooms', id), { join_code: newCode, invite_code: newCode }).catch(() => {});
  }).catch(() => {});
@@ -1704,7 +1711,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  const members = group.members || [];
  
  // 1. Try direct fetch of group.person_id if it exists (only works if current user owns it)
- if (group?.person_id && firebaseUser && (group?.host_uid === firebaseUser.uid || group?.created_by === firebaseUser.uid)) {
+ if (group?.person_id && firebaseUser?.uid && ((Boolean(group?.host_uid) && group?.host_uid === firebaseUser.uid) || (Boolean(group?.created_by) && group?.created_by === firebaseUser.uid))) {
  try {
  const personSnap = await getDoc(doc(db, 'people', group.person_id));
  if (personSnap.exists()) {
@@ -2325,7 +2332,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
  const isUnlocked = isBirthday || group?.isMember;
  const isFullParty = group?.room_type === 'party' || group?.is_party === true || group?.isPartyRoom === true;
 
- const userRole = group?.roles?.[firebaseUser?.uid] || (group?.created_by === firebaseUser?.uid ? 'admin' : 'guest');
+ const userRole = (Boolean(firebaseUser?.uid) && group?.roles?.[firebaseUser?.uid]) || (Boolean(firebaseUser?.uid) && Boolean(group?.created_by) && group?.created_by === firebaseUser?.uid ? 'admin' : 'guest');
  const isGuest = userRole === 'guest';
  const requiresAttendance = group?.requires_attendance || group?.attendance?.requires_attendance;
  const isAttendanceGated = requiresAttendance && isGuest && myRsvp !== 'going';
@@ -3661,17 +3668,19 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                     }}>Copy Code</button>
                   </div>
 
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/rooms/${id}?join=${group?.join_code || group?.invite_code || ''}`);
-                      setLinkCopied(true);
-                      setTimeout(() => setLinkCopied(false), 2000);
-                    }} 
-                    className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.99] text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/10 text-sm cursor-pointer"
-                  >
-                    <Share2 size={16} />
-                    {linkCopied ? "Link copied!" : "Share Party Link"}
-                  </button>
+                  {isCrewAdminOrMod && (
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/rooms/${id}?join=${group?.join_code || group?.invite_code || ''}`);
+                        setLinkCopied(true);
+                        setTimeout(() => setLinkCopied(false), 2000);
+                      }} 
+                      className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.99] text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/10 text-sm cursor-pointer"
+                    >
+                      <Share2 size={16} />
+                      {linkCopied ? "Link copied!" : "Share Party Link"}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -4662,7 +4671,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
                  {(group?.members || []).map((memberUid: string) => {
                    const memberName = memberNames[memberUid] || (memberUid === firebaseUser?.uid ? (user?.name || 'You') : 'Member');
-                   const role = group?.roles?.[memberUid] || (group?.created_by === memberUid ? 'admin' : 'guest');
+                   const role = (Boolean(memberUid) && group?.roles?.[memberUid]) || (Boolean(memberUid) && Boolean(group?.created_by) && group?.created_by === memberUid ? 'admin' : 'guest');
                    const rsvp = group?.rsvps?.[memberUid] || 'going';
 
                    return (
@@ -5952,6 +5961,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
  </div>
 
  {/* Share Surprise Link */}
+ {isCrewAdminOrMod && (
  <button 
  onClick={() => {
  navigator.clipboard.writeText(`${window.location.origin}/rooms/${id}?join=${group?.join_code || group?.invite_code || ''}`);
@@ -5963,6 +5973,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
  <Share2 size={16} />
  {linkCopied ? "Link copied!" : "Share Surprise Link"}
  </button>
+ )}
  </div>
 
  {/* Contribution Pool */}
@@ -6173,7 +6184,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
  <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
  {(group?.members || []).map((memberUid: string) => {
  const memberName = memberNames[memberUid] || (memberUid === firebaseUser?.uid ? (user?.name || 'You') : 'Member');
- const role = group?.roles?.[memberUid] || (group?.created_by === memberUid ? 'admin' : 'guest');
+ const role = (Boolean(memberUid) && group?.roles?.[memberUid]) || (Boolean(memberUid) && Boolean(group?.created_by) && group?.created_by === memberUid ? 'admin' : 'guest');
  const rsvp = group?.rsvps?.[memberUid] || 'going';
 
  return (
