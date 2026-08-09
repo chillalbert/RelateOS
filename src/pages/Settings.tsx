@@ -105,6 +105,11 @@ export default function Settings() {
  const [handleError, setHandleError] = React.useState('');
  const [handleChecking, setHandleChecking] = React.useState(false);
 
+ const handleSignOut = async () => {
+   await logout();
+   navigate('/login', { replace: true });
+ };
+
  const handleNamePrefToggle = async () => {
  if (!firebaseUser) return;
  const nextPref = nameDisplayPref === 'full' ? 'first' : 'full';
@@ -989,7 +994,7 @@ export default function Settings() {
  </div>
 
  <button 
- onClick={logout}
+ onClick={handleSignOut}
  className="w-full flex items-center justify-center gap-2 p-5 bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 border-t border-t-white/5 text-zinc-900 dark:text-white rounded-3xl font-bold text-sm hover:bg-zinc-50 dark:hover:bg-zinc-750 transition-colors shadow-sm dark:shadow-lg"
  >
  <LogOut size={20} />
