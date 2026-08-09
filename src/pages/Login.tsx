@@ -64,14 +64,9 @@ export default function Login() {
   };
 
   const getRedirectDestination = () => {
-    const state = location.state as any;
-    if (state?.redirectTo) return state.redirectTo;
-    if (state?.from) {
-      if (typeof state.from === 'string') return state.from;
-      if (state.from.pathname) {
-        return `${state.from.pathname}${state.from.search || ''}${state.from.hash || ''}`;
-      }
-    }
+    const params = new URLSearchParams(location.search);
+    const redirectTo = params.get('redirectTo');
+    if (redirectTo) return decodeURIComponent(redirectTo);
     return '/';
   };
 
