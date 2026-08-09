@@ -330,6 +330,7 @@ export default function GroupPlanning() {
  const { id } = useParams();
  const [searchParams] = useSearchParams();
  const personId = searchParams.get('personId');
+ const joinCodeParam = searchParams.get('join');
  const { firebaseUser, user } = useAuth();
  const navigate = useNavigate();
 
@@ -874,12 +875,41 @@ export default function GroupPlanning() {
  const groupData = { id: docSnap.id, ...docSnap.data() } as any;
  
  // Check if user is a member or recipient
- const isMember = groupData.members?.includes(firebaseUser.uid);
+ let isMember = groupData.members?.includes(firebaseUser.uid);
  const isRecipient = user?.email === groupData.recipient_email;
  
  if (!isMember && !isRecipient) {
+ if (joinCodeParam) {
+ const rawParam = joinCodeParam.trim();
+ const cleanedParam = rawParam.replace(/\s+/g, '').replace(/[^a-zA-Z0-9-_]/g, '').toLowerCase();
+
+ const roomJoinCode = (groupData.join_code || '').trim().replace(/\s+/g, '').replace(/[^a-zA-Z0-9-_]/g, '').toLowerCase();
+ const roomInviteCode = (groupData.invite_code || '').trim().replace(/\s+/g, '').replace(/[^a-zA-Z0-9-_]/g, '').toLowerCase();
+ const roomNormalizedCode = (groupData.normalized_join_code || '').trim().replace(/\s+/g, '').replace(/[^a-zA-Z0-9-_]/g, '').toLowerCase();
+
+ const matches = (cleanedParam && roomJoinCode && cleanedParam === roomJoinCode) ||
+ (cleanedParam && roomInviteCode && cleanedParam === roomInviteCode) ||
+ (cleanedParam && roomNormalizedCode && cleanedParam === roomNormalizedCode);
+
+ if (matches) {
+ try {
+ await updateDoc(doc(db, 'rooms', id), {
+ members: arrayUnion(firebaseUser.uid),
+ [`roles.${firebaseUser.uid}`]: groupData.roles?.[firebaseUser.uid] || 'guest',
+ [`attendance.${firebaseUser.uid}`]: groupData.attendance?.[firebaseUser.uid] || 'undecided',
+ [`rsvps.${firebaseUser.uid}`]: groupData.rsvps?.[firebaseUser.uid] || 'maybe'
+ });
+ isMember = true;
+ } catch (err) {
+ console.error("Auto-join failed:", err);
+ }
+ }
+ }
+
+ if (!isMember && !isRecipient) {
  setLoading(false);
  return;
+ }
  }
 
  // Fetch member names
@@ -1056,7 +1086,7 @@ export default function GroupPlanning() {
  unsubscribeQuestions();
  unsubscribeResponses();
  };
- }, [id, firebaseUser, user?.email]);
+ }, [id, firebaseUser, user?.email, joinCodeParam]);
 
  React.useEffect(() => {
    if (group) {
@@ -3633,7 +3663,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
 
                   <button 
                     onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/surprise/${id}`);
+                      navigator.clipboard.writeText(`${window.location.origin}/rooms/${id}?join=${group?.join_code || group?.invite_code || ''}`);
                       setLinkCopied(true);
                       setTimeout(() => setLinkCopied(false), 2000);
                     }} 
@@ -4224,7 +4254,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
 
                <button 
                  onClick={() => {
-                   navigator.clipboard.writeText(`${window.location.origin}/surprise/${id}`);
+                   navigator.clipboard.writeText(`${window.location.origin}/rooms/${id}?join=${group?.join_code || group?.invite_code || ''}`);
                    setLinkCopied(true);
                    setTimeout(() => setLinkCopied(false), 2000);
                  }} 
@@ -5924,7 +5954,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
  {/* Share Surprise Link */}
  <button 
  onClick={() => {
- navigator.clipboard.writeText(`${window.location.origin}/surprise/${id}`);
+ navigator.clipboard.writeText(`${window.location.origin}/rooms/${id}?join=${group?.join_code || group?.invite_code || ''}`);
  setLinkCopied(true);
  setTimeout(() => setLinkCopied(false), 2000);
  }} 
