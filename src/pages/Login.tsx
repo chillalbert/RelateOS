@@ -63,6 +63,18 @@ export default function Login() {
     }
   };
 
+  const getRedirectDestination = () => {
+    const state = location.state as any;
+    if (state?.redirectTo) return state.redirectTo;
+    if (state?.from) {
+      if (typeof state.from === 'string') return state.from;
+      if (state.from.pathname) {
+        return `${state.from.pathname}${state.from.search || ''}${state.from.hash || ''}`;
+      }
+    }
+    return '/';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -92,8 +104,7 @@ export default function Login() {
           created_at: new Date().toISOString()
         });
       }
-      const redirectTo = (location.state as any)?.redirectTo || '/';
-      navigate(redirectTo);
+      navigate(getRedirectDestination(), { replace: true });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -106,8 +117,7 @@ export default function Login() {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-      const redirectTo = (location.state as any)?.redirectTo || '/';
-      navigate(redirectTo);
+      navigate(getRedirectDestination(), { replace: true });
     } catch (err: any) {
       setError(err.message || 'Failed to sign in with Google.');
     } finally {
