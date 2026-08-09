@@ -135,7 +135,7 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
 
   if (isLoading) return <LoadingScreen />;
-  if (!firebaseUser) return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!firebaseUser) return <Navigate to={`/login?redirectTo=${encodeURIComponent(location.pathname + location.search)}`} replace />;
   
   const isCompleted = user?.onboarding_completed === true || user?.has_completed_onboarding === true;
   if (user && !isCompleted) {
