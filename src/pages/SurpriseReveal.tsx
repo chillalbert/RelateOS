@@ -222,7 +222,7 @@ export default function SurpriseReveal() {
 
               <div className="space-y-3">
                 <button
-                  onClick={() => navigate('/login', { state: { redirectTo: `/surprise/${roomId}` } })}
+                  onClick={() => navigate('/login?redirectTo=' + encodeURIComponent('/surprise/' + roomId))}
                   className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.99] text-white rounded-2xl font-bold transition-all text-sm tracking-wide shadow-lg shadow-emerald-500/15"
                 >
                   Unlock My Surprises →
@@ -231,7 +231,7 @@ export default function SurpriseReveal() {
                 <p className="text-xs text-zinc-500 font-medium">
                   Already have an account?{' '}
                   <button
-                    onClick={() => navigate('/login', { state: { redirectTo: `/surprise/${roomId}` } })}
+                    onClick={() => navigate('/login?redirectTo=' + encodeURIComponent('/surprise/' + roomId))}
                     className="text-emerald-400 hover:underline font-bold"
                   >
                     Sign in
