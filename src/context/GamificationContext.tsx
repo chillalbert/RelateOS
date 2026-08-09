@@ -215,10 +215,14 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return null;
       }
 
+      const previousCount = streakProgress.currentCount || 0;
+      const hadActiveStreak = previousCount > 0;
+
       // 5. This is today's first completion
       let newCount = 1;
       let cycleStartDate = streakProgress.cycleStartDate || today;
       let usedStreakFreeze = false;
+      let isMissedDayReset = false;
 
       if (streakProgress.lastCompletedDate === yesterday || !streakProgress.lastCompletedDate) {
         // Consecutive day or first completion ever
@@ -232,6 +236,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // Missed a day and no Streak Freeze available
         newCount = 1;
         cycleStartDate = today;
+        isMissedDayReset = true;
       }
 
       const auraEarned = config.auraPerDay || 10;
@@ -267,7 +272,12 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         dailyActionType: config.dailyActionType
       };
 
-      setPopupData(resultData);
+      if (isMissedDayReset && hadActiveStreak) {
+        setLostStreakCount(previousCount);
+        setShowStreakLossModal(true);
+      } else {
+        setPopupData(resultData);
+      }
       return resultData;
     } catch (err) {
       console.error('Error recording daily action:', err);
