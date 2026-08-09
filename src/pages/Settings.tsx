@@ -106,8 +106,8 @@ export default function Settings() {
  const [handleChecking, setHandleChecking] = React.useState(false);
 
  const handleSignOut = async () => {
-   await logout();
    navigate('/login', { replace: true });
+   await logout();
  };
 
  const handleNamePrefToggle = async () => {
