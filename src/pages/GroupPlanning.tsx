@@ -417,7 +417,7 @@ export default function GroupPlanning() {
     group?.roles?.[firebaseUser?.uid] === 'planner'
   ));
 
-  const myRsvp = group?.rsvps?.[firebaseUser?.uid] || 'undecided';
+  const myRsvp = group?.rsvps?.[firebaseUser?.uid] || 'maybe';
   const myVisibilityLevel = group?.visibility_by_status?.[myRsvp] || (myRsvp === 'going' ? 'full' : myRsvp === 'not_going' ? 'none' : 'limited');
 
   const canSeeBasicPlans = isCrewAdminOrMod || myVisibilityLevel === 'limited' || myVisibilityLevel === 'full';
@@ -2396,7 +2396,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
 
  
   const renderGuestConsolidatedView = () => {
-    const myRsvp = group?.rsvps?.[firebaseUser?.uid || ''] || 'undecided';
+    const myRsvp = group?.rsvps?.[firebaseUser?.uid || ''] || 'maybe';
     const requiresAttendance = !!group?.requires_attendance;
     
     let tier: 'none' | 'limited' | 'full' = 'full';
@@ -3579,7 +3579,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                   )}
                   <div>
                     <p className="text-[9px] uppercase font-bold text-emerald-200">My RSVP</p>
-                    <p className="text-xs font-extrabold capitalize">{group?.rsvps?.[firebaseUser?.uid] || 'Going'}</p>
+                    <p className="text-xs font-extrabold capitalize">{group?.rsvps?.[firebaseUser?.uid] || 'Maybe'}</p>
                   </div>
                 </div>
 
@@ -3587,7 +3587,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                   <span className="text-xs font-bold">Update My RSVP:</span>
                   <div className="flex gap-1.5">
                     {(['going', 'maybe', 'not_going'] as const).map((status) => {
-                      const currentRsvp = group?.rsvps?.[firebaseUser?.uid] || 'going';
+                      const currentRsvp = group?.rsvps?.[firebaseUser?.uid] || 'maybe';
                       const isSel = currentRsvp === status;
                       const activeRsvpStyle = status === 'going' 
                         ? 'bg-emerald-400 text-emerald-950 ring-2 ring-emerald-300 shadow-lg font-black' 
@@ -4169,7 +4169,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                  </div>
                  <div>
                    <p className="text-[9px] uppercase font-bold text-emerald-200">My RSVP</p>
-                   <p className="text-xs font-extrabold capitalize">{group?.rsvps?.[firebaseUser?.uid] || 'Going'}</p>
+                   <p className="text-xs font-extrabold capitalize">{group?.rsvps?.[firebaseUser?.uid] || 'Maybe'}</p>
                  </div>
                </div>
 
@@ -4177,7 +4177,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                  <span className="text-xs font-bold">Update My RSVP:</span>
                  <div className="flex gap-1.5">
                    {(['going', 'maybe', 'not_going'] as const).map((status) => {
-                     const currentRsvp = group?.rsvps?.[firebaseUser?.uid] || 'going';
+                     const currentRsvp = group?.rsvps?.[firebaseUser?.uid] || 'maybe';
                      const isSel = currentRsvp === status;
                      const activeRsvpStyle = status === 'going' 
                        ? 'bg-emerald-400 text-emerald-950 ring-2 ring-emerald-300 shadow-lg font-black' 
@@ -4672,7 +4672,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                  {(group?.members || []).map((memberUid: string) => {
                    const memberName = memberNames[memberUid] || (memberUid === firebaseUser?.uid ? (user?.name || 'You') : 'Member');
                    const role = (Boolean(memberUid) && group?.roles?.[memberUid]) || (Boolean(memberUid) && Boolean(group?.created_by) && group?.created_by === memberUid ? 'admin' : 'guest');
-                   const rsvp = group?.rsvps?.[memberUid] || 'going';
+                   const rsvp = group?.rsvps?.[memberUid] || 'maybe';
 
                    return (
                      <div key={memberUid} className="py-3.5 flex items-center justify-between gap-3">
@@ -5879,7 +5879,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
  </div>
  <div>
  <p className="text-[9px] uppercase font-bold text-emerald-200">My RSVP</p>
- <p className="text-xs font-extrabold capitalize">{group?.rsvps?.[firebaseUser?.uid] || 'Going'}</p>
+ <p className="text-xs font-extrabold capitalize">{group?.rsvps?.[firebaseUser?.uid] || 'Maybe'}</p>
  </div>
  </div>
 
@@ -5887,7 +5887,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
  <span className="text-xs font-bold">Update My RSVP:</span>
  <div className="flex gap-1.5">
  {(['going', 'maybe', 'not_going'] as const).map((status) => {
- const currentRsvp = group?.rsvps?.[firebaseUser?.uid] || 'going';
+ const currentRsvp = group?.rsvps?.[firebaseUser?.uid] || 'maybe';
  const isSel = currentRsvp === status;
  return (
  <button
@@ -6185,7 +6185,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
  {(group?.members || []).map((memberUid: string) => {
  const memberName = memberNames[memberUid] || (memberUid === firebaseUser?.uid ? (user?.name || 'You') : 'Member');
  const role = (Boolean(memberUid) && group?.roles?.[memberUid]) || (Boolean(memberUid) && Boolean(group?.created_by) && group?.created_by === memberUid ? 'admin' : 'guest');
- const rsvp = group?.rsvps?.[memberUid] || 'going';
+ const rsvp = group?.rsvps?.[memberUid] || 'maybe';
 
  return (
  <div key={memberUid} className="py-3.5 flex items-center justify-between gap-3">
