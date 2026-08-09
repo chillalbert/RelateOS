@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TourProvider, useTour } from './context/TourContext';
@@ -132,9 +132,10 @@ const RealtimeNotificationTracker = () => {
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { firebaseUser, user, isLoading } = useAuth();
   const { isCurrentRouteHighlighted } = useTour();
+  const location = useLocation();
 
   if (isLoading) return <LoadingScreen />;
-  if (!firebaseUser) return <Navigate to="/login" />;
+  if (!firebaseUser) return <Navigate to="/login" state={{ from: location }} replace />;
   
   const isCompleted = user?.onboarding_completed === true || user?.has_completed_onboarding === true;
   if (user && !isCompleted) {
@@ -157,7 +158,7 @@ const FeatureRoute = ({ featureId, children }: { featureId: string; children: Re
   const { user, isLoading: authLoading } = useAuth();
   const { config } = useGamification();
 
-  if (authLoading || !user || !config) {
+  if (authLoading || !user || !config || !config.unlockSequence) {
     return <LoadingScreen />;
   }
 
@@ -174,7 +175,7 @@ const LeaderboardRoute = () => {
   const { user, isLoading: authLoading } = useAuth();
   const { config } = useGamification();
 
-  if (authLoading || !user || !config) {
+  if (authLoading || !user || !config || !config.unlockSequence) {
     return <LoadingScreen />;
   }
 
