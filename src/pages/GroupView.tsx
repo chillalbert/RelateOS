@@ -1016,6 +1016,21 @@ export default function GroupView() {
  status: 'pending',
  created_at: new Date().toISOString()
  });
+
+ try {
+ await fetch('/.netlify/functions/send-push-ping', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({
+ userIds: [memberId],
+ title: 'New friend request',
+ body: `${user?.name || firebaseUser?.displayName || 'Someone'} wants to connect`,
+ url: '/notifications'
+ })
+ });
+ } catch (pushErr) {
+ console.warn('Failed sending push notification:', pushErr);
+ }
  } catch (err) {
  console.error("Error triggering friend request:", err);
  }
