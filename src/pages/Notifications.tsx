@@ -465,7 +465,7 @@ export default function Notifications() {
                 : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
             }`}
           >
-            Friend Requests ({activities.length})
+            Friend Requests ({friendRequests.filter(fr => fr.status === 'pending').length})
           </button>
         </div>
 
