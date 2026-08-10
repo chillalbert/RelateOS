@@ -277,6 +277,22 @@ export default function PublicProfileCollector() {
         timestamp: serverTimestamp()
       });
 
+      // Trigger remote push ping notification to receiver
+      try {
+        await fetch('/.netlify/functions/send-push-ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userIds: [hostUser.id],
+            title: 'New friend request',
+            body: `${getDisplayName(user) || 'Someone'} wants to connect`,
+            url: '/notifications'
+          })
+        });
+      } catch (pushErr) {
+        console.warn('Failed sending push notification:', pushErr);
+      }
+
       // Trigger automatic high-priority background system alert
       await triggerSystemNotification(
         "New Orbit Invitation!",
