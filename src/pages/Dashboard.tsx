@@ -844,7 +844,7 @@ export default function Dashboard() {
  if (closeFriendsToCheckIn.length > 0) {
  handleStartCheckIn(closeFriendsToCheckIn[0]);
  } else {
- const closeFriends = activePeople.filter(p => p.isCloseFriend === true);
+ const closeFriends = activePeople.filter(p => p.isCloseFriend === true && p.lastCheckIn?.date !== todayStr);
  if (closeFriends.length > 0) {
  setCheckInQueue(closeFriends);
  setQueueIndex(0);
