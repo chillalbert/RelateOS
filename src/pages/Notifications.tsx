@@ -195,15 +195,16 @@ export default function Notifications() {
         timestamp: serverTimestamp()
       });
 
-      // Optional notifications push ping
+      // Send push ping notification
       try {
         await fetch('/.netlify/functions/send-push-ping', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            host_uid: targetUid,
-            title: 'Friend Invitation',
-            message: `${getDisplayName(user) || 'Someone'} requested your birthday back!`
+            userIds: [targetUid],
+            title: 'New friend request',
+            body: `${getDisplayName(user) || 'Someone'} wants to connect`,
+            url: '/notifications'
           })
         });
       } catch (e) {
