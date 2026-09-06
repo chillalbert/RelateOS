@@ -19,9 +19,15 @@ export function useDynamicFriend(initialPerson: any, currentUserId?: string) {
   useEffect(() => {
     if (initialPerson) {
       setPerson((prev: any) => {
-        // Only merge if base ID matches or has same name
         if (prev && prev.id === initialPerson.id) {
-          return { ...initialPerson, ...prev };
+          return {
+            ...initialPerson,
+            name: prev.name !== undefined ? prev.name : initialPerson.name,
+            photo_url: prev.photo_url !== undefined ? prev.photo_url : initialPerson.photo_url,
+            fav_sports_teams: prev.fav_sports_teams !== undefined ? prev.fav_sports_teams : initialPerson.fav_sports_teams,
+            fav_artists: prev.fav_artists !== undefined ? prev.fav_artists : initialPerson.fav_artists,
+            anything_extra: prev.anything_extra !== undefined ? prev.anything_extra : initialPerson.anything_extra,
+          };
         }
         return initialPerson;
       });
