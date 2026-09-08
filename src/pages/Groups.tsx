@@ -186,7 +186,7 @@ export default function Groups() {
                         <Users size={24} />
                       </div>
                       <div>
-                        <h3 className="font-bold text-lg group-hover:text-emerald-500 transition-colors">{group.code_name || group.name}</h3>
+                        <h3 className="font-bold text-lg group-hover:text-emerald-500 transition-colors">{group.name}</h3>
                         <p className="text-xs text-zinc-400 uppercase font-bold tracking-wider">Secret for {group.person_name}</p>
                       </div>
                     </div>
