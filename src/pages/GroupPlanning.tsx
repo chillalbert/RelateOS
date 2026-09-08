@@ -597,7 +597,6 @@ export default function GroupPlanning() {
  const [aiSuggestions, setAiSuggestions] = React.useState<any[]>([]);
  const [isGeneratingSuggestions, setIsGeneratingSuggestions] = React.useState(false);
   const [isPartyRoom, setIsPartyRoom] = React.useState(false);
-  const [codeNameInput, setCodeNameInput] = React.useState('');
  // Custom Join Code states for room creation
  const [birthdayJoinCode, setBirthdayJoinCode] = React.useState('');
  const [partyJoinCode, setPartyJoinCode] = React.useState('');
@@ -1900,7 +1899,6 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
         is_party: isPartyRoom,
         isPartyRoom: isPartyRoom,
         name: roomName,
-        code_name: codeNameInput || '',
         person_id: personId || null,
         person_name,
         person_notes,
@@ -2077,16 +2075,6 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                     placeholder="e.g. sarah@example.com" 
                   />
                   <p className="text-[10px] text-zinc-500 ml-1">Links the locker to their account for the auto-reveal on their birthday.</p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 ml-1">Secret Code Name (Optional)</label>
-                  <input 
-                    value={codeNameInput}
-                    onChange={(e) => setCodeNameInput(e.target.value)}
-                    className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100" 
-                    placeholder="e.g. Project Cupcake" 
-                  />
                 </div>
 
                 {/* Full Party Checkbox */}
@@ -3365,7 +3353,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
   <button onClick={() => navigate(-1)} className="p-2 -ml-2 cursor-pointer text-zinc-700 dark:text-zinc-200"><ArrowLeft size={24} /></button>
   <div className="text-center">
   <div className="flex items-center justify-center gap-1.5">
-  <h1 className="font-bold text-base sm:text-lg">{group?.code_name || group?.name}</h1>
+  <h1 className="font-bold text-base sm:text-lg">{group?.name}</h1>
   {isFullParty && (
   <span className="px-2.5 py-0.5 bg-gradient-to-r from-emerald-500/15 via-teal-500/15 to-indigo-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider rounded-full border border-emerald-500/30 shadow-sm">
   🎉 Full Party
@@ -4432,14 +4420,29 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                <div className="grid grid-cols-1 gap-3">
                  {partyThemes.map((t: any) => (
                    <div key={t.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-700 space-y-2">
-                     <div className="flex items-center justify-between">
-                       <div className="flex items-center gap-2">
-                         <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">{t.name}</h4>
-                         {t.cost && <span className="text-xs font-bold text-emerald-500">{t.cost}</span>}
+                     <div className="flex items-center justify-between gap-2">
+                       <div className="flex items-center gap-2 min-w-0">
+                         <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 truncate">{t.name}</h4>
+                         {t.cost && <span className="text-xs font-bold text-emerald-500 shrink-0">{t.cost}</span>}
                        </div>
-                       <button onClick={() => handleVoteTheme(t.id, t.votes || [])} className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs rounded-xl border border-emerald-500/20 transition-all cursor-pointer">
-                         {(t.votes || []).includes(firebaseUser?.uid) ? 'Voted' : 'Vote'} ({(t.votes || []).length})
-                       </button>
+                       <div className="flex items-center gap-2 shrink-0">
+                         {isCrewAdminOrMod && (
+                           <button
+                             onClick={() => handleToggleThemePublish(t.id, !!t.published)}
+                             className={cn(
+                               "px-2.5 py-1 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer",
+                               t.published
+                                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                                 : "bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500"
+                             )}
+                           >
+                             {t.published ? 'Published' : 'Draft'}
+                           </button>
+                         )}
+                         <button onClick={() => handleVoteTheme(t.id, t.votes || [])} className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs rounded-xl border border-emerald-500/20 transition-all cursor-pointer">
+                           {(t.votes || []).includes(firebaseUser?.uid) ? 'Voted' : 'Vote'} ({(t.votes || []).length})
+                         </button>
+                       </div>
                      </div>
                      {t.vibe && <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed"><strong className="text-zinc-700 dark:text-zinc-200">Vibe:</strong> {t.vibe}</p>}
                      {t.decorations && <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed"><strong className="text-zinc-700 dark:text-zinc-200">Decor:</strong> {t.decorations}</p>}
@@ -4483,14 +4486,29 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                <div className="grid grid-cols-1 gap-3">
                  {partyVenues.map((v: any) => (
                    <div key={v.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-700 space-y-2">
-                     <div className="flex items-center justify-between">
-                       <div className="flex items-center gap-2">
-                         <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">{v.type || v.name}</h4>
-                         {v.cost && <span className="text-xs font-bold text-emerald-500">{v.cost}</span>}
+                     <div className="flex items-center justify-between gap-2">
+                       <div className="flex items-center gap-2 min-w-0">
+                         <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 truncate">{v.type || v.name}</h4>
+                         {v.cost && <span className="text-xs font-bold text-emerald-500 shrink-0">{v.cost}</span>}
                        </div>
-                       <button onClick={() => handleVoteVenue(v.id, v.votes || [])} className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs rounded-xl border border-emerald-500/20 transition-all cursor-pointer">
-                         {(v.votes || []).includes(firebaseUser?.uid) ? 'Voted' : 'Vote'} ({(v.votes || []).length})
-                       </button>
+                       <div className="flex items-center gap-2 shrink-0">
+                         {isCrewAdminOrMod && (
+                           <button
+                             onClick={() => handleToggleVenuePublish(v.id, !!v.published)}
+                             className={cn(
+                               "px-2.5 py-1 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer",
+                               v.published
+                                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                                 : "bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-500"
+                             )}
+                           >
+                             {v.published ? 'Published' : 'Draft'}
+                           </button>
+                         )}
+                         <button onClick={() => handleVoteVenue(v.id, v.votes || [])} className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs rounded-xl border border-emerald-500/20 transition-all cursor-pointer">
+                           {(v.votes || []).includes(firebaseUser?.uid) ? 'Voted' : 'Vote'} ({(v.votes || []).length})
+                         </button>
+                       </div>
                      </div>
                      {v.why && <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed"><strong className="text-zinc-700 dark:text-zinc-200">Why it fits:</strong> {v.why}</p>}
                      {v.tips && <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed"><strong className="text-zinc-700 dark:text-zinc-200">Tips:</strong> {v.tips}</p>}
