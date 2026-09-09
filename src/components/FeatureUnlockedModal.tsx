@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Unlock, ArrowRight, X, BarChart3, Trophy, Lock, Archive, Bot } from 'lucide-react';
+import { Sparkles, Unlock, ArrowRight, X, BarChart3, Lock, Archive, Bot } from 'lucide-react';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
@@ -18,12 +18,6 @@ const FEATURE_DEFAULTS: Record<string, { name: string; description: string; rout
     description: "You've unlocked Relationship Analytics! Visualize connection depth, response frequency, and interaction trends with interactive charts.",
     route: "/analytics",
     IconComponent: BarChart3
-  },
-  leaderboard: {
-    name: "Leaderboard & Consistency Rankings",
-    description: "Track your consistency stats, earn ranks, and compare milestone streaks across your circles.",
-    route: "/leaderboard",
-    IconComponent: Trophy
   },
   rooms: {
     name: "Secret Planning Rooms",
@@ -66,7 +60,6 @@ const FEATURE_DEFAULTS: Record<string, { name: string; description: string; rout
 const ROUTE_MAP: Record<string, string> = {
   analytics: '/analytics',
   deep_analytics: '/analytics',
-  leaderboard: '/leaderboard',
   rooms: '/rooms',
   party: '/rooms',
   vaults: '/vaults',
