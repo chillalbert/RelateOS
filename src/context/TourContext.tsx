@@ -23,11 +23,6 @@ export const TOUR_STEPS: TourStep[] = [
     description: "Never miss a celebration. View birthdays in an organized grid and instantly generate personalized AI birthday wishes."
   },
   {
-    title: "Leaderboard",
-    route: "/leaderboard",
-    description: "Build streaks and consistency to unlock rankings and track your relationship activity."
-  },
-  {
     title: "Secret Planning Rooms",
     route: "/rooms",
     description: "Collaborate with others to brainstorm gift ideas or organize surprise events in shared, encrypted vaults."
