@@ -44,14 +44,12 @@ interface UserProfile {
   nameDisplayPreference?: 'full' | 'first';
   aiAccentColor?: 'violet' | 'emerald' | 'amber' | 'sky' | 'rose' | 'gold' | 'cyan' | 'fuchsia';
   streakFreezeAvailable?: number;
-  leaderboardFlairUnlocked?: boolean;
   premiumAccentUnlocked?: boolean;
   bonusEnrichmentCredits?: number;
   unlockedFeatures?: string[];
   unlockExplainersShown?: string[];
   unlockProgressCount?: number;
   relationshipScore?: number;
-  leaderboardVisibility?: 'public' | 'private';
   notification_settings?: {
     birthdays: boolean;
     tasks: boolean;
