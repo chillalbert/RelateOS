@@ -1,9 +1,9 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar as CalendarIcon, Sparkles, Star } from 'lucide-react';
+import { ArrowLeft, Calendar as CalendarIcon, Sparkles, Star, Cake } from 'lucide-react';
 import { motion } from 'motion/react';
-import { getDaysUntil, cn } from '../lib/utils';
+import { getDaysUntil, getTurningAge, cn } from '../lib/utils';
 import { HealthScoreCompactBadge } from '../components/HealthScoreBadge';
 import Navigation from '../components/Navigation';
 import AuraHeaderBadge from '../components/AuraHeaderBadge';
@@ -14,6 +14,40 @@ const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
+
+interface CalendarEntry {
+  personId: string;
+  personName: string;
+  personPhotoUrl?: string;
+  personCategory: string;
+  isCloseFriend?: boolean;
+  label: string;
+  date: string;
+  month: number;
+  day: number;
+  type: 'birthday' | 'anniversary' | 'custom';
+  year_unknown: boolean;
+  person: any;
+}
+
+const getAnniversaryMilestone = (dateStr: string, yearUnknown: boolean) => {
+  if (yearUnknown) return null;
+  const [year, month, day] = dateStr.split('-').map(Number);
+  if (!year || isNaN(year) || year === 1900 || year === 2000) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const eventThisYear = new Date(today.getFullYear(), (month || 1) - 1, day || 1);
+  
+  let targetYear = today.getFullYear();
+  if (eventThisYear < today) {
+    targetYear++;
+  }
+  const count = targetYear - year;
+  if (count <= 0) return null;
+  const suffix = ['st', 'nd', 'rd'][((count + 90) % 100 - 10) % 10 - 1] || 'th';
+  return `${count}${suffix} Anniversary`;
+};
 
 export default function BirthdayCalendar() {
   const { firebaseUser, user } = useAuth();
@@ -30,7 +64,23 @@ export default function BirthdayCalendar() {
       const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
       const blockedUids = user?.blocked_uids || [];
       const visibleData = data.filter((p: any) => !p.host_uid || !blockedUids.includes(p.host_uid));
-      setPeople(visibleData);
+
+      // Efficient parallel fetch of events subcollection for each person
+      const peopleWithEvents = await Promise.all(
+        visibleData.map(async (person: any) => {
+          try {
+            const eventsRef = collection(db, 'people', person.id, 'events');
+            const eventsSnap = await getDocs(eventsRef);
+            const events = eventsSnap.docs.map(eDoc => ({ id: eDoc.id, ...eDoc.data() }));
+            return { ...person, events };
+          } catch (err) {
+            console.error(`Failed to fetch events for person ${person.id}:`, err);
+            return { ...person, events: [] };
+          }
+        })
+      );
+
+      setPeople(peopleWithEvents);
     } catch (err) {
       console.error(err);
     } finally {
@@ -42,18 +92,59 @@ export default function BirthdayCalendar() {
     fetchPeople();
   }, [firebaseUser]);
 
-  // Group people by month
-  const groupedPeople = MONTHS.map((month, index) => {
-    const monthPeople = people.filter(p => {
-      const [year, m, d] = p.birthday.split('-').map(Number);
-      return (m - 1) === index;
-    }).sort((a, b) => {
-      const dayA = Number(a.birthday.split('-')[2]);
-      const dayB = Number(b.birthday.split('-')[2]);
-      return dayA - dayB;
+  // Flatten people & their events into individual calendar entries
+  const calendarEntries = React.useMemo(() => {
+    const entries: CalendarEntry[] = [];
+    people.forEach((person) => {
+      if (person.birthday) {
+        const [y, m, d] = person.birthday.split('-').map(Number);
+        entries.push({
+          personId: person.id,
+          personName: person.name,
+          personPhotoUrl: person.photo_url,
+          personCategory: person.category,
+          isCloseFriend: person.isCloseFriend,
+          label: 'Birthday',
+          date: person.birthday,
+          month: (m || 1) - 1,
+          day: d || 1,
+          type: 'birthday',
+          year_unknown: !!person.birthYearUnknown,
+          person
+        });
+      }
+
+      if (Array.isArray(person.events)) {
+        person.events.forEach((evt: any) => {
+          if (!evt.date) return;
+          const [ey, em, ed] = evt.date.split('-').map(Number);
+          entries.push({
+            personId: person.id,
+            personName: person.name,
+            personPhotoUrl: person.photo_url,
+            personCategory: person.category,
+            isCloseFriend: person.isCloseFriend,
+            label: evt.label || (evt.type === 'anniversary' ? 'Anniversary' : 'Event'),
+            date: evt.date,
+            month: (em || 1) - 1,
+            day: ed || 1,
+            type: evt.type || 'custom',
+            year_unknown: !!evt.year_unknown,
+            person
+          });
+        });
+      }
     });
-    return { month, people: monthPeople };
-  }).filter(group => group.people.length > 0);
+    return entries;
+  }, [people]);
+
+  // Group flattened calendar entries by month, sorted by day
+  const groupedEntries = MONTHS.map((month, index) => {
+    const monthEntries = calendarEntries
+      .filter(entry => entry.month === index)
+      .sort((a, b) => a.day - b.day);
+    return { month, entries: monthEntries };
+  }).filter(group => group.entries.length > 0);
 
   if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
@@ -72,7 +163,7 @@ export default function BirthdayCalendar() {
       </header>
 
       <div className="p-6 space-y-10 max-w-2xl mx-auto">
-        {groupedPeople.length > 0 ? groupedPeople.map((group, i) => (
+        {groupedEntries.length > 0 ? groupedEntries.map((group, i) => (
           <motion.section 
             key={group.month}
             initial={{ opacity: 0, y: 20 }}
@@ -87,42 +178,77 @@ export default function BirthdayCalendar() {
             </div>
 
             <div className="grid gap-3">
-              {group.people.map((person) => {
-                const daysLeft = getDaysUntil(person.birthday);
+              {group.entries.map((entry) => {
+                const daysLeft = getDaysUntil(entry.date);
                 const isUrgent = daysLeft <= 7;
-                const [y, m, d] = person.birthday.split('-').map(Number);
-                const bdayDate = new Date(y, m - 1, d);
+                const [y, m, d] = entry.date.split('-').map(Number);
+                const dateObj = new Date(y || 2000, (m || 1) - 1, d || 1);
+                const ordinalDay = `${dateObj.getDate()}${['st', 'nd', 'rd'][((dateObj.getDate() + 90) % 100 - 10) % 10 - 1] || 'th'}`;
                 
+                let detailText = '';
+                if (entry.type === 'birthday') {
+                  if (!entry.year_unknown && y && y !== 1900 && y !== 2000) {
+                    detailText = `${ordinalDay} • Turning ${getTurningAge(entry.date)} • ${entry.personCategory}`;
+                  } else {
+                    detailText = `${ordinalDay} • ${entry.personCategory}`;
+                  }
+                } else if (entry.type === 'anniversary') {
+                  const milestone = getAnniversaryMilestone(entry.date, entry.year_unknown);
+                  if (milestone) {
+                    detailText = `${ordinalDay} • ${milestone} • ${entry.personCategory}`;
+                  } else {
+                    detailText = `${ordinalDay} • Anniversary • ${entry.personCategory}`;
+                  }
+                } else {
+                  detailText = `${ordinalDay} • ${entry.label} • ${entry.personCategory}`;
+                }
+
                 return (
                   <Link 
-                    key={person.id}
-                    to={`/person/${person.id}`}
+                    key={`${entry.personId}_${entry.type}_${entry.label}_${entry.date}`}
+                    to={`/person/${entry.personId}`}
                     className="group flex items-center p-4 bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all"
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-lg font-bold overflow-hidden border-2 border-white dark:border-zinc-900">
-                      {person.photo_url ? (
-                        <img src={person.photo_url} alt={person.name} className="w-full h-full object-cover" />
+                    <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-lg font-bold overflow-hidden border-2 border-white dark:border-zinc-900 shrink-0">
+                      {entry.personPhotoUrl ? (
+                        <img src={entry.personPhotoUrl} alt={entry.personName} className="w-full h-full object-cover" />
                       ) : (
-                        person.name[0]
+                        entry.personName[0]
                       )}
                     </div>
                     
-                    <div className="ml-4 flex-1">
-                      <h3 className="font-bold group-hover:text-emerald-500 transition-colors flex items-center gap-1.5 text-zinc-900 dark:text-white">
-                        {person.name}
-                        {person.isCloseFriend && (
-                          <Star size={12} className="text-amber-500 fill-amber-500 flex-shrink-0 inline-block align-middle" />
+                    <div className="ml-4 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-bold group-hover:text-emerald-500 transition-colors flex items-center gap-1.5 text-zinc-900 dark:text-white truncate">
+                          {entry.personName}
+                          {entry.isCloseFriend && (
+                            <Star size={12} className="text-amber-500 fill-amber-500 flex-shrink-0 inline-block align-middle" />
+                          )}
+                        </h3>
+                        {entry.type === 'birthday' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-50 dark:bg-pink-950/40 text-pink-600 dark:text-pink-400 border border-pink-200/50 dark:border-pink-800/40 shrink-0">
+                            <Cake size={11} className="shrink-0" />
+                            Birthday
+                          </span>
+                        ) : entry.type === 'anniversary' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/40 shrink-0">
+                            Anniversary
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200/50 dark:border-zinc-700/40 shrink-0">
+                            {entry.label}
+                          </span>
                         )}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <p className="text-[10px] font-bold text-zinc-400 uppercase">
-                          {bdayDate.getDate()}{['st', 'nd', 'rd'][((bdayDate.getDate() + 90) % 100 - 10) % 10 - 1] || 'th'} • {person.category}
+                          {detailText}
                         </p>
-                        <HealthScoreCompactBadge input={{ person, memories: person.memories, gifts: person.gifts }} />
+                        <HealthScoreCompactBadge input={{ person: entry.person, memories: entry.person?.memories, gifts: entry.person?.gifts }} />
                       </div>
                     </div>
 
-                    <div className="text-right">
+                    <div className="text-right shrink-0 ml-2">
                       <p className={cn(
                         "text-xs font-black",
                         isUrgent ? "text-amber-500" : "text-zinc-400"
@@ -142,8 +268,8 @@ export default function BirthdayCalendar() {
               <CalendarIcon size={40} />
             </div>
             <div className="space-y-2">
-              <h3 className="font-bold text-lg">No birthdays yet</h3>
-              <p className="text-zinc-500 text-sm max-w-[240px] mx-auto">Add your friends and family to see them in your calendar.</p>
+              <h3 className="font-bold text-lg">No dates yet</h3>
+              <p className="text-zinc-500 text-sm max-w-[240px] mx-auto">Add your friends and family to see their birthdays and important dates in your calendar.</p>
             </div>
             <Link 
               to="/add"
