@@ -14,6 +14,7 @@ export interface Person {
   user_id?: string;
   host_uid?: string;
   birthYearUnknown?: boolean;
+  birthday_unset?: boolean;
   lastCheckIn?: { date: string; answer: 'yes' | 'no' };
   checkInHistory?: { date: string; answer: 'yes' | 'no' }[];
   reminder_settings?: {
@@ -52,14 +53,12 @@ export interface UnlockItem {
 
 export interface ShopCosts {
   streakFreeze: number;
-  leaderboardFlair: number;
   customAccentColor: number;
   bonusEnrichment: number;
 }
 
 export const DEFAULT_SHOP_COSTS: ShopCosts = {
   streakFreeze: 20,
-  leaderboardFlair: 50,
   customAccentColor: 30,
   bonusEnrichment: 40
 };
