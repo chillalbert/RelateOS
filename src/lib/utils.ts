@@ -402,7 +402,6 @@ export function isFeatureLocked(
   if (!unlockSequence || unlockSequence.length === 0) return false;
 
   const getAliases = (id: string): string[] => {
-    if (id === 'leaderboard') return ['leaderboard'];
     if (id === 'analytics' || id === 'deep_analytics') return ['analytics', 'deep_analytics'];
     if (id === 'shop' || id === 'aura_shop') return ['shop', 'aura_shop'];
     if (id === 'coach' || id === 'ai_coach') return ['coach', 'ai_coach'];
