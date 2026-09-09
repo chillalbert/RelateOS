@@ -8,7 +8,6 @@ import {
   Shield,
   Brain,
   Gift,
-  Trophy,
   Settings
 } from 'lucide-react';
 import { cn, isFeatureLocked } from '../lib/utils';
@@ -98,16 +97,6 @@ export default function Navigation() {
         <Gift size={17} />
         <span className="text-[8px] sm:text-[9px] mt-0.5 tracking-tighter truncate max-w-full">
           {isFeatureLocked('rooms', user?.unlockedFeatures, config?.unlockSequence) ? '???' : 'Party'}
-        </span>
-      </Link>
-      <Link 
-        to="/leaderboard" 
-        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/leaderboard') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
-        title="Leaderboard & Ranks"
-      >
-        <Trophy size={17} />
-        <span className="text-[8px] sm:text-[9px] mt-0.5 tracking-tighter truncate max-w-full">
-          {isFeatureLocked('leaderboard', user?.unlockedFeatures, config?.unlockSequence) ? '???' : 'Leaderboard'}
         </span>
       </Link>
 
