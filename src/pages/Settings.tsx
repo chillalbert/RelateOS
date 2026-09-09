@@ -85,7 +85,6 @@ export default function Settings() {
  // Profile Privacy Management Section
  const [handle, setHandle] = React.useState(user?.custom_handle || '');
  const [isPrivate, setIsPrivate] = React.useState(user?.is_private ?? false);
- const [leaderboardVisibility, setLeaderboardVisibility] = React.useState<'public' | 'private'>(user?.leaderboardVisibility || 'private');
  const [favSports, setFavSports] = React.useState(user?.fav_sports_teams || '');
  const [favArtists, setFavArtists] = React.useState(user?.fav_artists || '');
  const [weekendVibes, setWeekendVibes] = React.useState(user?.weekend_activities || '');
@@ -149,7 +148,6 @@ export default function Settings() {
  if (user) {
  if (user.custom_handle && !handle) setHandle(user.custom_handle);
  if (user.is_private !== undefined) setIsPrivate(user.is_private);
- if (user.leaderboardVisibility !== undefined) setLeaderboardVisibility(user.leaderboardVisibility);
  if (user.fav_sports_teams && !favSports) setFavSports(user.fav_sports_teams);
  if (user.fav_artists && !favArtists) setFavArtists(user.fav_artists);
  if (user.weekend_activities && !weekendVibes) setWeekendVibes(user.weekend_activities);
@@ -249,7 +247,6 @@ export default function Settings() {
  custom_handle: cleanHandle,
  handle: cleanHandle,
  is_private: isPrivate,
- leaderboardVisibility: leaderboardVisibility,
  fav_sports_teams: favSports,
  fav_artists: favArtists,
  weekend_activities: weekendVibes,
@@ -797,47 +794,6 @@ export default function Settings() {
  </div>
  </button>
  </div>
- </div>
-
- {/* Leaderboard Visibility Toggle Cards */}
- <div className="space-y-2 pt-3 border-t border-zinc-150 dark:border-zinc-800">
- <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Leaderboard Visibility</label>
- <div className="grid grid-cols-2 gap-3">
- <button
- type="button"
- onClick={() => setLeaderboardVisibility('public')}
- className={`p-3.5 rounded-2xl border-2 text-left space-y-2 transition-all relative cursor-pointer ${
- leaderboardVisibility === 'public' 
- ? 'border-emerald-500 bg-emerald-500/5 dark:bg-emerald-500/10' 
- : 'border-zinc-150 dark:border-zinc-800 hover:border-zinc-300 hover:bg-zinc-50/50'
- }`}
- >
- <Globe size={16} className={leaderboardVisibility === 'public' ? 'text-emerald-500' : 'text-zinc-500'} />
- <div>
- <h4 className="font-extrabold text-[11px] text-zinc-900 dark:text-white">Public</h4>
- <p className="text-[9px] text-zinc-400 font-medium leading-relaxed mt-0.5">Visible globally.</p>
- </div>
- </button>
-
- <button
- type="button"
- onClick={() => setLeaderboardVisibility('private')}
- className={`p-3.5 rounded-2xl border-2 text-left space-y-2 transition-all relative cursor-pointer ${
- leaderboardVisibility === 'private' 
- ? 'border-zinc-900 dark:border-white bg-zinc-950/5 dark:bg-white/5' 
- : 'border-zinc-150 dark:border-zinc-800 hover:border-zinc-300 hover:bg-zinc-50/50'
- }`}
- >
- <Lock size={16} className={leaderboardVisibility === 'private' ? 'text-zinc-900 dark:text-white' : 'text-zinc-500'} />
- <div>
- <h4 className="font-extrabold text-[11px] text-zinc-900 dark:text-white">Private</h4>
- <p className="text-[9px] text-zinc-400 font-medium leading-relaxed mt-0.5">Friends only.</p>
- </div>
- </button>
- </div>
- <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
- Public shows your score and name on the global leaderboard. Friends can always see your score regardless of this setting.
- </p>
  </div>
 
  {/* Editable Card Birthday Details Month and Day Dropdown Select inputs */}
