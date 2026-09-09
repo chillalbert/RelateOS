@@ -34,7 +34,7 @@ import HelpTip from '../components/HelpTip';
 import EmptyState from '../components/EmptyState';
 import { formatDate, getDaysUntil, getConnectionScore, cn, getTurningAge, getAIAccent, getLocalDateString } from '../lib/utils';
 import { HealthScoreBadge } from '../components/HealthScoreBadge';
-import { generateBirthdayMessage, generateRecoveryPlan, generateEnrichedAINotes, analyzePhotoMemory } from '../services/geminiService';
+import { generateBirthdayMessage, generateOccasionMessage, generateRecoveryPlan, generateEnrichedAINotes, analyzePhotoMemory } from '../services/geminiService';
 import { db, storage } from '../lib/firebase';
 import confetti from 'canvas-confetti';
 import { doc, getDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, setDoc, deleteDoc, increment, arrayRemove, onSnapshot } from 'firebase/firestore';
@@ -924,6 +924,100 @@ export default function PersonProfile() {
  }
  };
 
+  const generateMessageForEvent = async (evt: any) => {
+   if (!displayPerson) return;
+   setIsGenerating(true);
+   try {
+     const yearsCount = (!evt.year_unknown && evt.date) 
+       ? new Date().getFullYear() - new Date(evt.date).getFullYear() 
+       : null;
+
+     const message = await generateOccasionMessage({
+       name: displayPerson.name,
+       occasionLabel: evt.label,
+       yearsCount,
+       relationship: displayPerson.category,
+       interests: displayPerson.interests || 'No specific interests mentioned',
+       notes: displayPerson.notes || 'No specific notes mentioned'
+     });
+     setAiMessage(message);
+   } catch (err) {
+     console.error("Failed to generate message for event:", err);
+   } finally {
+     setIsGenerating(false);
+   }
+ };
+
+ const wishEvent = async (evt: any) => {
+   const targetId = resolvedId || id;
+   if (!targetId || !firebaseUser || !evt?.id) return;
+   const currentYear = new Date().getFullYear();
+
+   try {
+     confetti({
+       particleCount: 150,
+       spread: 70,
+       origin: { y: 0.6 },
+       colors: ['#10b981', '#3b82f6', '#f59e0b']
+     });
+
+     const personRef = doc(db, 'people', targetId);
+     await updateDoc(personRef, {
+       friendshipScore: increment(15)
+     });
+
+     setPerson((prev: any) => {
+       if (!prev) return prev;
+       return {
+         ...prev,
+         friendshipScore: (prev?.friendshipScore || prev?.relationshipScore || 0) + 15
+       };
+     });
+
+     const memoriesRef = collection(db, 'people', targetId, 'memories');
+     const memoryDocRef = await addDoc(memoriesRef, {
+       year: currentYear,
+       type: 'milestone',
+       content: `Celebrated ${evt.label}!`,
+       created_at: serverTimestamp()
+     });
+
+     setPerson((prev: any) => {
+       if (!prev) return prev;
+       return {
+         ...prev,
+         memories: [...(prev?.memories || []), {
+           id: memoryDocRef.id,
+           year: currentYear,
+           type: 'milestone',
+           content: `Celebrated ${evt.label}!`,
+           created_at: new Date()
+         }]
+       };
+     });
+
+     const eventRef = doc(db, 'people', targetId, 'events', evt.id);
+     await updateDoc(eventRef, {
+       last_wished_year: currentYear
+     });
+
+     setPerson((prev: any) => {
+       if (!prev) return prev;
+       return {
+         ...prev,
+         events: (prev.events || []).map((e: any) =>
+           e.id === evt.id ? { ...e, last_wished_year: currentYear } : e
+         )
+       };
+     });
+
+     await recordDailyAction('memory_added');
+     await refreshUser();
+   } catch (err) {
+     console.error("Failed to wish event:", err);
+   }
+ };
+
  const handleDeletePerson = async (targetId: string) => {
  if (!targetId || !displayPerson) return;
  if (!window.confirm(`Are you sure you want to delete ${displayPerson.name}?`)) return;
@@ -1338,6 +1432,25 @@ export default function PersonProfile() {
  </div>
  </div>
  <div className="flex items-center gap-1 shrink-0">
+ {getDaysUntil(evt.date) === 0 && evt.last_wished_year !== new Date().getFullYear() && (
+  <button
+   type="button"
+   onClick={() => wishEvent(evt)}
+   className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer mr-1 shrink-0"
+  >
+   <Heart size={13} fill="currentColor" />
+   Wish {evt.label}!
+  </button>
+ )}
+ <button
+  type="button"
+  onClick={() => generateMessageForEvent(evt)}
+  disabled={isGenerating}
+  className="p-2 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+  title={`Generate message for ${evt.label}`}
+ >
+  <Sparkles size={15} />
+ </button>
  <button
  type="button"
  onClick={() => {
