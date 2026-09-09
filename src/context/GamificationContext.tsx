@@ -131,8 +131,8 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       try {
         const unlockSeq = config.unlockSequence || [];
         const userProgress = typeof user.unlockProgressCount === 'number' ? user.unlockProgressCount : 0;
-        const currentUnlock = unlockSeq[userProgress] || unlockSeq[0] || { id: 'leaderboard' };
-        const featureToUnlock = currentUnlock.id || 'leaderboard';
+        const currentUnlock = unlockSeq[userProgress] || unlockSeq[0] || { id: 'deep_analytics' };
+        const featureToUnlock = currentUnlock.id || 'deep_analytics';
 
         const userRef = doc(db, 'users', firebaseUser.uid);
         await updateDoc(userRef, {
