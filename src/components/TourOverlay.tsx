@@ -15,7 +15,6 @@ interface CardPosition {
 }
 
 const ROUTE_TO_FEATURE_ID: Record<string, string> = {
-  '/leaderboard': 'leaderboard',
   '/rooms': 'rooms',
   '/vaults': 'vaults',
   '/analytics': 'analytics',
