@@ -195,6 +195,62 @@ Recipient Info:
   }
 }
 
+export async function generateOccasionMessage(params: {
+  name: string;
+  occasionLabel: string;
+  yearsCount?: number | null;
+  relationship: string;
+  interests: string;
+  notes: string;
+  reflection?: string;
+}) {
+  try {
+    const milestoneInfo = params.yearsCount && params.yearsCount > 0 
+      ? ` (${params.yearsCount} year milestone)` 
+      : '';
+
+    let prompt = `
+You are a warm, emotionally intelligent message writer. Your job is to generate two versions of a personalized celebratory message for a special occasion (${params.occasionLabel}):
+1. A "Short Text": This MUST be a complete, natural message you would send over iMessage or WhatsApp. It should be punchy, warm, and feel like a real person sent it. Use emojis naturally. DO NOT truncate the message. It should be a full thought. End the message naturally with a period or emoji, never in the middle of a sentence.
+2. A "Card Message": This is a slightly longer, more heartfelt version (3-5 sentences) suitable for a physical card or a long-form digital note.
+
+Guidelines:
+- The occasion being celebrated is: "${params.occasionLabel}"${milestoneInfo}.
+- NEVER assume or mention age, never use birthday-specific phrasing like "turning X", and never treat this as a birthday unless the label explicitly is one.
+- Only mention a milestone count when yearsCount is provided (e.g. "${params.yearsCount || 5}th ${params.occasionLabel}").
+- Make it feel personal and specific — reference their interests or notes naturally.
+- Tone should be warm, genuine, and heartfelt.
+- Never sound generic or like a canned greeting card.
+- Write in first person.
+- Return the result as a JSON object with keys "shortText" and "cardMessage".
+
+Recipient Info:
+- Name: ${params.name}
+- Occasion: ${params.occasionLabel}${milestoneInfo}
+- Relationship: ${params.relationship}
+- Interests: ${params.interests}
+- Notes: ${params.notes}
+`;
+
+    if (params.reflection && params.reflection.trim() !== '') {
+      prompt += `\n- Yearly reflection about this person: ${params.reflection}\n`;
+    }
+
+    const text = await callGemini(prompt, { responseMimeType: "application/json" });
+    const result = JSON.parse(text || '{}');
+    return { 
+      shortText: result.shortText || `Happy ${params.occasionLabel}, ${params.name}! Hope you have a wonderful celebration!`, 
+      cardMessage: result.cardMessage || `Happy ${params.occasionLabel}, ${params.name}! Celebrating this special milestone with you and wishing you continued joy.` 
+    };
+  } catch (error) {
+    console.error("AI Occasion Generation Error:", error);
+    return { 
+      shortText: `Happy ${params.occasionLabel}, ${params.name}!`, 
+      cardMessage: `Happy ${params.occasionLabel}, ${params.name}! Wishing you a wonderful celebration.` 
+    };
+  }
+}
+
 export async function generateRecoveryPlan(params: {
   daysLate: number;
   relationship: string;
