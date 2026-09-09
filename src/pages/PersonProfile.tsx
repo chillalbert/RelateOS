@@ -24,7 +24,8 @@ import {
  Copy,
  Check,
  Star,
- X
+ X,
+ Pencil
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoadingScreen from '../components/LoadingScreen';
@@ -71,6 +72,12 @@ export default function PersonProfile() {
  const [activeTab, setActiveTab] = React.useState<'overview' | 'gifts' | 'bio'>('overview');
  const [showGiftForm, setShowGiftForm] = React.useState(false);
  const [newGift, setNewGift] = React.useState({ name: '', status: 'idea', price: '', notes: '' });
+ const [showEventForm, setShowEventForm] = React.useState(false);
+ const [editingEventId, setEditingEventId] = React.useState<string | null>(null);
+ const [eventFormLabel, setEventFormLabel] = React.useState('');
+ const [eventFormDate, setEventFormDate] = React.useState('');
+ const [eventFormYearUnknown, setEventFormYearUnknown] = React.useState(false);
+ const [eventFormType, setEventFormType] = React.useState<'anniversary' | 'custom'>('custom');
  const [reflectionText, setReflectionText] = React.useState('');
  const [hasReflectedThisYear, setHasReflectedThisYear] = React.useState(false);
  const [existingReflection, setExistingReflection] = React.useState<string>('');
@@ -325,6 +332,151 @@ export default function PersonProfile() {
  console.error("Error deleting memory:", err);
  alert("Failed to delete memory.");
  }
+ };
+
+ const addEvent = async (label: string, date: string, yearUnknown: boolean, type: 'anniversary' | 'custom') => {
+ const targetId = resolvedId || id;
+ if (!targetId || !label.trim() || !date) return;
+ const tempId = 'opt_' + Math.random().toString(36).substring(2, 9);
+ const localEvent = {
+ id: tempId,
+ label: label.trim(),
+ date,
+ year_unknown: yearUnknown,
+ type,
+ created_at: new Date()
+ };
+
+ // 1. Optimistic local update
+ setPerson((prev: any) => {
+ if (!prev) return prev;
+ return {
+ ...prev,
+ events: [...(prev.events || []), localEvent]
+ };
+ });
+
+ try {
+ const eventsRef = collection(db, 'people', targetId, 'events');
+ const docRef = await addDoc(eventsRef, {
+ label: localEvent.label,
+ date: localEvent.date,
+ year_unknown: localEvent.year_unknown,
+ type: localEvent.type,
+ created_at: serverTimestamp()
+ });
+ // 2. Replace tempId with actual db ID
+ setPerson((prev: any) => {
+ if (!prev) return prev;
+ return {
+ ...prev,
+ events: (prev.events || []).map((e: any) => e.id === tempId ? { ...e, id: docRef.id } : e)
+ };
+ });
+ } catch (err) {
+ console.error("Failed to upload event online:", err);
+ // Rollback on error
+ setPerson((prev: any) => {
+ if (!prev) return prev;
+ return {
+ ...prev,
+ events: (prev.events || []).filter((e: any) => e.id !== tempId)
+ };
+ });
+ alert("Failed to save event to the server. Rolled back.");
+ }
+ };
+
+ const editEvent = async (eventId: string, label: string, date: string, yearUnknown: boolean, type: 'anniversary' | 'custom') => {
+ const targetId = resolvedId || id;
+ if (!targetId || !eventId || !label.trim() || !date) return;
+
+ const previousEvents = (person || originalPerson)?.events || [];
+ const updatedEvent = {
+ id: eventId,
+ label: label.trim(),
+ date,
+ year_unknown: yearUnknown,
+ type
+ };
+
+ // 1. Optimistic local update
+ setPerson((prev: any) => {
+ if (!prev) return prev;
+ return {
+ ...prev,
+ events: (prev.events || []).map((e: any) => e.id === eventId ? { ...e, ...updatedEvent } : e)
+ };
+ });
+
+ try {
+ const eventRef = doc(db, 'people', targetId, 'events', eventId);
+ await updateDoc(eventRef, {
+ label: updatedEvent.label,
+ date: updatedEvent.date,
+ year_unknown: updatedEvent.year_unknown,
+ type: updatedEvent.type,
+ updated_at: serverTimestamp()
+ });
+ } catch (err) {
+ console.error("Failed to update event online:", err);
+ // Rollback on error
+ setPerson((prev: any) => {
+ if (!prev) return prev;
+ return {
+ ...prev,
+ events: previousEvents
+ };
+ });
+ alert("Failed to update event on the server. Rolled back.");
+ }
+ };
+
+ const deleteEvent = async (eventId: string) => {
+ const targetId = resolvedId || id;
+ if (!targetId || !eventId) return;
+ if (!window.confirm('Are you sure you want to delete this date?')) return;
+
+ const previousEvents = (person || originalPerson)?.events || [];
+
+ // 1. Optimistic local update
+ setPerson((prev: any) => {
+ if (!prev) return prev;
+ return {
+ ...prev,
+ events: (prev.events || []).filter((e: any) => e.id !== eventId)
+ };
+ });
+
+ try {
+ await deleteDoc(doc(db, 'people', targetId, 'events', eventId));
+ } catch (err) {
+ console.error("Failed to delete event online:", err);
+ // Rollback on error
+ setPerson((prev: any) => {
+ if (!prev) return prev;
+ return {
+ ...prev,
+ events: previousEvents
+ };
+ });
+ alert("Failed to delete event. Rolled back.");
+ }
+ };
+
+ const handleSaveEvent = async () => {
+ if (!eventFormLabel.trim() || !eventFormDate) return;
+ if (editingEventId) {
+ await editEvent(editingEventId, eventFormLabel, eventFormDate, eventFormYearUnknown, eventFormType);
+ } else {
+ await addEvent(eventFormLabel, eventFormDate, eventFormYearUnknown, eventFormType);
+ }
+ setShowEventForm(false);
+ setEditingEventId(null);
+ setEventFormLabel('');
+ setEventFormDate('');
+ setEventFormYearUnknown(false);
+ setEventFormType('custom');
  };
 
  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -651,7 +803,11 @@ export default function PersonProfile() {
  const roomsSnap = await getDocs(roomsQuery);
  const rooms = roomsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
- const fullData = { ...data, tasks, memories, gifts, reflections, rooms };
+ const eventsRef = collection(db, 'people', trueId, 'events');
+ const eventsSnap = await getDocs(eventsRef);
+ const events = eventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+ const fullData = { ...data, tasks, memories, gifts, reflections, rooms, events };
  console.log("%c[Profile Diagnostic] Fully structural view bundle complete!", "color: lightgreen; font-weight: bold;", fullData);
  setPerson(fullData);
 
@@ -1046,6 +1202,178 @@ export default function PersonProfile() {
  animate={{ opacity: 1, y: 0 }}
  className="space-y-8"
  >
+ {/* Important Dates */}
+ <div className="space-y-4">
+ <div className="flex justify-between items-center">
+ <h2 className="text-xl font-bold flex items-center gap-2">
+ <Calendar size={20} className="text-zinc-400" />
+ Important Dates
+ </h2>
+ <button 
+ type="button"
+ onClick={() => {
+ setEditingEventId(null);
+ setEventFormLabel('');
+ setEventFormDate('');
+ setEventFormYearUnknown(false);
+ setEventFormType('custom');
+ setShowEventForm(!showEventForm);
+ }}
+ className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-900 dark:text-zinc-100 rounded-xl text-xs font-bold transition-all cursor-pointer"
+ >
+ <Plus size={16} />
+ Add a date
+ </button>
+ </div>
+
+ <AnimatePresence>
+ {showEventForm && (
+ <motion.div 
+ initial={{ opacity: 0, y: -10 }}
+ animate={{ opacity: 1, y: 0 }}
+ exit={{ opacity: 0, y: -10 }}
+ className="p-6 bg-white dark:bg-zinc-800 rounded-3xl border border-zinc-100 dark:border-zinc-700 border-t border-t-white/5 space-y-4 shadow-sm dark:shadow-lg"
+ >
+ <div className="space-y-1">
+ <label className="text-xs font-bold uppercase text-zinc-400">Label</label>
+ <input 
+ type="text"
+ value={eventFormLabel}
+ onChange={(e) => setEventFormLabel(e.target.value)}
+ placeholder='e.g. Anniversary, First Met, Graduation'
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-sm focus:ring-2 focus:ring-emerald-500 outline-none text-zinc-900 dark:text-zinc-100"
+ />
+ </div>
+
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+ <div className="space-y-1">
+ <label className="text-xs font-bold uppercase text-zinc-400">Date</label>
+ <input 
+ type="date"
+ value={eventFormDate}
+ onChange={(e) => setEventFormDate(e.target.value)}
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-sm focus:ring-2 focus:ring-emerald-500 outline-none text-zinc-900 dark:text-zinc-100"
+ />
+ </div>
+
+ <div className="space-y-1">
+ <label className="text-xs font-bold uppercase text-zinc-400">Type</label>
+ <select
+ value={eventFormType}
+ onChange={(e) => setEventFormType(e.target.value as 'anniversary' | 'custom')}
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-sm appearance-none focus:ring-2 focus:ring-emerald-500 outline-none text-zinc-900 dark:text-zinc-100"
+ >
+ <option value="custom">Custom</option>
+ <option value="anniversary">Anniversary</option>
+ </select>
+ </div>
+ </div>
+
+ <div className="flex items-center gap-2 pt-1">
+ <input 
+ id="event-year-unknown"
+ type="checkbox"
+ checked={eventFormYearUnknown}
+ onChange={(e) => setEventFormYearUnknown(e.target.checked)}
+ className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 border-zinc-300 dark:border-zinc-700 cursor-pointer"
+ />
+ <label htmlFor="event-year-unknown" className="text-xs font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer">
+ I don't know the year
+ </label>
+ </div>
+
+ <div className="flex gap-2 pt-2">
+ <button 
+ type="button"
+ onClick={() => {
+ setShowEventForm(false);
+ setEditingEventId(null);
+ }} 
+ className="flex-1 py-3 text-sm font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 cursor-pointer"
+ >
+ Cancel
+ </button>
+ <button 
+ type="button"
+ onClick={handleSaveEvent}
+ disabled={!eventFormLabel.trim() || !eventFormDate}
+ className="flex-1 py-3 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-xl font-bold text-sm disabled:opacity-50 transition-opacity cursor-pointer"
+ >
+ {editingEventId ? 'Save Changes' : 'Save Date'}
+ </button>
+ </div>
+ </motion.div>
+ )}
+ </AnimatePresence>
+
+ <div className="space-y-2">
+ {displayPerson?.events && displayPerson.events.length > 0 ? (
+ displayPerson.events.map((evt: any) => (
+ <div 
+ key={evt.id}
+ className="p-4 bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-100 dark:border-zinc-700 border-t border-t-white/5 flex items-center justify-between gap-3 shadow-xs group/event"
+ >
+ <div className="flex items-center gap-3 min-w-0">
+ <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-500 dark:text-zinc-400 shrink-0">
+ <Calendar size={18} />
+ </div>
+ <div className="min-w-0">
+ <div className="flex items-center gap-2">
+ <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate">{evt.label}</h4>
+ <span className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 rounded-md text-[10px] font-bold uppercase tracking-wider shrink-0">
+ {evt.type || 'custom'}
+ </span>
+ </div>
+ <p className="text-xs text-zinc-500 dark:text-zinc-400">
+ {evt.year_unknown && evt.date ? (
+ (() => {
+ const parts = evt.date.split('-').map(Number);
+ const d = new Date(2000, (parts[1] || 1) - 1, parts[2] || 1);
+ return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric' }).format(d);
+ })()
+ ) : (
+ evt.date ? formatDate(evt.date) : ''
+ )}
+ </p>
+ </div>
+ </div>
+ <div className="flex items-center gap-1 shrink-0">
+ <button
+ type="button"
+ onClick={() => {
+ setEditingEventId(evt.id);
+ setEventFormLabel(evt.label || '');
+ setEventFormDate(evt.date || '');
+ setEventFormYearUnknown(!!evt.year_unknown);
+ setEventFormType(evt.type || 'custom');
+ setShowEventForm(true);
+ }}
+ className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-750 rounded-xl transition-colors cursor-pointer"
+ title="Edit date"
+ >
+ <Pencil size={15} />
+ </button>
+ <button 
+ type="button"
+ onClick={() => deleteEvent(evt.id)}
+ className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-colors cursor-pointer"
+ title="Delete date"
+ >
+ <Trash2 size={15} />
+ </button>
+ </div>
+ </div>
+ ))
+ ) : (
+ !showEventForm && (
+ <div className="p-5 bg-white/50 dark:bg-zinc-850/50 border border-dashed border-zinc-200 dark:border-zinc-750 rounded-2xl text-center">
+ <p className="text-xs text-zinc-400 font-medium">No important dates added yet. Add anniversaries, milestones, or special dates.</p>
+ </div>
+ )
+ )}
+ </div>
+ </div>
+
  {/* Recovery Mode */}
  <AnimatePresence>
  {isMissed && !recoveryPlan && (
