@@ -30,11 +30,6 @@ const DEFAULT_CONFIG: GamificationConfig = {
   shopCosts: DEFAULT_SHOP_COSTS,
   unlockSequence: [
     {
-      id: 'leaderboard',
-      name: 'Leaderboard',
-      description: 'Compare your Relationship Score with friends'
-    },
-    {
       id: 'aura_shop',
       name: 'Aura Shop',
       description: 'Redeem Aura tokens for custom badges and themes'
