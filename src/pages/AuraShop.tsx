@@ -5,7 +5,6 @@ import {
   ShoppingBag, 
   Sparkles, 
   ShieldAlert, 
-  Trophy, 
   Palette, 
   Brain, 
   CheckCircle, 
@@ -46,7 +45,6 @@ export default function AuraShop() {
           if (data.shopCosts) {
             setShopCosts({
               streakFreeze: typeof data.shopCosts.streakFreeze === 'number' ? data.shopCosts.streakFreeze : DEFAULT_SHOP_COSTS.streakFreeze,
-              leaderboardFlair: typeof data.shopCosts.leaderboardFlair === 'number' ? data.shopCosts.leaderboardFlair : DEFAULT_SHOP_COSTS.leaderboardFlair,
               customAccentColor: typeof data.shopCosts.customAccentColor === 'number' ? data.shopCosts.customAccentColor : DEFAULT_SHOP_COSTS.customAccentColor,
               bonusEnrichment: typeof data.shopCosts.bonusEnrichment === 'number' ? data.shopCosts.bonusEnrichment : DEFAULT_SHOP_COSTS.bonusEnrichment,
             });
@@ -69,7 +67,7 @@ export default function AuraShop() {
     }, 4000);
   };
 
-  const handlePurchase = async (itemId: 'streakFreeze' | 'leaderboardFlair' | 'customAccentColor' | 'bonusEnrichment', itemName: string) => {
+  const handlePurchase = async (itemId: 'streakFreeze' | 'customAccentColor' | 'bonusEnrichment', itemName: string) => {
     if (!firebaseUser?.uid) return;
 
     const cost = shopCosts[itemId];
@@ -90,8 +88,6 @@ export default function AuraShop() {
 
       if (itemId === 'streakFreeze') {
         updates.streakFreezeAvailable = increment(1);
-      } else if (itemId === 'leaderboardFlair') {
-        updates.leaderboardFlairUnlocked = true;
       } else if (itemId === 'customAccentColor') {
         updates.premiumAccentUnlocked = true;
       } else if (itemId === 'bonusEnrichment') {
@@ -124,18 +120,6 @@ export default function AuraShop() {
       alreadyUnlocked: false,
       buttonText: 'Purchase Freeze',
       canPurchaseMultiple: true
-    },
-    {
-      id: 'leaderboardFlair' as const,
-      name: 'Leaderboard Flair',
-      cost: shopCosts.leaderboardFlair,
-      icon: Trophy,
-      iconBg: 'bg-amber-500/10 text-amber-500',
-      description: 'Unlocks a special cosmetic flair badge displayed next to your profile on rankings.',
-      inventoryText: user?.leaderboardFlairUnlocked ? 'Unlocked' : 'Not Owned',
-      alreadyUnlocked: !!user?.leaderboardFlairUnlocked,
-      buttonText: user?.leaderboardFlairUnlocked ? 'Owned' : 'Purchase Flair',
-      canPurchaseMultiple: false
     },
     {
       id: 'customAccentColor' as const,
