@@ -24,6 +24,16 @@ export interface Person {
   tasks?: Task[];
   memories?: Memory[];
   gifts?: Gift[];
+  events?: PersonEvent[];
+}
+
+export interface PersonEvent {
+  id: string;
+  label: string;
+  date: string;
+  year_unknown: boolean;
+  type: 'anniversary' | 'custom';
+  created_at?: any;
 }
 
 export interface StreakProgress {
