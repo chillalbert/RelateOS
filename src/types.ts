@@ -33,6 +33,7 @@ export interface PersonEvent {
   date: string;
   year_unknown: boolean;
   type: 'anniversary' | 'custom';
+  last_wished_year?: number;
   created_at?: any;
 }
 
