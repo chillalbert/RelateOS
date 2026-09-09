@@ -119,7 +119,6 @@ export default function AdminPanel() {
             auraPerDay: typeof data.auraPerDay === 'number' ? data.auraPerDay : 10,
             shopCosts: {
               streakFreeze: typeof data.shopCosts?.streakFreeze === 'number' ? data.shopCosts.streakFreeze : DEFAULT_SHOP_COSTS.streakFreeze,
-              leaderboardFlair: typeof data.shopCosts?.leaderboardFlair === 'number' ? data.shopCosts.leaderboardFlair : DEFAULT_SHOP_COSTS.leaderboardFlair,
               customAccentColor: typeof data.shopCosts?.customAccentColor === 'number' ? data.shopCosts.customAccentColor : DEFAULT_SHOP_COSTS.customAccentColor,
               bonusEnrichment: typeof data.shopCosts?.bonusEnrichment === 'number' ? data.shopCosts.bonusEnrichment : DEFAULT_SHOP_COSTS.bonusEnrichment,
             },
@@ -366,28 +365,6 @@ export default function AdminPanel() {
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Default: 20 Aura</p>
                 </div>
 
-                {/* Leaderboard Flair Cost */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                    Leaderboard Flair Cost (Aura)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10000"
-                    value={config.shopCosts?.leaderboardFlair ?? DEFAULT_SHOP_COSTS.leaderboardFlair}
-                    onChange={e => setConfig({
-                      ...config,
-                      shopCosts: {
-                        ...(config.shopCosts || DEFAULT_SHOP_COSTS),
-                        leaderboardFlair: parseInt(e.target.value) || 0
-                      }
-                    })}
-                    className="w-full px-3 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Default: 50 Aura</p>
-                </div>
-
                 {/* Custom Accent Color Cost */}
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
@@ -508,7 +485,7 @@ export default function AdminPanel() {
                             value={item.id}
                             onChange={e => updateUnlockItem(index, 'id', e.target.value)}
                             className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs font-mono text-zinc-900 dark:text-zinc-100"
-                            placeholder="e.g. leaderboard"
+                            placeholder="e.g. deep_analytics"
                           />
                         </div>
                         <div className="space-y-1">
@@ -518,7 +495,7 @@ export default function AdminPanel() {
                             value={item.name}
                             onChange={e => updateUnlockItem(index, 'name', e.target.value)}
                             className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100"
-                            placeholder="e.g. Leaderboard"
+                            placeholder="e.g. Advanced Insights"
                           />
                         </div>
                       </div>
