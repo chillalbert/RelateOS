@@ -21,8 +21,7 @@ import AICoach from './pages/AICoach';
 import SurpriseReveal from './pages/SurpriseReveal';
 import PublicProfileCollector from './pages/PublicProfileCollector';
 import GroupView from './pages/GroupView';
-import Leaderboard from './pages/Leaderboard';
-import LeaderboardLocked from './pages/LeaderboardLocked';
+import FeatureLocked from './pages/FeatureLocked';
 import AuraShop from './pages/AuraShop';
 import AdminPanel from './pages/AdminPanel';
 
@@ -165,22 +164,10 @@ const FeatureRoute = ({ featureId, children }: { featureId: string; children: Re
   const isLocked = isFeatureLocked(featureId, user?.unlockedFeatures, config?.unlockSequence);
 
   if (isLocked) {
-    return <LeaderboardLocked />;
+    return <FeatureLocked />;
   }
 
   return <>{children}</>;
-};
-
-const LeaderboardRoute = () => {
-  const { user, isLoading: authLoading } = useAuth();
-  const { config } = useGamification();
-
-  if (authLoading || !user || !config || !config.unlockSequence) {
-    return <LoadingScreen />;
-  }
-
-  const isLocked = isFeatureLocked('leaderboard', user?.unlockedFeatures, config?.unlockSequence);
-  return isLocked ? <LeaderboardLocked /> : <Leaderboard />;
 };
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
@@ -234,7 +221,6 @@ export default function App() {
                   <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
                   <Route path="/coach" element={<PrivateRoute><FeatureRoute featureId="coach"><AICoach /></FeatureRoute></PrivateRoute>} />
                   <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
-                  <Route path="/leaderboard" element={<PrivateRoute><LeaderboardRoute /></PrivateRoute>} />
                   <Route path="/shop" element={<PrivateRoute><FeatureRoute featureId="aura_shop"><AuraShop /></FeatureRoute></PrivateRoute>} />
                   <Route path="/aura-shop" element={<PrivateRoute><FeatureRoute featureId="aura_shop"><AuraShop /></FeatureRoute></PrivateRoute>} />
                   <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
