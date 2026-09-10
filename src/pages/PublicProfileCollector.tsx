@@ -312,7 +312,7 @@ export default function PublicProfileCollector() {
   if (isLoading || isSearching) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950">
-        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <div className="w-12 h-12 border-4 border-accent-500 dark:border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-zinc-550 dark:text-zinc-400 font-bold text-xs tracking-tight uppercase">Scanning Orbit...</p>
       </div>
     );
@@ -327,7 +327,7 @@ export default function PublicProfileCollector() {
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 p-8 rounded-[36px] text-center space-y-6 shadow-xl relative overflow-hidden"
         >
-          <div className="w-16 h-16 rounded-[24px] bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
+          <div className="w-16 h-16 rounded-[24px] bg-accent-500/10 dark:bg-emerald-500/10 text-accent-500 dark:text-emerald-400 flex items-center justify-center mx-auto">
             <Sparkles size={32} />
           </div>
           <div className="space-y-2">
@@ -348,7 +348,7 @@ export default function PublicProfileCollector() {
               }
               navigate('/login');
             }}
-            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/15 cursor-pointer flex items-center justify-center gap-1.5 transition-all"
+            className="w-full py-4 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-accent-500/15 dark:shadow-emerald-500/15 cursor-pointer flex items-center justify-center gap-1.5 transition-all"
           >
             Claim My Free Account <ArrowRight size={13} />
           </button>
@@ -397,7 +397,7 @@ export default function PublicProfileCollector() {
                 console.error("Failed to unblock target user:", unblockErr);
               }
             }}
-            className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-wider cursor-pointer"
+            className="w-full py-4 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider cursor-pointer transition-all"
           >
             Unblock {hostUser?.name || 'User'}
           </button>
@@ -426,7 +426,7 @@ export default function PublicProfileCollector() {
           </div>
           <button 
             onClick={() => navigate('/')}
-            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1 shadow-md cursor-pointer"
+            className="w-full py-4 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1 shadow-md shadow-accent-500/10 dark:shadow-emerald-500/10 cursor-pointer transition-all"
           >
             Go to Dashboard <Home size={14} />
           </button>
@@ -487,7 +487,7 @@ export default function PublicProfileCollector() {
           </div>
           <button 
             onClick={() => navigate('/')}
-            className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-wider transition-all hover:bg-emerald-600 shadow-md cursor-pointer"
+            className="w-full py-4 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-accent-500/10 dark:shadow-emerald-500/10 cursor-pointer"
           >
             Launch My Dashboard
           </button>
@@ -505,7 +505,7 @@ export default function PublicProfileCollector() {
       >
         <div className="flex flex-col items-center text-center space-y-3">
           <div className="relative">
-            <div className="w-24 h-24 rounded-full overflow-hidden border-[4px] border-emerald-500 shadow-xl shadow-emerald-500/10 bg-white dark:bg-zinc-900 relative z-10">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-[4px] border-accent-500 dark:border-emerald-500 shadow-xl shadow-accent-500/10 dark:shadow-emerald-500/10 bg-white dark:bg-zinc-900 relative z-10">
               {hostUser.profile_picture_url ? (
                 <img 
                   src={hostUser.profile_picture_url} 
@@ -514,15 +514,15 @@ export default function PublicProfileCollector() {
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-emerald-500 text-white font-black text-2xl uppercase">
+                <div className="w-full h-full flex items-center justify-center bg-accent-500 dark:bg-emerald-500 text-white font-black text-2xl uppercase">
                   {hostUser.name?.charAt(0)}
                 </div>
               )}
             </div>
-            <div className="absolute inset-0 w-24 h-24 rounded-full border-2 border-emerald-500 animate-ping opacity-20" />
+            <div className="absolute inset-0 w-24 h-24 rounded-full border-2 border-accent-500 dark:border-emerald-500 animate-ping opacity-20" />
           </div>
           <div>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-extrabold text-[10px] uppercase tracking-wider">
+            <span className="px-2.5 py-0.5 rounded-full bg-accent-500/10 text-accent-600 dark:bg-emerald-500/10 dark:text-emerald-400 font-extrabold text-[10px] uppercase tracking-wider">
               Profile Invite Link
             </span>
             <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white mt-1.5">
@@ -636,7 +636,7 @@ export default function PublicProfileCollector() {
                 id="cancel-return-btn"
                 type="button"
                 onClick={() => navigate('/')}
-                className="w-full py-3 bg-emerald-500 hover:bg-emerald-650 text-white rounded-2xl font-black text-[10px] uppercase tracking-wider cursor-pointer transition-all"
+                className="w-full py-3 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-wider cursor-pointer transition-all"
               >
                 Go to Dashboard
               </button>
@@ -647,7 +647,7 @@ export default function PublicProfileCollector() {
                 id="grab-data-btn"
                 onClick={handleGrabData}
                 disabled={isGrabbing || (firebaseUser && firebaseUser.uid === hostUser.id)}
-                className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 font-black text-xs text-white uppercase tracking-wider rounded-2xl shadow-lg shadow-emerald-500/15 cursor-pointer flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 font-black text-xs text-white uppercase tracking-wider rounded-2xl shadow-lg shadow-accent-500/15 dark:shadow-emerald-500/15 cursor-pointer flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isGrabbing ? 'Saving to list...' : firebaseUser && firebaseUser.uid === hostUser.id ? "Your Own Invite Link (Cannot Add Self)" : `Add ${hostUser.name} to My Birthday List`}
               </button>
@@ -681,7 +681,7 @@ export default function PublicProfileCollector() {
                       ? 'border-amber-500 bg-amber-500/5 text-amber-600'
                       : friendRequestRelationship === 'accepted'
                         ? 'border-emerald-500 bg-emerald-500/5 text-emerald-600'
-                        : 'border-zinc-200 dark:border-zinc-800 hover:border-emerald-500 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 shadow-sm'
+                        : 'border-zinc-200 dark:border-zinc-800 hover:border-accent-500 dark:hover:border-emerald-500 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 shadow-sm'
                   }`}
                 >
                   <span className="text-[11px] font-black uppercase tracking-wider">
