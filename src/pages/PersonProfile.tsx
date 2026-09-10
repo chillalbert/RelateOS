@@ -852,7 +852,7 @@ export default function PersonProfile() {
  setIsGenerating(true);
  const message = await generateBirthdayMessage({
  name: displayPerson.name,
- age: (displayPerson.birthday && !displayPerson.birthYearUnknown) ? new Date().getFullYear() - new Date(displayPerson.birthday).getFullYear() : 'Unknown',
+ age: (displayPerson.birthday && !displayPerson.birthYearUnknown && !displayPerson.birthday_unset) ? new Date().getFullYear() - new Date(displayPerson.birthday).getFullYear() : 'Unknown',
  relationship: displayPerson.category,
  interests: displayPerson.interests || 'No specific interests mentioned',
  notes: displayPerson.notes || 'No specific notes mentioned',
@@ -1107,7 +1107,7 @@ export default function PersonProfile() {
  }
 
  const daysUntil = getDaysUntil(displayPerson.birthday);
- const isMissed = daysUntil > 350;
+ const isMissed = !displayPerson?.birthday_unset && daysUntil > 350;
  const daysLate = 365 - daysUntil;
  const score = getConnectionScore(displayPerson);
 
@@ -1211,7 +1211,7 @@ export default function PersonProfile() {
  )}
  </div>
  <p className="text-zinc-500 font-medium serif-italic text-lg">
- {displayPerson?.nickname || displayPerson?.category} • {displayPerson?.birthYearUnknown ? "" : `Turning ${getTurningAge(displayPerson?.birthday || '2000-01-01')}`}
+ {displayPerson?.nickname || displayPerson?.category}{(!displayPerson?.birthYearUnknown && !displayPerson?.birthday_unset) ? ` • Turning ${getTurningAge(displayPerson?.birthday || '2000-01-01')}` : ""}
  </p>
  <div className="pt-2 flex justify-center">
  <HealthScoreBadge
@@ -1229,10 +1229,10 @@ export default function PersonProfile() {
  </div>
 
  {friendshipStatus === 'accepted' && (
- <div className="w-full max-w-sm mt-4 p-5 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-[28px] border border-emerald-500/15 text-left space-y-4 shadow-xl shadow-emerald-500/5">
+ <div className="w-full max-w-sm mt-4 p-5 bg-accent-500/5 dark:bg-emerald-500/10 rounded-[28px] border border-accent-500/15 dark:border-emerald-500/15 text-left space-y-4 shadow-xl shadow-accent-500/5 dark:shadow-emerald-500/5">
  <div className="flex items-center gap-2">
- <span className="text-emerald-500 font-bold"></span>
- <span className="text-[10px] uppercase font-black tracking-wider text-emerald-600 dark:text-emerald-400">Synced Vibe Card</span>
+ <span className="text-accent-500 dark:text-emerald-400 font-bold"></span>
+ <span className="text-[10px] uppercase font-black tracking-wider text-accent-600 dark:text-emerald-400">Synced Vibe Card</span>
  </div>
  
  {displayPerson?.fav_sports_teams && (
@@ -1260,12 +1260,16 @@ export default function PersonProfile() {
  
  <div className="flex gap-4 w-full max-w-sm">
  <div className="flex-1 p-4 bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 border-t border-t-white/5 rounded-2xl shadow-sm dark:shadow-lg space-y-1">
- <p className="label-micro">Countdown</p>
+ <p className="label-micro">{displayPerson?.birthday_unset ? 'Birthday' : 'Countdown'}</p>
+ {displayPerson?.birthday_unset ? (
+ <p className="text-sm font-bold text-zinc-400">Not set</p>
+ ) : (
  <p className="text-xl font-black tracking-tight">{daysUntil} <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest ml-1">Days</span></p>
+ )}
  </div>
  <div className="flex-1 p-4 bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 border-t border-t-white/5 rounded-2xl shadow-sm dark:shadow-lg space-y-1">
  <p className="label-micro">Relate Score</p>
- <p className="text-xl font-black tracking-tight text-emerald-500">{score}<span className="text-xs font-bold text-zinc-400 uppercase tracking-widest ml-1">%</span></p>
+ <p className="text-xl font-black tracking-tight text-accent-500 dark:text-emerald-400">{score}<span className="text-xs font-bold text-zinc-400 uppercase tracking-widest ml-1">%</span></p>
  </div>
  </div>
  </div>
@@ -1335,7 +1339,7 @@ export default function PersonProfile() {
  value={eventFormLabel}
  onChange={(e) => setEventFormLabel(e.target.value)}
  placeholder='e.g. Anniversary, First Met, Graduation'
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-sm focus:ring-2 focus:ring-emerald-500 outline-none text-zinc-900 dark:text-zinc-100"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-sm focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none text-zinc-900 dark:text-zinc-100"
  />
  </div>
 
@@ -1346,7 +1350,7 @@ export default function PersonProfile() {
  type="date"
  value={eventFormDate}
  onChange={(e) => setEventFormDate(e.target.value)}
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-sm focus:ring-2 focus:ring-emerald-500 outline-none text-zinc-900 dark:text-zinc-100"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-sm focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none text-zinc-900 dark:text-zinc-100"
  />
  </div>
 
@@ -1355,7 +1359,7 @@ export default function PersonProfile() {
  <select
  value={eventFormType}
  onChange={(e) => setEventFormType(e.target.value as 'anniversary' | 'custom')}
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-sm appearance-none focus:ring-2 focus:ring-emerald-500 outline-none text-zinc-900 dark:text-zinc-100"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-sm appearance-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none text-zinc-900 dark:text-zinc-100"
  >
  <option value="custom">Custom</option>
  <option value="anniversary">Anniversary</option>
@@ -1369,7 +1373,7 @@ export default function PersonProfile() {
  type="checkbox"
  checked={eventFormYearUnknown}
  onChange={(e) => setEventFormYearUnknown(e.target.checked)}
- className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 border-zinc-300 dark:border-zinc-700 cursor-pointer"
+ className="w-4 h-4 rounded text-accent-500 dark:text-emerald-500 focus:ring-accent-500 dark:focus:ring-emerald-500 border-zinc-300 dark:border-zinc-700 cursor-pointer"
  />
  <label htmlFor="event-year-unknown" className="text-xs font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer">
  I don't know the year
@@ -1436,7 +1440,7 @@ export default function PersonProfile() {
   <button
    type="button"
    onClick={() => wishEvent(evt)}
-   className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer mr-1 shrink-0"
+   className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl text-xs font-black shadow-md shadow-accent-500/20 dark:shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer mr-1 shrink-0"
   >
    <Heart size={13} fill="currentColor" />
    Wish {evt.label}!
@@ -1446,7 +1450,7 @@ export default function PersonProfile() {
   type="button"
   onClick={() => generateMessageForEvent(evt)}
   disabled={isGenerating}
-  className="p-2 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+  className="p-2 text-zinc-400 hover:text-accent-500 dark:hover:text-emerald-400 hover:bg-accent-50 dark:hover:bg-emerald-950/30 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
   title={`Generate message for ${evt.label}`}
  >
   <Sparkles size={15} />
@@ -1569,12 +1573,12 @@ export default function PersonProfile() {
 
  {/* Quick Actions */}
  <div className="grid grid-cols-1 gap-4">
- {daysUntil === 0 && displayPerson.lastWishedYear !== new Date().getFullYear() && (
+ {!displayPerson?.birthday_unset && daysUntil === 0 && displayPerson.lastWishedYear !== new Date().getFullYear() && (
  <motion.button
  initial={{ scale: 0.9, opacity: 0 }}
  animate={{ scale: 1, opacity: 1 }}
  onClick={handleWishBirthday}
- className="flex items-center justify-center gap-2 p-6 bg-emerald-500 text-white rounded-3xl font-black text-lg shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+ className="flex items-center justify-center gap-2 p-6 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-3xl font-black text-lg shadow-xl shadow-accent-500/20 dark:shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all"
  >
  <Heart size={24} fill="currentColor" />
  Wish Happy Birthday!
@@ -1662,7 +1666,7 @@ export default function PersonProfile() {
  onClick={() => setShowMemoryForm(true)}
  className="w-full flex items-center justify-center gap-2 p-4 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 border-t border-t-white/5 rounded-2xl font-bold shadow-sm dark:shadow-lg hover:scale-[1.02] transition-transform"
  >
- <Plus size={18} className="text-emerald-500" />
+ <Plus size={18} className="text-accent-500 dark:text-emerald-400" />
  Log a Memory
  </button>
 
@@ -1777,13 +1781,13 @@ export default function PersonProfile() {
  }}
  className={cn(
  "flex justify-between items-center p-4 rounded-2xl border transition-all",
- val ? "bg-emerald-500/10 dark:bg-emerald-950/40 border-emerald-500/30 text-emerald-700 dark:text-emerald-400" : "bg-zinc-50 dark:bg-zinc-950 border-zinc-100 dark:border-zinc-700"
+ val ? "bg-accent-500/10 dark:bg-emerald-950/40 border-accent-500/30 dark:border-emerald-800/60 text-accent-700 dark:text-emerald-400" : "bg-zinc-50 dark:bg-zinc-950 border-zinc-100 dark:border-zinc-700"
  )}
  >
  <div className="flex items-center gap-3">
  <div className={cn(
  "w-2 h-2 rounded-full",
- val ? "bg-emerald-500" : "bg-zinc-300"
+ val ? "bg-accent-500 dark:bg-emerald-500" : "bg-zinc-300"
  )} />
  <span className="text-sm font-bold capitalize">{key.replace('_', ' ')}</span>
  </div>
@@ -1822,7 +1826,7 @@ export default function PersonProfile() {
  <select
  value={newMemory.type}
  onChange={(e) => setNewMemory({ ...newMemory, type: e.target.value })}
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-sm appearance-none focus:ring-2 focus:ring-emerald-500"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-sm appearance-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
  >
  <option value="gift">Gift</option>
  <option value="joke">Joke</option>
@@ -1865,7 +1869,7 @@ export default function PersonProfile() {
  displayPerson.memories.filter((m: any) => m.year === year).map((memory: any) => (
  <div key={memory.id} className="p-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-700 rounded-xl flex gap-3 group/memory">
  <div className="mt-1">
- {memory.type === 'gift' && <Gift size={16} className="text-emerald-500" />}
+ {memory.type === 'gift' && <Gift size={16} className="text-accent-500 dark:text-emerald-400" />}
  {memory.type === 'joke' && <Smile size={16} className="text-amber-500" />}
  {memory.type === 'milestone' && <Zap size={16} className="text-blue-500" />}
  </div>
@@ -1895,7 +1899,7 @@ export default function PersonProfile() {
  {/* Reflection Prompt */}
  <section className="p-6 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 border-t border-t-white/5 text-zinc-900 dark:text-white rounded-3xl space-y-4 shadow-sm dark:shadow-lg">
  <h3 className="font-bold flex items-center gap-2">
- <MessageSquare size={18} className="text-emerald-500" />
+ <MessageSquare size={18} className="text-accent-500 dark:text-emerald-400" />
  Yearly Reflection
  </h3>
  {hasReflectedThisYear ? (
@@ -1908,7 +1912,7 @@ export default function PersonProfile() {
  <p className="text-sm text-zinc-500 dark:text-zinc-400">What's one thing that changed about {displayPerson.name.split(' ')[0]} this year?</p>
  <form onSubmit={handleSaveReflection} className="space-y-4">
  <textarea 
- className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 text-sm focus:ring-1 focus:ring-emerald-500 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none"
+ className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 text-sm focus:ring-1 focus:ring-accent-500 dark:focus:ring-emerald-500 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none"
  placeholder="Type your reflection..."
  value={reflectionText}
  onChange={(e) => setReflectionText(e.target.value)}
@@ -1984,7 +1988,7 @@ export default function PersonProfile() {
  </div>
  <div className="flex gap-2">
  <button onClick={() => setShowGiftForm(false)} className="flex-1 py-3 text-sm font-bold text-zinc-500">Cancel</button>
- <button onClick={addGift} className="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-bold text-sm">Add to Registry</button>
+ <button onClick={addGift} className="flex-1 py-3 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl font-bold text-sm">Add to Registry</button>
  </div>
  </motion.div>
  )}
@@ -2014,7 +2018,7 @@ export default function PersonProfile() {
  gifts: prev.gifts.map((g: any) => g.id === gift.id ? { ...g, status: 'given' } : g)
  }));
  }}
- className="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all"
+ className="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-accent-500 dark:hover:bg-emerald-500 hover:text-white transition-all"
  >
  Mark Given
  </button>
@@ -2172,7 +2176,7 @@ export default function PersonProfile() {
  displayPerson.memories.map((memory: any) => (
  <div key={memory.id} className="p-4 bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-150 dark:border-zinc-700 border-t border-t-white/5 flex gap-3 shadow-sm dark:shadow-lg">
  <div className="mt-1">
- {memory.type === 'gift' && <Gift size={16} className="text-emerald-500" />}
+ {memory.type === 'gift' && <Gift size={16} className="text-accent-500 dark:text-emerald-400" />}
  {memory.type === 'joke' && <Smile size={16} className="text-amber-500" />}
  {memory.type === 'milestone' && <Zap size={16} className="text-blue-500" />}
  </div>
@@ -2217,7 +2221,7 @@ export default function PersonProfile() {
  <input
  type="text"
  required
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-emerald-500"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
  value={editData.name || ''}
  onChange={(e) => setEditData({ ...editData, name: e.target.value })}
  />
@@ -2227,7 +2231,7 @@ export default function PersonProfile() {
  <label className="text-xs font-bold uppercase text-zinc-400">Nickname</label>
  <input
  type="text"
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-emerald-500"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
  value={editData.nickname || ''}
  onChange={(e) => setEditData({ ...editData, nickname: e.target.value })}
  />
@@ -2239,7 +2243,7 @@ export default function PersonProfile() {
  min="1900-01-01"
  max={new Date().toISOString().split('T')[0]}
  required
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-emerald-500"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
  value={editData.birthday || ''}
  onChange={(e) => setEditData({ ...editData, birthday: e.target.value })}
  />
@@ -2248,7 +2252,7 @@ export default function PersonProfile() {
  <div className="space-y-1">
  <label className="text-xs font-bold uppercase text-zinc-400">Category</label>
  <select
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-emerald-500 appearance-none"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 appearance-none"
  value={editData.category || ''}
  onChange={(e) => setEditData({ ...editData, category: e.target.value })}
  >
@@ -2263,7 +2267,7 @@ export default function PersonProfile() {
  <div className="space-y-2">
  <div className="flex items-center justify-between">
  <label className="text-xs font-bold uppercase text-zinc-400">Importance Level</label>
- <span className="text-[11px] font-semibold text-emerald-500 dark:text-emerald-400">
+ <span className="text-[11px] font-semibold text-accent-500 dark:text-emerald-400">
  {(editData.importance || 3) === 1 && "1 = Casual / Low"}
  {(editData.importance || 3) === 2 && "2 = Moderate"}
  {(editData.importance || 3) === 3 && "3 = Important"}
@@ -2296,7 +2300,7 @@ export default function PersonProfile() {
  <label className="text-xs font-bold uppercase text-zinc-400">Interests (for AI jokes/facts)</label>
  <input
  type="text"
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-emerald-500"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
  placeholder="e.g. Eagles, Dodgers, Warriors"
  value={editData.interests || ''}
  onChange={(e) => setEditData({ ...editData, interests: e.target.value })}
@@ -2305,7 +2309,7 @@ export default function PersonProfile() {
  <div className="space-y-1">
  <label className="text-xs font-bold uppercase text-zinc-400">Notes</label>
  <textarea
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-emerald-500 min-h-[100px]"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 min-h-[100px]"
  value={editData.notes || ''}
  onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
  />
@@ -2320,7 +2324,7 @@ export default function PersonProfile() {
  </button>
  <button 
  type="submit"
- className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-500/20"
+ className="flex-1 py-4 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20"
  >
  Save Changes
  </button>
