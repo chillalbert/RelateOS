@@ -669,7 +669,7 @@ export default function Settings() {
  <div className="flex items-center">
  <div 
  className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${
- item.toggleState ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'
+ item.toggleState ? 'bg-accent-500 dark:bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'
  }`}
  >
  <motion.div 
@@ -708,7 +708,7 @@ export default function Settings() {
  {/* Your Public Profile Card & Privacy Section */}
  <div className="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
  <div className="flex items-center gap-2 px-2">
- <Shield size={18} className="text-emerald-500" />
+ <Shield size={18} className="text-accent-500 dark:text-emerald-400" />
  <h3 className="font-extrabold text-sm uppercase tracking-wide text-zinc-900 dark:text-white">Your Public Profile Card & Privacy</h3>
  <HelpTip 
  title="Public Profile & Bio Link" 
@@ -753,7 +753,7 @@ export default function Settings() {
  {handleError && <p className="text-red-500 text-[10px] font-bold ml-1">{handleError}</p>}
  {!handleError && handle && (
  <p className="text-[10px] text-zinc-400 font-semibold ml-1 truncate min-w-0">
- Live Preview: <a href={`/u/${handle}`} target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline">{window.location.origin}/u/{handle}</a>
+ Live Preview: <a href={`/u/${handle}`} target="_blank" rel="noreferrer" className="text-accent-500 dark:text-emerald-400 hover:underline">{window.location.origin}/u/{handle}</a>
  </p>
  )}
  </div>
@@ -767,11 +767,11 @@ export default function Settings() {
  onClick={() => setIsPrivate(false)}
  className={`p-3.5 rounded-2xl border-2 text-left space-y-2 transition-all relative cursor-pointer ${
  !isPrivate 
- ? 'border-emerald-500 bg-emerald-500/5 dark:bg-emerald-500/10' 
+ ? 'border-accent-500 dark:border-emerald-500 bg-accent-500/5 dark:bg-emerald-500/10' 
  : 'border-zinc-150 dark:border-zinc-800 hover:border-zinc-300 hover:bg-zinc-50/50'
  }`}
  >
- <Globe size={16} className={!isPrivate ? 'text-emerald-500' : 'text-zinc-500'} />
+ <Globe size={16} className={!isPrivate ? 'text-accent-500 dark:text-emerald-400' : 'text-zinc-500'} />
  <div>
  <h4 className="font-extrabold text-[11px] text-zinc-900 dark:text-white">Go Public </h4>
  <p className="text-[9px] text-zinc-400 font-medium leading-relaxed mt-0.5">Bio link active.</p>
@@ -803,7 +803,7 @@ export default function Settings() {
  <div className="space-y-1.5">
  <label className="text-[9px] text-zinc-500 font-bold uppercase">Month</label>
  <select
- className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-700 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none cursor-pointer"
+ className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-700 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none cursor-pointer"
  value={editedBirthMonth}
  onChange={(e) => setEditedBirthMonth(parseInt(e.target.value, 10))}
  >
@@ -818,7 +818,7 @@ export default function Settings() {
  <div className="space-y-1.5">
  <label className="text-[9px] text-zinc-500 font-bold uppercase">Day</label>
  <select
- className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-700 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none cursor-pointer"
+ className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-700 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none cursor-pointer"
  value={editedBirthDay}
  onChange={(e) => setEditedBirthDay(parseInt(e.target.value, 10))}
  >
@@ -838,7 +838,7 @@ export default function Settings() {
  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1">Favorite Sports Teams</label>
  <input
  type="text"
- className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-700 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none"
+ className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-700 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none"
  placeholder="e.g. Lakers, Real Madrid"
  value={favSports}
  onChange={(e) => setFavSports(e.target.value)}
@@ -849,7 +849,7 @@ export default function Settings() {
  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1">Favorite Artists / Albums</label>
  <input
  type="text"
- className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-700 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none"
+ className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-700 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none"
  placeholder="e.g. Drake, Billie Eilish"
  value={favArtists}
  onChange={(e) => setFavArtists(e.target.value)}
@@ -860,7 +860,7 @@ export default function Settings() {
  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">My Favorite thing to do on a weekend is...</label>
  <textarea
  rows={2}
- className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-700 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none resize-none"
+ className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-700 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none resize-none"
  placeholder="e.g. record vinyl, hike with friends"
  value={weekendVibes}
  onChange={(e) => setWeekendVibes(e.target.value)}
@@ -871,7 +871,7 @@ export default function Settings() {
  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Anything Extra</label>
  <textarea
  rows={2}
- className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-700 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none resize-none"
+ className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-700 text-xs font-semibold text-zinc-950 dark:text-white focus:ring-1 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none resize-none"
  placeholder="Random fun facts, clothing/shoe sizes, allergies, or coffee preferences..."
  value={anythingExtra}
  onChange={(e) => setAnythingExtra(e.target.value)}
@@ -889,7 +889,7 @@ export default function Settings() {
  type="button"
  disabled={saveLoading || !!handleError || handleChecking}
  onClick={handleSaveProfileCard}
- className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/10 cursor-pointer"
+ className="w-full py-3 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 disabled:opacity-50 text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md shadow-accent-500/10 dark:shadow-emerald-500/10 cursor-pointer"
  >
  {saveLoading ? 'Saving...' : saveSuccess ? 'Profile Card Saved ' : 'Save Profile Card & Privacy'}
  </button>
@@ -1074,7 +1074,7 @@ export default function Settings() {
  type="date"
  min="1900-01-01"
  max={new Date().toISOString().split('T')[0]}
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-emerald-500"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
  value={birthday}
  onChange={(e) => handleBirthdayChange(e.target.value)}
  />
@@ -1119,14 +1119,14 @@ export default function Settings() {
  <input
  type="text"
  required
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-emerald-500 text-sm"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 text-sm"
  value={username}
  onChange={(e) => setUsername(e.target.value)}
  />
  </div>
  <button 
  type="submit"
- className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-500/20"
+ className="w-full py-4 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20"
  >
  Save Username
  </button>
@@ -1172,7 +1172,7 @@ export default function Settings() {
  <input
  type="password"
  required
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-emerald-500"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
  value={passwordData.currentPassword || ''}
  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
  />
@@ -1182,7 +1182,7 @@ export default function Settings() {
  <input
  type="password"
  required
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-emerald-500"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
  value={passwordData.newPassword || ''}
  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
  />
@@ -1192,7 +1192,7 @@ export default function Settings() {
  <input
  type="password"
  required
- className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-emerald-500"
+ className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
  value={passwordData.confirmPassword || ''}
  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
  />
@@ -1200,7 +1200,7 @@ export default function Settings() {
  {passwordError && <p className="text-xs font-bold text-red-500">{passwordError}</p>}
  <button 
  type="submit"
- className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-500/20"
+ className="w-full py-4 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20"
  >
  Update Password
  </button>
@@ -1248,7 +1248,7 @@ export default function Settings() {
  <p className="font-bold text-sm">{item.label}</p>
  <p className="text-xs text-zinc-500">{item.desc}</p>
  </div>
- <div className={`w-12 h-6 rounded-full transition-colors relative ${notifSettings[item.id as keyof typeof notifSettings] ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}>
+ <div className={`w-12 h-6 rounded-full transition-colors relative ${notifSettings[item.id as keyof typeof notifSettings] ? 'bg-accent-500 dark:bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}>
  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${notifSettings[item.id as keyof typeof notifSettings] ? 'left-7' : 'left-1'}`} />
  </div>
  </button>
@@ -1343,7 +1343,7 @@ export default function Settings() {
  <span>Shop</span>
  </div>
  ) : isSelected ? (
- <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+ <div className="w-5 h-5 rounded-full bg-accent-500 dark:bg-emerald-500 text-white flex items-center justify-center">
  <Check size={12} className="stroke-[3]" />
  </div>
  ) : null}
