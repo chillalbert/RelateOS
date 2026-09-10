@@ -165,7 +165,7 @@ function CompactConstellationIndicator({
   return (
     <div className="space-y-1.5 mb-4">
       <div className="flex items-center justify-between text-[11px] font-bold text-zinc-500 dark:text-zinc-400 px-1">
-        <span className="flex items-center gap-1.5 font-semibold text-emerald-500 dark:text-emerald-400">
+        <span className="flex items-center gap-1.5 font-semibold text-accent-500 dark:text-emerald-400">
           <Sparkles size={12} /> Step {activeStepIndex + 1} of 7
         </span>
         <span className="font-semibold text-zinc-700 dark:text-zinc-300">
@@ -203,9 +203,9 @@ function CompactConstellationIndicator({
                 }}
                 className={`w-4 h-4 rounded-full flex items-center justify-center transition-all ${
                   isCompleted
-                    ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/40'
+                    ? 'bg-accent-500 dark:bg-emerald-500 text-white shadow-sm shadow-accent-500/40 dark:shadow-emerald-500/40'
                     : isActive
-                    ? 'bg-emerald-500 text-white ring-4 ring-emerald-500/20 shadow-md'
+                    ? 'bg-accent-500 dark:bg-emerald-500 text-white ring-4 ring-accent-500/20 dark:ring-emerald-500/20 shadow-md'
                     : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400'
                 }`}
               >
@@ -856,7 +856,7 @@ export default function OnboardingFlow() {
           }`}
         >
           <div className="flex flex-col items-center text-center space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-500/10 dark:bg-emerald-500/10 border border-accent-500/20 dark:border-emerald-500/20 text-accent-600 dark:text-emerald-400 text-xs font-semibold">
               <Sparkles size={13} />
               <span>RelateOS</span>
             </div>
@@ -874,11 +874,11 @@ export default function OnboardingFlow() {
               onClick={() => handleSelectTheme('light')}
               className={`p-5 rounded-2xl border-2 text-left space-y-3 transition-all relative cursor-pointer ${
                 isLight
-                  ? 'border-emerald-500 bg-emerald-500/10'
+                  ? 'border-accent-500 dark:border-emerald-500 bg-accent-500/10 dark:bg-emerald-500/10'
                   : 'border-zinc-200 dark:border-zinc-800 bg-zinc-100/50 dark:bg-zinc-950/60 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700'
               }`}
             >
-              <div className={`p-2.5 rounded-xl inline-block ${isLight ? 'bg-emerald-500 text-white shadow-md' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'}`}>
+              <div className={`p-2.5 rounded-xl inline-block ${isLight ? 'bg-accent-500 dark:bg-emerald-500 text-white shadow-md' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'}`}>
                 <Sun size={20} />
               </div>
               <div>
@@ -888,7 +888,7 @@ export default function OnboardingFlow() {
                 </p>
               </div>
               {isLight && (
-                <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center text-white">
+                <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-accent-500 dark:bg-emerald-500 flex items-center justify-center text-white">
                   <Check size={10} strokeWidth={3} />
                 </div>
               )}
@@ -899,11 +899,11 @@ export default function OnboardingFlow() {
               onClick={() => handleSelectTheme('dark')}
               className={`p-5 rounded-2xl border-2 text-left space-y-3 transition-all relative cursor-pointer ${
                 selectedTheme === 'dark'
-                  ? 'border-emerald-500 bg-emerald-500/10'
+                  ? 'border-accent-500 dark:border-emerald-500 bg-accent-500/10 dark:bg-emerald-500/10'
                   : 'border-zinc-200 dark:border-zinc-800 bg-zinc-100/50 dark:bg-zinc-950/60 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700'
               }`}
             >
-              <div className={`p-2.5 rounded-xl inline-block ${selectedTheme === 'dark' ? 'bg-emerald-500 text-zinc-950 shadow-md' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'}`}>
+              <div className={`p-2.5 rounded-xl inline-block ${selectedTheme === 'dark' ? 'bg-accent-500 dark:bg-emerald-500 text-zinc-950 shadow-md' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'}`}>
                 <Moon size={20} />
               </div>
               <div>
@@ -913,7 +913,7 @@ export default function OnboardingFlow() {
                 </p>
               </div>
               {selectedTheme === 'dark' && (
-                <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center text-zinc-950">
+                <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-accent-500 dark:bg-emerald-500 flex items-center justify-center text-zinc-950">
                   <Check size={10} strokeWidth={3} />
                 </div>
               )}
@@ -925,7 +925,7 @@ export default function OnboardingFlow() {
             onClick={() => {
               setViewMode('constellation');
             }}
-            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-2xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-4 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white font-bold text-xs rounded-2xl transition-all shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>Continue</span>
             <ArrowRight size={14} />
@@ -989,7 +989,7 @@ export default function OnboardingFlow() {
 
               <div className="space-y-3">
                 <div className="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl flex items-start gap-3">
-                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 shrink-0 mt-0.5">
+                  <div className="p-2 rounded-xl bg-accent-500/10 dark:bg-emerald-500/10 text-accent-500 dark:text-emerald-500 shrink-0 mt-0.5">
                     <Calendar size={18} />
                   </div>
                   <div>
@@ -1001,7 +1001,7 @@ export default function OnboardingFlow() {
                 </div>
 
                 <div className="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl flex items-start gap-3">
-                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 shrink-0 mt-0.5">
+                  <div className="p-2 rounded-xl bg-accent-500/10 dark:bg-emerald-500/10 text-accent-500 dark:text-emerald-500 shrink-0 mt-0.5">
                     <Sparkles size={18} />
                   </div>
                   <div>
@@ -1013,7 +1013,7 @@ export default function OnboardingFlow() {
                 </div>
 
                 <div className="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl flex items-start gap-3">
-                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 shrink-0 mt-0.5">
+                  <div className="p-2 rounded-xl bg-accent-500/10 dark:bg-emerald-500/10 text-accent-500 dark:text-emerald-500 shrink-0 mt-0.5">
                     <Globe size={18} />
                   </div>
                   <div>
@@ -1029,7 +1029,7 @@ export default function OnboardingFlow() {
                 <button
                   type="button"
                   onClick={() => completeStepAndZoomNext(1)}
-                  className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs tracking-wide flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                  className="w-full py-3.5 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl font-bold text-xs tracking-wide flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
                 >
                   <span>Continue</span>
                   <ArrowRight size={14} />
@@ -1059,11 +1059,11 @@ export default function OnboardingFlow() {
               {/* Photo Upload */}
               <div className="flex flex-col items-center gap-2 py-2">
                 <div className="relative">
-                  <div className="w-20 h-20 rounded-full border-2 border-emerald-500/20 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shadow-inner">
+                  <div className="w-20 h-20 rounded-full border-2 border-accent-500/20 dark:border-emerald-500/20 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shadow-inner">
                     {profilePicUrl ? (
                       <img src={profilePicUrl} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : name ? (
-                      <div className="w-full h-full flex items-center justify-center bg-emerald-500 text-white text-2xl font-bold uppercase">
+                      <div className="w-full h-full flex items-center justify-center bg-accent-500 dark:bg-emerald-500 text-white text-2xl font-bold uppercase">
                         {name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                       </div>
                     ) : (
@@ -1098,7 +1098,7 @@ export default function OnboardingFlow() {
                   <input
                     type="text"
                     required
-                    className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none border border-zinc-200 dark:border-zinc-800"
+                    className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none border border-zinc-200 dark:border-zinc-800"
                     placeholder="Enter your name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -1111,7 +1111,7 @@ export default function OnboardingFlow() {
                     <select
                       value={bMonth}
                       onChange={(e) => setBMonth(parseInt(e.target.value, 10))}
-                      className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none border border-zinc-200 dark:border-zinc-800"
+                      className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none border border-zinc-200 dark:border-zinc-800"
                     >
                       {[
                         { val: 1, label: 'January' },
@@ -1134,7 +1134,7 @@ export default function OnboardingFlow() {
                     <select
                       value={bDay}
                       onChange={(e) => setBDay(parseInt(e.target.value, 10))}
-                      className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none border border-zinc-200 dark:border-zinc-800"
+                      className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none border border-zinc-200 dark:border-zinc-800"
                     >
                       {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
                         <option key={d} value={d} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white p-1 text-xs">{d}</option>
@@ -1144,7 +1144,7 @@ export default function OnboardingFlow() {
                     <input
                       type="number"
                       placeholder="Year (optional)"
-                      className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none border border-zinc-200 dark:border-zinc-800"
+                      className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none border border-zinc-200 dark:border-zinc-800"
                       value={bYear}
                       onChange={(e) => setBYear(e.target.value)}
                       min={1900}
@@ -1210,7 +1210,7 @@ export default function OnboardingFlow() {
                   type="button"
                   disabled={!name.trim() || !customHandle.trim() || handleChecking || !!handleError || !handleSuccess}
                   onClick={() => completeStepAndZoomNext(2)}
-                  className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-xl font-bold text-xs tracking-wide flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                  className="flex-1 py-3.5 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 disabled:opacity-50 text-white rounded-xl font-bold text-xs tracking-wide flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
                 >
                   <span>Continue</span>
                   <ArrowRight size={14} />
@@ -1244,7 +1244,7 @@ export default function OnboardingFlow() {
                   </label>
                   <input
                     type="text"
-                    className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none border border-zinc-200 dark:border-zinc-800"
+                    className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none border border-zinc-200 dark:border-zinc-800"
                     placeholder="e.g. Lakers, Real Madrid"
                     value={sportsInput}
                     onChange={(e) => setSportsInput(e.target.value)}
@@ -1255,7 +1255,7 @@ export default function OnboardingFlow() {
                       {sportsTeams.map((team, idx) => (
                         <span 
                           key={idx} 
-                          className="px-2 py-0.5 text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-md flex items-center gap-1"
+                          className="px-2 py-0.5 text-[11px] font-medium bg-accent-500/10 dark:bg-emerald-500/10 text-accent-600 dark:text-emerald-400 rounded-md flex items-center gap-1"
                         >
                           {team}
                           <button 
@@ -1277,7 +1277,7 @@ export default function OnboardingFlow() {
                   </label>
                   <input
                     type="text"
-                    className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none border border-zinc-200 dark:border-zinc-800"
+                    className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none border border-zinc-200 dark:border-zinc-800"
                     placeholder="e.g. Drake, Indie Rock, Lofi"
                     value={favArtists}
                     onChange={(e) => setFavArtists(e.target.value)}
@@ -1290,7 +1290,7 @@ export default function OnboardingFlow() {
                   </label>
                   <textarea
                     rows={2}
-                    className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none resize-none border border-zinc-200 dark:border-zinc-800"
+                    className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none resize-none border border-zinc-200 dark:border-zinc-800"
                     placeholder="e.g. Hiking, coding projects, visiting cafes"
                     value={weekendActivities}
                     onChange={(e) => setWeekendActivities(e.target.value)}
@@ -1303,7 +1303,7 @@ export default function OnboardingFlow() {
                   </label>
                   <textarea
                     rows={2}
-                    className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none resize-none border border-zinc-200 dark:border-zinc-800"
+                    className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-900 dark:text-white focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none resize-none border border-zinc-200 dark:border-zinc-800"
                     placeholder="Shoe size, coffee preference, allergies, or gift ideas..."
                     value={anythingExtra}
                     onChange={(e) => setAnythingExtra(e.target.value)}
@@ -1322,7 +1322,7 @@ export default function OnboardingFlow() {
                 <button
                   type="button"
                   onClick={() => completeStepAndZoomNext(3)}
-                  className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs tracking-wide flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                  className="flex-1 py-3.5 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl font-bold text-xs tracking-wide flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
                 >
                   <span>Continue</span>
                   <ArrowRight size={14} />
@@ -1355,11 +1355,11 @@ export default function OnboardingFlow() {
                   onClick={() => setIsPrivate(false)}
                   className={`p-4 rounded-2xl border-2 text-left space-y-2 transition-all cursor-pointer ${
                     !isPrivate 
-                      ? 'border-emerald-500 bg-emerald-500/5 dark:bg-emerald-500/10' 
+                      ? 'border-accent-500 dark:border-emerald-500 bg-accent-500/5 dark:bg-emerald-500/10' 
                       : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300'
                   }`}
                 >
-                  <div className={`p-2 rounded-xl inline-block ${!isPrivate ? 'bg-emerald-500 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>
+                  <div className={`p-2 rounded-xl inline-block ${!isPrivate ? 'bg-accent-500 dark:bg-emerald-500 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>
                     <Globe size={18} />
                   </div>
                   <div>
@@ -1375,11 +1375,11 @@ export default function OnboardingFlow() {
                   onClick={() => setIsPrivate(true)}
                   className={`p-4 rounded-2xl border-2 text-left space-y-2 transition-all cursor-pointer ${
                     isPrivate 
-                      ? 'border-emerald-500 bg-emerald-500/5 dark:bg-emerald-500/10' 
+                      ? 'border-accent-500 dark:border-emerald-500 bg-accent-500/5 dark:bg-emerald-500/10' 
                       : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300'
                   }`}
                 >
-                  <div className={`p-2 rounded-xl inline-block ${isPrivate ? 'bg-emerald-500 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>
+                  <div className={`p-2 rounded-xl inline-block ${isPrivate ? 'bg-accent-500 dark:bg-emerald-500 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>
                     <Lock size={18} />
                   </div>
                   <div>
@@ -1422,7 +1422,7 @@ export default function OnboardingFlow() {
                 <button
                   type="button"
                   onClick={() => completeStepAndZoomNext(4)}
-                  className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs tracking-wide flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                  className="flex-1 py-3.5 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl font-bold text-xs tracking-wide flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
                 >
                   <span>Continue</span>
                   <ArrowRight size={14} />
@@ -1451,7 +1451,7 @@ export default function OnboardingFlow() {
 
               {importState === 'loading' ? (
                 <div className="py-12 flex flex-col items-center justify-center space-y-3 text-center">
-                  <Loader2 size={32} className="animate-spin text-emerald-500" />
+                  <Loader2 size={32} className="animate-spin text-accent-500 dark:text-emerald-500" />
                   <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                     Syncing calendar events...
                   </p>
@@ -1518,7 +1518,7 @@ export default function OnboardingFlow() {
                 <button
                   type="button"
                   onClick={() => completeStepAndZoomNext(5)}
-                  className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs tracking-wide flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                  className="flex-1 py-3.5 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl font-bold text-xs tracking-wide flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
                 >
                   <span>{importState === 'success' ? 'Continue' : 'Skip for now'}</span>
                   <ArrowRight size={14} />
@@ -1598,7 +1598,7 @@ export default function OnboardingFlow() {
               exit={{ opacity: 0, x: -15 }}
               className="space-y-6 text-center"
             >
-              <div className="w-16 h-16 bg-emerald-500 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
+              <div className="w-16 h-16 bg-accent-500 dark:bg-emerald-500 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20">
                 <Trophy size={32} />
               </div>
 
@@ -1618,7 +1618,7 @@ export default function OnboardingFlow() {
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-zinc-500 dark:text-zinc-400 font-semibold">Handle</span>
-                  <span className="font-mono font-bold text-emerald-500">@{customHandle || 'username'}</span>
+                  <span className="font-mono font-bold text-accent-600 dark:text-emerald-400">@{customHandle || 'username'}</span>
                 </div>
                 {importedCount > 0 && (
                   <div className="flex items-center justify-between text-xs">
@@ -1632,7 +1632,7 @@ export default function OnboardingFlow() {
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => handleCompleteWithTour(wantsTour)}
-                className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-2xl font-bold text-xs tracking-wide flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/20 cursor-pointer"
+                className="w-full py-4 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 disabled:opacity-50 text-white rounded-2xl font-bold text-xs tracking-wide flex items-center justify-center gap-2 transition-all shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20 cursor-pointer"
               >
                 {isSubmitting ? (
                   <Loader2 size={16} className="animate-spin" />
