@@ -238,7 +238,7 @@ export default function TourOverlay() {
             )}
 
             <div className="flex justify-between items-center">
-              <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 flex items-center gap-1.5">
+              <span className="text-[9px] font-black uppercase tracking-widest text-accent-500 dark:text-emerald-400 flex items-center gap-1.5">
                 <Sparkles size={12} className="animate-pulse" /> Workspace Tour • Step {tourStep} of {TOUR_STEPS.length}
               </span>
               <button 
@@ -266,7 +266,7 @@ export default function TourOverlay() {
                     <div 
                       key={s} 
                       className={`h-1.5 rounded-full transition-all duration-300 ${
-                        s === tourStep ? 'w-5 bg-emerald-500' : 'w-1.5 bg-zinc-200 dark:bg-zinc-800'
+                        s === tourStep ? 'w-5 bg-accent-500 dark:bg-emerald-500' : 'w-1.5 bg-zinc-200 dark:bg-zinc-800'
                       }`}
                     />
                   );
@@ -274,7 +274,7 @@ export default function TourOverlay() {
               </div>
               <button
                 onClick={nextTourStep}
-                className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-1 transition-all shadow-md shadow-emerald-500/10 cursor-pointer"
+                className="px-5 py-2.5 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-1 transition-all shadow-md shadow-accent-500/10 dark:shadow-emerald-500/10 cursor-pointer"
               >
                 {tourStep === TOUR_STEPS.length ? "Finish" : "Next"} <ChevronRight size={12} />
               </button>
