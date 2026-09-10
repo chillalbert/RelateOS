@@ -483,7 +483,7 @@ export default function GroupView() {
 
  if (loading) {
  return (
- <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white">
+ <div className="flex h-screen items-center justify-center bg-[#FDF3EC] dark:bg-zinc-950 text-zinc-900 dark:text-white">
  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent-500 dark:border-emerald-500"></div>
  </div>
  );
@@ -491,7 +491,7 @@ export default function GroupView() {
 
  if (!group) {
  return (
- <div className="flex h-screen flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white gap-4">
+ <div className="flex h-screen flex-col items-center justify-center bg-[#FDF3EC] dark:bg-zinc-950 text-zinc-900 dark:text-white gap-4">
  <p className="font-bold">Group Hub not found.</p>
  <Link to="/" className="text-accent-500 dark:text-emerald-400 font-extrabold uppercase tracking-widest text-xs">Back to Home</Link>
  </div>
@@ -499,7 +499,7 @@ export default function GroupView() {
  }
 
  return (
- <div id="group-view-page" className="pb-12 pt-[calc(1.5rem+var(--sat))] bg-zinc-50 dark:bg-zinc-950 min-h-screen text-zinc-900 dark:text-zinc-50 font-sans">
+ <div id="group-view-page" className="pb-12 pt-[calc(1.5rem+var(--sat))] bg-[#FDF3EC] dark:bg-zinc-950 min-h-screen text-zinc-900 dark:text-zinc-50 font-sans">
  <div className="max-w-2xl mx-auto flex flex-col h-[calc(100vh-2rem)]">
 
  {/* Top Header Row */}
