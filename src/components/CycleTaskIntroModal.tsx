@@ -110,11 +110,11 @@ export default function CycleTaskIntroModal() {
             className="w-full max-w-sm rounded-3xl p-6 bg-zinc-900 border border-zinc-800 text-zinc-100 shadow-2xl relative overflow-hidden space-y-5 flex flex-col items-stretch"
           >
             {/* Background Decorative Glow */}
-            <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
+            <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-accent-500/20 dark:bg-emerald-500/20 blur-3xl pointer-events-none" />
 
             {/* Header / Badge */}
             <div className="flex items-start justify-between">
-              <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <div className="p-3 rounded-2xl bg-accent-500/10 dark:bg-emerald-500/10 text-accent-400 dark:text-emerald-400 border border-accent-500/20 dark:border-emerald-500/20">
                 <Sparkles size={24} />
               </div>
               <button
@@ -129,12 +129,12 @@ export default function CycleTaskIntroModal() {
 
             {/* Content */}
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-accent-500/10 dark:bg-emerald-500/10 text-accent-400 dark:text-emerald-400 border border-accent-500/20 dark:border-emerald-500/20">
                 <Calendar size={12} />
                 <span>New Cycle Started</span>
               </div>
               <h3 className="text-lg font-extrabold tracking-tight text-white leading-snug">
-                {taskPrefix} <span className="text-emerald-400">{taskLabel}</span>
+                {taskPrefix} <span className="text-accent-400 dark:text-emerald-400">{taskLabel}</span>
               </h3>
               <p className="text-xs text-zinc-400 leading-relaxed">
                 Completing this task daily advances your streak and earns +10 Aura points.
@@ -153,7 +153,7 @@ export default function CycleTaskIntroModal() {
             <button
               onClick={handleDismiss}
               disabled={isDismissing}
-              className="w-full py-3 px-4 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-extrabold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-lg shadow-emerald-500/20 cursor-pointer active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-accent-500 hover:bg-accent-400 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-zinc-950 font-extrabold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20 cursor-pointer active:scale-[0.98] flex items-center justify-center gap-2"
             >
               <Check size={16} className="stroke-[3]" />
               <span>Got it, let's go!</span>
@@ -164,10 +164,10 @@ export default function CycleTaskIntroModal() {
               <motion.div
                 animate={{ y: [0, 4, 0] }}
                 transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-                className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400/90 pointer-events-none"
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-accent-400/90 dark:text-emerald-400/90 pointer-events-none"
               >
                 <span>Track progress on your daily streak card below</span>
-                <ArrowDown size={14} className="text-emerald-400 stroke-[2.5]" />
+                <ArrowDown size={14} className="text-accent-400 dark:text-emerald-400 stroke-[2.5]" />
               </motion.div>
             </div>
           </motion.div>
