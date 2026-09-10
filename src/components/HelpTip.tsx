@@ -125,7 +125,7 @@ export default function HelpTip({ content, title, className, iconSize = 14 }: He
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="p-1 text-zinc-400 hover:text-emerald-500 transition-colors rounded-full focus:outline-none focus:ring-1 focus:ring-emerald-500/50 cursor-pointer"
+        className="p-1 text-zinc-400 hover:text-accent-500 dark:hover:text-emerald-400 transition-colors rounded-full focus:outline-none focus:ring-1 focus:ring-accent-500/50 dark:focus:ring-emerald-500/50 cursor-pointer"
         title="Tap for help"
         aria-label="Help info"
       >
@@ -139,7 +139,7 @@ export default function HelpTip({ content, title, className, iconSize = 14 }: He
           onClick={(e) => e.stopPropagation()}
           className="w-64 max-w-[calc(100vw-24px)] p-3 bg-zinc-900 text-zinc-100 dark:bg-zinc-800 dark:text-zinc-100 text-xs rounded-2xl shadow-xl border border-zinc-700/50 space-y-1.5 animate-in fade-in zoom-in-95 duration-150"
         >
-          <div className="flex items-center justify-between font-bold text-[11px] text-emerald-400">
+          <div className="flex items-center justify-between font-bold text-[11px] text-accent-400 dark:text-emerald-400">
             <span>{title || 'Quick Info'}</span>
             <button
               type="button"
