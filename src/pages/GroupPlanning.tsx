@@ -1999,7 +1999,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
 
    if (!id) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-32">
+      <div className="min-h-screen bg-[#FDF3EC] dark:bg-zinc-950 pb-32">
         <header className="p-6 pt-[calc(1.5rem+var(--sat))] flex items-center justify-between bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10">
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer">
             <ArrowLeft size={24} />
@@ -2272,7 +2272,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-[#FDF3EC] dark:bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
         <div className="w-8 h-8 border-4 border-accent-500 dark:border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">Loading room details...</p>
       </div>
@@ -2281,7 +2281,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
 
   if (!group) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24 flex flex-col justify-between">
+      <div className="min-h-screen bg-[#FDF3EC] dark:bg-zinc-950 pb-24 flex flex-col justify-between">
         <header className="p-6 pt-[calc(1.5rem+var(--sat))] flex items-center justify-between bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10">
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer">
             <ArrowLeft size={24} />
@@ -3346,16 +3346,16 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
  };
 
  return (
- <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24">
+ <div className="min-h-screen bg-[#FDF3EC] dark:bg-zinc-950 pb-24">
  <header className="p-4 sm:p-6 pt-[calc(1.25rem+var(--sat))] bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 relative">
-  <div className="h-1.5 -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 mb-2 bg-gradient-to-r from-rose-500 via-amber-400 via-emerald-400 via-sky-400 via-indigo-500 to-purple-500 rounded-t-xl opacity-90 overflow-hidden" />
+  <div className="h-1.5 -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 mb-2 bg-gradient-to-r from-rose-500 via-amber-400 via-accent-400 dark:via-emerald-400 via-sky-400 via-indigo-500 to-purple-500 rounded-t-xl opacity-90 overflow-hidden" />
   <div className="flex items-center justify-between">
   <button onClick={() => navigate(-1)} className="p-2 -ml-2 cursor-pointer text-zinc-700 dark:text-zinc-200"><ArrowLeft size={24} /></button>
   <div className="text-center">
   <div className="flex items-center justify-center gap-1.5">
   <h1 className="font-bold text-base sm:text-lg">{group?.name}</h1>
   {isFullParty && (
-  <span className="px-2.5 py-0.5 bg-gradient-to-r from-emerald-500/15 via-teal-500/15 to-indigo-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider rounded-full border border-emerald-500/30 shadow-sm">
+  <span className="px-2.5 py-0.5 bg-gradient-to-r from-accent-500/15 dark:from-emerald-500/15 via-teal-500/15 to-indigo-500/15 text-accent-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider rounded-full border border-accent-500/30 dark:border-emerald-500/30 shadow-sm">
   🎉 Full Party
   </span>
   )}
@@ -3381,7 +3381,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
          case 'party_setup':
            return { active: 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/20', icon: 'text-purple-500 dark:text-purple-400' };
          case 'setup':
-           return { active: 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/20', icon: 'text-emerald-500 dark:text-emerald-400' };
+           return { active: 'bg-gradient-to-r from-accent-600 dark:from-emerald-600 to-teal-600 text-white shadow-md shadow-accent-500/20 dark:shadow-emerald-500/20', icon: 'text-accent-500 dark:text-emerald-400' };
          case 'plan':
            return { active: 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-md shadow-amber-500/20', icon: 'text-amber-500 dark:text-amber-400' };
          case 'polls':
@@ -3393,17 +3393,17 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
          case 'photos':
            return { active: 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-md shadow-fuchsia-500/20', icon: 'text-fuchsia-500 dark:text-fuchsia-400' };
          case 'chat':
-           return { active: 'bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md shadow-teal-500/20', icon: 'text-teal-500 dark:text-teal-400' };
+           return { active: 'bg-gradient-to-r from-teal-500 to-accent-600 dark:to-emerald-600 text-white shadow-md shadow-teal-500/20', icon: 'text-teal-500 dark:text-teal-400' };
          case 'trivia':
            return { active: 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white shadow-md shadow-amber-500/20', icon: 'text-amber-500 dark:text-amber-400' };
          case 'ai_assistant':
            return { active: 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-500/20', icon: 'text-cyan-500 dark:text-cyan-400' };
          case 'guest_room':
-           return { active: 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/20', icon: 'text-emerald-500 dark:text-emerald-400' };
+           return { active: 'bg-gradient-to-r from-accent-600 dark:from-emerald-600 to-teal-600 text-white shadow-md shadow-accent-500/20 dark:shadow-emerald-500/20', icon: 'text-accent-500 dark:text-emerald-400' };
          case 'settings':
            return { active: 'bg-gradient-to-r from-zinc-700 to-zinc-900 text-white shadow-md shadow-zinc-500/20', icon: 'text-zinc-500 dark:text-zinc-400' };
          default:
-           return { active: 'bg-emerald-500 text-white', icon: 'text-emerald-500' };
+           return { active: 'bg-accent-500 dark:bg-emerald-500 text-white', icon: 'text-accent-500 dark:text-emerald-500' };
        }
      };
 
@@ -3531,7 +3531,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
           {partyActiveTab === 'guest_room' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
               {/* 1. RSVP Hero Section */}
-              <div className="p-6 bg-gradient-to-br from-emerald-600 via-teal-600 via-indigo-600 to-purple-700 text-white rounded-3xl shadow-xl space-y-4 relative overflow-hidden">
+              <div className="p-6 bg-gradient-to-br from-accent-600 dark:from-emerald-600 via-teal-600 via-indigo-600 to-purple-700 text-white rounded-3xl shadow-xl space-y-4 relative overflow-hidden">
                 <div className="absolute -top-12 -right-12 w-48 h-48 bg-amber-400/25 rounded-full blur-2xl pointer-events-none" />
                 <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-rose-500/25 rounded-full blur-2xl pointer-events-none" />
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-cyan-400/15 rounded-full blur-3xl pointer-events-none" />
@@ -4123,7 +4123,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
 
          {partyActiveTab === 'setup' && (
            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-             <div className="p-6 bg-gradient-to-br from-emerald-600 via-teal-600 via-indigo-600 to-purple-700 text-white rounded-3xl shadow-xl space-y-4 relative overflow-hidden">
+             <div className="p-6 bg-gradient-to-br from-accent-600 dark:from-emerald-600 via-teal-600 via-indigo-600 to-purple-700 text-white rounded-3xl shadow-xl space-y-4 relative overflow-hidden">
                <div className="absolute -top-12 -right-12 w-48 h-48 bg-amber-400/25 rounded-full blur-2xl pointer-events-none" />
                <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-rose-500/25 rounded-full blur-2xl pointer-events-none" />
                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-cyan-400/15 rounded-full blur-3xl pointer-events-none" />
@@ -4737,7 +4737,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
          {partyActiveTab === 'vibes' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
               {/* Header Banner */}
-              <section className="bg-gradient-to-br from-emerald-600 via-teal-600 to-indigo-700 text-white p-6 sm:p-8 rounded-3xl shadow-xl space-y-5 relative overflow-hidden">
+              <section className="bg-gradient-to-br from-accent-600 dark:from-emerald-600 via-teal-600 to-indigo-700 text-white p-6 sm:p-8 rounded-3xl shadow-xl space-y-5 relative overflow-hidden">
                 <div className="absolute -right-6 -bottom-6 opacity-10 pointer-events-none">
                   <Disc size={220} className="animate-spin-slow" />
                 </div>
@@ -4857,7 +4857,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
               {playlistConcept && (
                 <section className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 space-y-6">
                   {/* Overall Vibe Box */}
-                  <div className="p-4 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 rounded-2xl border border-emerald-500/20 space-y-2">
+                  <div className="p-4 bg-gradient-to-r from-accent-500/10 dark:from-emerald-500/10 via-teal-500/10 to-indigo-500/10 rounded-2xl border border-accent-500/20 dark:border-emerald-500/20 space-y-2">
                     <div className="flex justify-between items-start gap-3">
                       <div>
                         <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Curated Party Vibe</span>
@@ -5027,7 +5027,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                     <div className="p-8 text-center bg-zinc-50 dark:bg-zinc-800/40 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-700 space-y-3">
                       <Music size={32} className="mx-auto text-zinc-400" />
                       <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto">
-                        No songs on this playlist yet. Click <strong className="text-emerald-600">✨ Build AI Playlist</strong> to auto-generate songs based on guest responses or add custom songs!
+                        No songs on this playlist yet. Click <strong className="text-accent-600 dark:text-emerald-400">✨ Build AI Playlist</strong> to auto-generate songs based on guest responses or add custom songs!
                       </p>
                     </div>
                   )}
@@ -5867,7 +5867,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
  {/* Full Party Overview Banner */}
  {isFullParty && (
- <div className="p-6 bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-3xl shadow-xl space-y-4 relative overflow-hidden">
+ <div className="p-6 bg-gradient-to-br from-accent-600 dark:from-emerald-600 to-teal-700 text-white rounded-3xl shadow-xl space-y-4 relative overflow-hidden">
  <div className="flex items-center justify-between">
  <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest">
  Full Party Mode
