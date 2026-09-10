@@ -24,7 +24,7 @@ export default function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className={cn("flex flex-col items-center justify-center text-center p-8 bg-zinc-50/60 dark:bg-zinc-900/40 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl space-y-3 max-w-md mx-auto my-4", className)}>
-      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+      <div className="w-12 h-12 rounded-2xl bg-accent-500/10 dark:bg-emerald-500/10 text-accent-600 dark:text-emerald-400 flex items-center justify-center">
         <Icon size={24} />
       </div>
       <div className="space-y-1">
@@ -36,7 +36,7 @@ export default function EmptyState({
           {actionLink ? (
             <Link
               to={actionLink}
-              className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 inline-flex items-center justify-center gap-2"
+              className="px-5 py-2.5 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-accent-500/10 dark:shadow-emerald-500/10 inline-flex items-center justify-center gap-2"
             >
               {actionLabel}
             </Link>
@@ -44,7 +44,7 @@ export default function EmptyState({
             <button
               type="button"
               onClick={onAction}
-              className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 inline-flex items-center justify-center gap-2 cursor-pointer"
+              className="px-5 py-2.5 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-accent-500/10 dark:shadow-emerald-500/10 inline-flex items-center justify-center gap-2 cursor-pointer"
             >
               {actionLabel}
             </button>
