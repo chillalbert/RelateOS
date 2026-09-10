@@ -2015,7 +2015,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
             className="space-y-6"
           >
             <form onSubmit={handleCreateUnifiedRoom} className="space-y-6">
-              <div className="p-6 bg-emerald-500 text-white rounded-3xl space-y-3 shadow-xl relative overflow-hidden">
+              <div className="p-6 bg-accent-500 dark:bg-emerald-500 text-white rounded-3xl space-y-3 shadow-xl relative overflow-hidden">
                 <div className="absolute -right-4 -top-4 opacity-10 rotate-12">
                   <Gift size={120} />
                 </div>
@@ -2035,7 +2035,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                     value={partyName}
                     onChange={(e) => setPartyName(e.target.value)}
                     required 
-                    className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100" 
+                    className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100" 
                     placeholder="e.g. Sarah's 30th Celebration" 
                   />
                 </div>
@@ -2050,7 +2050,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                     }}
                     required 
                     placeholder="e.g. Sarah30" 
-                    className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100 font-mono uppercase tracking-wider" 
+                    className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100 font-mono uppercase tracking-wider" 
                   />
                   <p className="text-[10px] text-zinc-500 ml-1">Friends will enter this custom code to join the room. Min 3 characters, no spaces.</p>
                 </div>
@@ -2060,7 +2060,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                   <input 
                     value={partyPersonName}
                     onChange={(e) => setPartyPersonName(e.target.value)}
-                    className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100" 
+                    className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100" 
                     placeholder="e.g. Sarah" 
                   />
                 </div>
@@ -2071,7 +2071,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                     type="email" 
                     value={recipientEmail}
                     onChange={(e) => setRecipientEmail(e.target.value)}
-                    className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100" 
+                    className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100" 
                     placeholder="e.g. sarah@example.com" 
                   />
                   <p className="text-[10px] text-zinc-500 ml-1">Links the locker to their account for the auto-reveal on their birthday.</p>
@@ -2081,10 +2081,10 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                 <div className="p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-2 shadow-xs">
                   <label className="flex items-start gap-3 cursor-pointer">
                     <input 
-                      type="checkbox"
+                      type="checkbox" 
                       checked={isPartyRoom}
                       onChange={(e) => setIsPartyRoom(e.target.checked)}
-                      className="mt-1 w-5 h-5 rounded border-zinc-300 text-emerald-500 focus:ring-emerald-500 cursor-pointer accent-emerald-500"
+                      className="mt-1 w-5 h-5 rounded border-zinc-300 text-accent-500 dark:text-emerald-500 focus:ring-accent-500 dark:focus:ring-emerald-500 cursor-pointer accent-accent-500 dark:accent-emerald-500" 
                     />
                     <div>
                       <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
@@ -2112,7 +2112,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                           min={new Date().toISOString().split("T")[0]}
                           value={partyDate} 
                           onChange={(e) => setPartyDate(e.target.value)}
-                          className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100 text-xs" 
+                          className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100 text-xs" 
                         />
                       </div>
                       <div className="space-y-2">
@@ -2121,7 +2121,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                           type="time"
                           value={partyTime} 
                           onChange={(e) => setPartyTime(e.target.value)}
-                          className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100 text-xs" 
+                          className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100 text-xs" 
                         />
                       </div>
                     </div>
@@ -2146,7 +2146,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                             className={cn(
                               "py-2.5 px-3 rounded-xl border text-xs font-bold transition-all text-left flex items-center justify-between cursor-pointer",
                               selectedVibe === vibe 
-                                ? "bg-emerald-500 text-white border-emerald-500" 
+                                ? "bg-accent-500 text-white border-accent-500 dark:bg-emerald-500 dark:border-emerald-500" 
                                 : "bg-white dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300"
                             )}
                           >
@@ -2162,7 +2162,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                         type="number"
                         value={guestCount} 
                         onChange={(e) => setGuestCount(e.target.value)}
-                        className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100" 
+                        className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none transition-all text-zinc-900 dark:text-zinc-100" 
                         placeholder="How many people?" 
                       />
                     </div>
@@ -2172,7 +2172,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                       <textarea 
                         value={partyNotes} 
                         onChange={(e) => setPartyNotes(e.target.value)}
-                        className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-sm text-zinc-900 dark:text-zinc-100 min-h-[80px]" 
+                        className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none transition-all text-sm text-zinc-900 dark:text-zinc-100 min-h-[80px]" 
                         placeholder="Any details, theme ideas, or special requests..." 
                       />
                     </div>
@@ -2186,14 +2186,14 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                           className={cn(
                             "p-4 rounded-2xl border text-left flex flex-col gap-2 transition-all cursor-pointer h-full",
                             roomStructure === "flat"
-                              ? "bg-emerald-500 text-white border-emerald-500 shadow-md"
+                              ? "bg-accent-500 text-white border-accent-500 shadow-md dark:bg-emerald-500 dark:border-emerald-500"
                               : "bg-zinc-100 dark:bg-zinc-800 border-transparent text-zinc-600 hover:bg-zinc-200 dark:hover:bg-zinc-750"
                           )}
                         >
                           <Users size={20} className={cn(roomStructure === "flat" ? "text-white" : "text-zinc-650 dark:text-zinc-400")} />
                           <div>
                             <p className="text-xs font-bold leading-tight">Everyone's Equal</p>
-                            <p className={cn("text-[10px] leading-snug mt-1", roomStructure === "flat" ? "text-emerald-100" : "text-zinc-400")}>
+                            <p className={cn("text-[10px] leading-snug mt-1", roomStructure === "flat" ? "text-accent-100 dark:text-emerald-100" : "text-zinc-400")}>
                               Simple. Everyone can do everything.
                             </p>
                           </div>
@@ -2231,7 +2231,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                           onClick={() => setCreateRequiresAttendance(!createRequiresAttendance)}
                           className={cn(
                             "w-12 h-6 rounded-full p-1 transition-colors duration-200 focus:outline-none flex-shrink-0 cursor-pointer",
-                            createRequiresAttendance ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-700"
+                            createRequiresAttendance ? "bg-accent-500 dark:bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-700"
                           )}
                         >
                           <div
@@ -2256,7 +2256,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
               <button 
                 type="submit" 
                 disabled={isCheckingCode}
-                className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
+                className="w-full py-5 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
               >
                 {isCheckingCode ? "Checking Code..." : "Create Room"}
               </button>
@@ -2273,7 +2273,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <div className="w-8 h-8 border-4 border-accent-500 dark:border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">Loading room details...</p>
       </div>
     );
@@ -2300,7 +2300,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
           </p>
           <button
             onClick={() => navigate('/vaults')}
-            className="px-6 py-3 bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+            className="px-6 py-3 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
           >
             Back to Rooms & Vaults
           </button>
@@ -2410,7 +2410,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h3 className="font-black text-lg text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                <Calendar size={20} className="text-emerald-500" />
+                <Calendar size={20} className="text-accent-500 dark:text-emerald-500" />
                 {group?.name || 'Party'} Attendance RSVP
               </h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
@@ -2464,7 +2464,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                 {publishedThemes.length > 0 && (
                   <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
                     <h3 className="font-black text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2 uppercase tracking-wider">
-                      <Palette size={18} className="text-emerald-500" />
+                      <Palette size={18} className="text-accent-500 dark:text-emerald-500" />
                       Party Theme
                     </h3>
                     <div className="grid grid-cols-1 gap-4">
@@ -2472,7 +2472,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                         <div key={t.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 space-y-2">
                           <div className="flex items-center justify-between">
                             <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">{t.name}</h4>
-                            {t.cost && <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-black text-[10px] rounded-full border border-emerald-500/20">{t.cost}</span>}
+                            {t.cost && <span className="px-2 py-0.5 bg-accent-500/10 text-accent-600 dark:bg-emerald-500/10 dark:text-emerald-400 font-black text-[10px] rounded-full border border-accent-500/20 dark:border-emerald-500/20">{t.cost}</span>}
                           </div>
                           {t.vibe && <p className="text-xs text-zinc-600 dark:text-zinc-300"><strong>Vibe:</strong> {t.vibe}</p>}
                           {t.decorations && <p className="text-xs text-zinc-600 dark:text-zinc-300"><strong>Decorations:</strong> {t.decorations}</p>}
@@ -2486,7 +2486,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                 {publishedVenues.length > 0 && (
                   <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
                     <h3 className="font-black text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2 uppercase tracking-wider">
-                      <MapPin size={18} className="text-emerald-500" />
+                      <MapPin size={18} className="text-accent-500 dark:text-emerald-500" />
                       Venue Details
                     </h3>
                     <div className="grid grid-cols-1 gap-4">
@@ -2494,7 +2494,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                         <div key={v.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 space-y-2">
                           <div className="flex items-center justify-between">
                             <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">{v.type}</h4>
-                            {v.cost && <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-black text-[10px] rounded-full border border-emerald-500/20">{v.cost}</span>}
+                            {v.cost && <span className="px-2 py-0.5 bg-accent-500/10 text-accent-600 dark:bg-emerald-500/10 dark:text-emerald-400 font-black text-[10px] rounded-full border border-accent-500/20 dark:border-emerald-500/20">{v.cost}</span>}
                           </div>
                           {v.why && <p className="text-xs text-zinc-600 dark:text-zinc-300"><strong>Why it fits:</strong> {v.why}</p>}
                           {v.tips && <p className="text-xs text-zinc-600 dark:text-zinc-300"><strong>Tips & Parking:</strong> {v.tips}</p>}
@@ -2507,7 +2507,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                 {publishedGameIdeas.length > 0 && (
                   <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
                     <h3 className="font-black text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2 uppercase tracking-wider">
-                      <Sparkles size={18} className="text-emerald-500" />
+                      <Sparkles size={18} className="text-accent-500 dark:text-emerald-500" />
                       Games & Activities
                     </h3>
                     <div className="grid grid-cols-1 gap-4">
@@ -2515,7 +2515,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                         <div key={g.id} className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 space-y-2">
                           <div className="flex items-center justify-between">
                             <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">{g.name}</h4>
-                            {g.duration && <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">{g.duration}</span>}
+                            {g.duration && <span className="text-[10px] text-accent-600 dark:text-emerald-400 font-bold">{g.duration}</span>}
                           </div>
                           {g.description && <p className="text-xs text-zinc-600 dark:text-zinc-300">{g.description}</p>}
                           {g.materials && <p className="text-xs text-zinc-500 dark:text-zinc-400"><strong>Materials:</strong> {g.materials}</p>}
@@ -2529,12 +2529,12 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                   <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
                     <div className="flex justify-between items-center">
                       <h3 className="font-black text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2 uppercase tracking-wider">
-                        <Music size={18} className="text-emerald-500" />
+                        <Music size={18} className="text-accent-500 dark:text-emerald-500" />
                         Party Playlist & Vibes
                       </h3>
                       <button
                         onClick={() => setPartyActiveTab('vibes')}
-                        className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                        className="text-xs font-bold text-accent-600 dark:text-emerald-400 hover:underline cursor-pointer"
                       >
                         View Full Playlist →
                       </button>
@@ -2547,7 +2547,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                           {publishedPlaylist.tracks.slice(0, 5).map((tr: any, idx: number) => (
                             <div key={idx} className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className="text-[10px] font-black text-emerald-500 w-4">{idx + 1}.</span>
+                                <span className="text-[10px] font-black text-accent-500 dark:text-emerald-500 w-4">{idx + 1}.</span>
                                 <span className="font-extrabold text-zinc-800 dark:text-zinc-200 truncate">{tr.title}</span>
                                 <span className="text-zinc-400 truncate">— {tr.artist}</span>
                               </div>
@@ -2555,7 +2555,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                                 href={`https://open.spotify.com/search/${encodeURIComponent(tr.title + ' ' + tr.artist)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline shrink-0"
+                                className="text-[10px] font-bold text-accent-600 dark:text-emerald-400 hover:underline shrink-0"
                               >
                                 Spotify ↗
                               </a>
@@ -2581,7 +2581,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                 {publishedTasks.length > 0 && (
                   <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
                     <h3 className="font-black text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2 uppercase tracking-wider">
-                      <CheckSquare size={18} className="text-emerald-500" />
+                      <CheckSquare size={18} className="text-accent-500 dark:text-emerald-500" />
                       Party Checklist & Tasks
                     </h3>
                     <div className="space-y-2.5">
@@ -2594,20 +2594,20 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                                 type="checkbox"
                                 checked={!!t.completed}
                                 onChange={() => handleToggleTaskCompleted(t.id, !!t.completed)}
-                                className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                                className="w-4 h-4 rounded text-accent-500 dark:text-emerald-500 focus:ring-accent-500 dark:focus:ring-emerald-500 cursor-pointer"
                               />
                               <div className="min-w-0 flex-1">
                                 <p className={cn("text-xs font-bold transition-all", t.completed ? "line-through text-zinc-400" : "text-zinc-800 dark:text-zinc-200")}>
                                   {t.title}
                                 </p>
                                 {assigneeName && (
-                                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+                                  <span className="text-[10px] text-accent-600 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
                                     <User size={10} /> Assigned to: {assigneeName}
                                   </span>
                                 )}
                               </div>
                             </div>
-                            <span className={cn("px-2 py-0.5 text-[10px] font-bold rounded-full", t.completed ? "bg-emerald-500/10 text-emerald-500" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-500")}>
+                            <span className={cn("px-2 py-0.5 text-[10px] font-bold rounded-full", t.completed ? "bg-accent-500/10 text-accent-500 dark:bg-emerald-500/10 dark:text-emerald-500" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-500")}>
                               {t.completed ? 'Completed' : 'To Do'}
                             </span>
                           </div>
@@ -2622,7 +2622,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
             {tier === 'full' && (
               <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
                 <h3 className="font-black text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2 uppercase tracking-wider">
-                  <MessageSquare size={18} className="text-emerald-500" />
+                  <MessageSquare size={18} className="text-accent-500 dark:text-emerald-500" />
                   Party Chat
                 </h3>
                 <div className="h-64 overflow-y-auto space-y-3 p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200/60 dark:border-zinc-700">
@@ -2630,7 +2630,7 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                     <p className="text-xs text-zinc-400 italic text-center p-4">No messages yet. Say hi!</p>
                   ) : (
                     chatMessages.filter((m: any) => (m.channel || 'everyone') === 'everyone').map((m: any) => (
-                      <div key={m.id} className={cn("p-3 rounded-2xl text-xs max-w-[85%] space-y-1", m.user_id === firebaseUser?.uid ? "ml-auto bg-emerald-500 text-white font-medium" : "bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700")}>
+                      <div key={m.id} className={cn("p-3 rounded-2xl text-xs max-w-[85%] space-y-1", m.user_id === firebaseUser?.uid ? "ml-auto bg-accent-500 dark:bg-emerald-500 text-white font-medium" : "bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700")}>
                         <p className="text-[10px] opacity-75 font-bold">{m.user_name || 'Guest'}</p>
                         <p>{m.text}</p>
                       </div>
@@ -2643,9 +2643,9 @@ CRITICAL STYLING RULE: Do NOT use any emojis in your response. Keep all text pur
                     onChange={(e) => setNewMessageText(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
                     placeholder="Type a message to everyone..."
-                    className="flex-1 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs outline-none focus:border-emerald-500"
+                    className="flex-1 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-xs outline-none focus:border-accent-500 dark:focus:border-emerald-500"
                   />
-                  <button onClick={() => handleSendChatMessage()} className="px-4 py-3 bg-emerald-500 text-white text-xs font-bold rounded-xl cursor-pointer">
+                  <button onClick={() => handleSendChatMessage()} className="px-4 py-3 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-xs font-bold rounded-xl cursor-pointer">
                     <Send size={14} />
                   </button>
                 </div>
@@ -3663,7 +3663,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                         setLinkCopied(true);
                         setTimeout(() => setLinkCopied(false), 2000);
                       }} 
-                      className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.99] text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/10 text-sm cursor-pointer"
+                      className="w-full py-3.5 bg-accent-500 hover:bg-accent-600 active:scale-[0.99] text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-accent-500/10 dark:bg-emerald-500 dark:hover:bg-emerald-600 dark:shadow-emerald-500/10 text-sm cursor-pointer"
                     >
                       <Share2 size={16} />
                       {linkCopied ? "Link copied!" : "Share Party Link"}
@@ -3810,12 +3810,12 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                     <button
                       onClick={handleSaveGuestAiNote}
                       disabled={isSavingGuestNote}
-                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all disabled:opacity-50"
+                      className="px-4 py-2 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-all disabled:opacity-50"
                     >
                       {isSavingGuestNote ? 'Saving...' : 'Save Notes'}
                     </button>
                     {guestNoteSavedSuccess && (
-                      <span className="text-xs font-bold text-emerald-500">Saved!</span>
+                      <span className="text-xs font-bold text-accent-500 dark:text-emerald-500">Saved!</span>
                     )}
                   </div>
                 </section>
@@ -3932,14 +3932,14 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                   {publishedTasks.length > 0 && (
                     <section className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700 dark:border-t-white/5 dark:shadow-lg space-y-4">
                       <h3 className="font-black text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2 uppercase tracking-wider">
-                        <CheckSquare size={18} className="text-emerald-500" />
+                        <CheckSquare size={18} className="text-accent-500 dark:text-emerald-500" />
                         Party Checklist
                       </h3>
                       <div className="space-y-2.5">
                         {publishedTasks.map((t: any) => (
                           <div key={t.id} className="p-3.5 bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-700 flex items-center justify-between gap-3">
                             <p className="text-xs font-extrabold text-zinc-800 dark:text-zinc-200">{t.title}</p>
-                            {t.completed && <span className="text-[10px] font-bold text-emerald-500">Completed</span>}
+                            {t.completed && <span className="text-[10px] font-bold text-accent-500 dark:text-emerald-500">Completed</span>}
                           </div>
                         ))}
                       </div>
@@ -3998,7 +3998,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => setNewPollOptions(prev => [...prev, ''])} className="flex-1 py-2 bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold">+ Option</button>
-                        <button onClick={handleAddCustomPoll} disabled={!newPollQuestion.trim()} className="flex-1 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold disabled:opacity-50">Post Poll</button>
+                        <button onClick={handleAddCustomPoll} disabled={!newPollQuestion.trim()} className="flex-1 py-2 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl text-xs font-bold disabled:opacity-50">Post Poll</button>
                       </div>
                     </div>
                   )}
@@ -4009,16 +4009,16 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
               {canSeeFullDetails && (
                 <section className="space-y-4">
                   <h3 className="font-extrabold text-base flex items-center gap-2">
-                    <MessageSquare size={20} className="text-emerald-500" />
+                    <MessageSquare size={20} className="text-accent-500 dark:text-emerald-500" />
                     Party Chat
                   </h3>
                   <div className="flex flex-col h-[500px] bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 overflow-hidden shadow-xl">
                     {isPlannerOrAdmin && (
                       <div className="flex border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/20 p-2.5 gap-2 shrink-0">
-                        <button onClick={() => setSelectedChatChannel('everyone')} className={cn("flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer font-sans", selectedChatChannel === 'everyone' ? "bg-emerald-500 text-white shadow-sm" : "bg-transparent text-zinc-400")}>
+                        <button onClick={() => setSelectedChatChannel('everyone')} className={cn("flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer font-sans", selectedChatChannel === 'everyone' ? "bg-accent-500 dark:bg-emerald-500 text-white shadow-sm" : "bg-transparent text-zinc-400")}>
                           Everyone Chat
                         </button>
-                        <button onClick={() => setSelectedChatChannel('admin_planner')} className={cn("flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer font-sans", selectedChatChannel === 'admin_planner' ? "bg-emerald-500 text-white shadow-sm" : "bg-transparent text-zinc-400")}>
+                        <button onClick={() => setSelectedChatChannel('admin_planner')} className={cn("flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer font-sans", selectedChatChannel === 'admin_planner' ? "bg-accent-500 dark:bg-emerald-500 text-white shadow-sm" : "bg-transparent text-zinc-400")}>
                           Coordinator Chat (Admins & Planners)
                         </button>
                       </div>
@@ -4046,7 +4046,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                     </div>
                     <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 flex gap-2 items-center">
                       <input value={newMessageText} onChange={(e) => setNewMessageText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSendChatMessage(); } }} className="flex-1 p-3 px-4 rounded-full bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-sm outline-none" placeholder="Send message..." />
-                      <button onClick={handleSendChatMessage} className="p-3 bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0 w-11 h-11">
+                      <button onClick={handleSendChatMessage} className="p-3 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-full flex items-center justify-center shrink-0 w-11 h-11">
                         <Send size={18} />
                       </button>
                     </div>
@@ -4104,7 +4104,7 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                                 <button
                                   onClick={() => handleSaveAnswer(q.id)}
                                   disabled={isSavingAnswers[q.id] || !currentAnswer.trim()}
-                                  className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shrink-0 cursor-pointer disabled:opacity-50"
+                                  className="px-3.5 py-2 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shrink-0 cursor-pointer disabled:opacity-50"
                                 >
                                   {existingResp ? 'Update' : 'Submit'}
                                 </button>
