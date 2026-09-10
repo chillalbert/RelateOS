@@ -399,7 +399,7 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-zinc-50 dark:bg-zinc-950">
+      <div className="flex flex-col items-center justify-center h-screen bg-[#FDF3EC] dark:bg-zinc-950">
         <motion.div 
           animate={{ scale: [1, 1.15, 1] }}
           transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
@@ -415,7 +415,7 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
   }
 
   return (
-    <div className={`flex flex-col h-[100dvh] max-h-[100dvh] overflow-hidden transition-all duration-500 ${isPrivateMode ? 'bg-zinc-950/95 dark:bg-zinc-950' : 'bg-zinc-50 dark:bg-zinc-950'}`}>
+    <div className={`flex flex-col h-[100dvh] max-h-[100dvh] overflow-hidden transition-all duration-500 ${isPrivateMode ? 'bg-zinc-950/95 dark:bg-zinc-950' : 'bg-[#FDF3EC] dark:bg-zinc-950'}`}>
       {/* Header */}
       <header className={`sticky top-0 z-40 backdrop-blur-xl border-b flex justify-between items-center px-3 sm:px-4 py-3 sm:py-4 shrink-0 ${
         isPrivateMode 
