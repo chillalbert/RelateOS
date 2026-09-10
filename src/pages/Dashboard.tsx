@@ -751,7 +751,7 @@ export default function Dashboard() {
  if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
  return (
- <div className="pb-24 pt-[calc(1.5rem+var(--sat))] px-4 max-w-2xl mx-auto space-y-8 min-h-screen bg-zinc-50 dark:bg-black">
+ <div className="pb-24 pt-[calc(1.5rem+var(--sat))] px-4 max-w-2xl mx-auto space-y-8 min-h-screen bg-[#FDF3EC] dark:bg-black">
  {/* Header */}
  <header className="flex justify-between items-center">
  <div className="flex items-center gap-3">
