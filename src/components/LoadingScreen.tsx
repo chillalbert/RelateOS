@@ -23,7 +23,7 @@ export default function LoadingScreen() {
               ease: "easeInOut" 
             }}
           >
-            <Sparkles size={40} className="text-emerald-500" />
+            <Sparkles size={40} className="text-accent-500 dark:text-emerald-400" />
           </motion.div>
         </div>
         
@@ -31,7 +31,7 @@ export default function LoadingScreen() {
         {[...Array(6)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute w-1 h-1 bg-emerald-400 rounded-full"
+            className="absolute w-1 h-1 bg-accent-400 dark:bg-emerald-400 rounded-full"
             animate={{
               x: [0, (i % 2 === 0 ? 1 : -1) * (20 + Math.random() * 40)],
               y: [0, (i < 3 ? 1 : -1) * (20 + Math.random() * 40)],
@@ -62,17 +62,17 @@ export default function LoadingScreen() {
           <motion.div
             animate={{ opacity: [0.3, 1, 0.3] }}
             transition={{ duration: 1.5, repeat: Infinity, delay: 0 }}
-            className="w-1.5 h-1.5 bg-emerald-500 rounded-full"
+            className="w-1.5 h-1.5 bg-accent-500 dark:bg-emerald-500 rounded-full"
           />
           <motion.div
             animate={{ opacity: [0.3, 1, 0.3] }}
             transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
-            className="w-1.5 h-1.5 bg-emerald-500 rounded-full"
+            className="w-1.5 h-1.5 bg-accent-500 dark:bg-emerald-500 rounded-full"
           />
           <motion.div
             animate={{ opacity: [0.3, 1, 0.3] }}
             transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
-            className="w-1.5 h-1.5 bg-emerald-500 rounded-full"
+            className="w-1.5 h-1.5 bg-accent-500 dark:bg-emerald-500 rounded-full"
           />
         </div>
       </motion.div>
