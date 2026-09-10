@@ -119,7 +119,7 @@ export default function Groups() {
           </div>
           <p className="text-zinc-500 text-sm">Secret spaces for party planning & surprise celebrations</p>
         </div>
-        <Link to="/rooms/create" className="p-2.5 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 hover:scale-105 transition-all shadow-md shadow-emerald-500/20" title="Create Room">
+        <Link to="/rooms/create" className="p-2.5 rounded-full bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white hover:scale-105 transition-all shadow-md shadow-accent-500/20 dark:shadow-emerald-500/20" title="Create Room">
           <Plus size={22} />
         </Link>
       </header>
@@ -127,7 +127,7 @@ export default function Groups() {
       {/* JOIN WITH CODE CARD */}
       <div className="bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 border-t border-t-white/5 rounded-3xl p-5 shadow-sm dark:shadow-lg space-y-3 text-left">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-2xl bg-accent-500/10 text-accent-600 dark:bg-emerald-500/10 dark:text-emerald-400 flex items-center justify-center">
             <Key size={20} />
           </div>
           <div>
@@ -145,12 +145,12 @@ export default function Groups() {
               if (joinError) setJoinError('');
             }}
             placeholder="e.g. Alex or Sarah30"
-            className="flex-1 px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-2xl font-mono text-sm uppercase tracking-wider outline-none focus:ring-1 focus:ring-emerald-500 text-zinc-900 dark:text-white"
+            className="flex-1 px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-2xl font-mono text-sm uppercase tracking-wider outline-none focus:ring-1 focus:ring-accent-500 dark:focus:ring-emerald-500 text-zinc-900 dark:text-white"
           />
           <button
             type="submit"
             disabled={isJoining || !joinCodeInput.trim()}
-            className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs rounded-2xl transition-all shadow-md shadow-emerald-500/10 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+            className="px-6 py-3 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs rounded-2xl transition-all shadow-md shadow-accent-500/10 dark:shadow-emerald-500/10 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
           >
             {isJoining ? 'Joining...' : 'Join Room'}
           </button>
@@ -165,7 +165,7 @@ export default function Groups() {
       <section className="space-y-4">
         {loading ? (
           <div className="flex justify-center p-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-500 dark:border-emerald-500"></div>
           </div>
         ) : groups.length > 0 ? (
           <div className="grid grid-cols-1 gap-4">
@@ -182,15 +182,15 @@ export default function Groups() {
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-2xl bg-accent-500/10 text-accent-600 dark:bg-emerald-500/10 dark:text-emerald-400 flex items-center justify-center">
                         <Users size={24} />
                       </div>
                       <div>
-                        <h3 className="font-bold text-lg group-hover:text-emerald-500 transition-colors">{group.name}</h3>
+                        <h3 className="font-bold text-lg group-hover:text-accent-500 dark:group-hover:text-emerald-400 transition-colors">{group.name}</h3>
                         <p className="text-xs text-zinc-400 uppercase font-bold tracking-wider">Secret for {group.person_name}</p>
                       </div>
                     </div>
-                    <ChevronRight size={20} className="text-zinc-300 group-hover:text-emerald-500 transition-colors" />
+                    <ChevronRight size={20} className="text-zinc-300 group-hover:text-accent-500 dark:group-hover:text-emerald-400 transition-colors" />
                   </div>
                   
                   <div className="flex items-center justify-between pt-4 border-t border-zinc-50 dark:border-zinc-700">
