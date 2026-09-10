@@ -955,7 +955,7 @@ export default function OnboardingFlow() {
 
   // STEP CONTENT VIEW
   return (
-    <div className="min-h-[100dvh] bg-zinc-50 dark:bg-black text-zinc-900 dark:text-white flex items-center justify-center p-3 sm:p-4 py-6 sm:py-10 pt-[max(1rem,var(--sat))] overflow-y-auto select-none">
+    <div className="min-h-[100dvh] bg-[#FDF3EC] dark:bg-black text-zinc-900 dark:text-white flex items-center justify-center p-3 sm:p-4 py-6 sm:py-10 pt-[max(1rem,var(--sat))] overflow-y-auto select-none">
       <motion.div
         initial={{ scale: 0.85, opacity: 0 }}
         animate={isZoomingOut ? { scale: 0.8, opacity: 0 } : { scale: 1, opacity: 1 }}
