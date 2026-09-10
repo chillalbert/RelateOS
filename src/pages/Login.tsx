@@ -154,7 +154,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 pt-[var(--sat)]">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#FDF3EC] dark:bg-zinc-950 pt-[var(--sat)]">
       <motion.div 
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
