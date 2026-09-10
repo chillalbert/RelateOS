@@ -81,10 +81,10 @@ export default function ConstellationView({
       {/* Background ambient stars */}
       <div className={`absolute inset-0 pointer-events-none ${isLight ? 'opacity-30' : 'opacity-40'}`}>
         <div className={`absolute top-1/4 left-1/6 w-1 h-1 rounded-full ${isLight ? 'bg-zinc-700' : 'bg-white'}`} />
-        <div className="absolute top-1/3 right-1/4 w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+        <div className="absolute top-1/3 right-1/4 w-1.5 h-1.5 bg-accent-500 dark:bg-emerald-500 rounded-full" />
         <div className="absolute bottom-1/4 left-1/3 w-1 h-1 bg-teal-500 rounded-full" />
         <div className={`absolute bottom-1/3 right-1/6 w-1 h-1 rounded-full ${isLight ? 'bg-zinc-700' : 'bg-white'}`} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-500/5 rounded-full pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-accent-500/5 dark:bg-emerald-500/5 rounded-full pointer-events-none" />
       </div>
 
       {/* Top Header Badge */}
@@ -96,10 +96,10 @@ export default function ConstellationView({
       >
         <div className={`inline-flex items-center gap-2 px-3.5 py-1 rounded-full border text-xs font-semibold tracking-wide shadow-sm ${
           isLight 
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+            ? 'bg-accent-50 border-accent-200 text-accent-700' 
             : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
         }`}>
-          <Sparkles size={13} className={isLight ? 'text-emerald-600' : 'text-emerald-400'} />
+          <Sparkles size={13} className={isLight ? 'text-accent-600' : 'text-emerald-400'} />
           <span>Step {activeStepIndex + 1} of 7: {activeNode.label}</span>
         </div>
       </motion.div>
@@ -240,7 +240,7 @@ export default function ConstellationView({
         <button
           type="button"
           onClick={onEnterStep}
-          className="w-full py-3.5 px-6 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.99] text-white font-bold text-xs rounded-2xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer"
+          className="w-full py-3.5 px-6 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 active:scale-[0.99] text-white font-bold text-xs rounded-2xl transition-all shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer"
         >
           <span>Open {activeNode.label}</span>
           <ArrowRight size={14} />
