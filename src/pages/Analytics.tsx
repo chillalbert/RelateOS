@@ -348,7 +348,7 @@ export default function Analytics() {
   const COLORS = ['#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6'];
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24 text-zinc-900 dark:text-zinc-100">
+    <div className="min-h-screen bg-[#FDF3EC] dark:bg-zinc-950 pb-24 text-zinc-900 dark:text-zinc-100">
       <header className="p-6 pt-[calc(1.5rem+var(--sat))] flex items-center justify-between bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10">
         <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white">
           <ArrowLeft size={24} />
