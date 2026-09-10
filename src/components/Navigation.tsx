@@ -75,7 +75,7 @@ export default function Navigation() {
       {/* Left side */}
       <Link 
         to="/" 
-        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/') ? "text-accent-500 dark:text-emerald-400 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
         title="Home Dashboard"
       >
         <Home size={17} />
@@ -83,7 +83,7 @@ export default function Navigation() {
       </Link>
       <Link 
         to="/calendar" 
-        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/calendar') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/calendar') ? "text-accent-500 dark:text-emerald-400 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
         title="Birthday Calendar"
       >
         <Calendar size={17} />
@@ -91,7 +91,7 @@ export default function Navigation() {
       </Link>
       <Link 
         to="/rooms" 
-        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/rooms') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/rooms') ? "text-accent-500 dark:text-emerald-400 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
         title="Party Planning Rooms"
       >
         <Gift size={17} />
@@ -112,7 +112,7 @@ export default function Navigation() {
       {/* Right side */}
       <Link 
         to="/vaults" 
-        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/vaults') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/vaults') ? "text-accent-500 dark:text-emerald-400 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
         title="Memory Vaults"
       >
         <Shield size={17} />
@@ -122,7 +122,7 @@ export default function Navigation() {
       </Link>
       <Link 
         to="/analytics" 
-        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/analytics') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/analytics') ? "text-accent-500 dark:text-emerald-400 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
         title="Friendship Analytics"
       >
         <BarChart3 size={17} />
@@ -132,7 +132,7 @@ export default function Navigation() {
       </Link>
       <Link 
         to="/coach" 
-        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/coach') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/coach') ? "text-accent-500 dark:text-emerald-400 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
         title="AI Relationship Coach"
       >
         <Brain size={17} />
@@ -142,7 +142,7 @@ export default function Navigation() {
       </Link>
       <Link 
         to="/settings" 
-        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/settings') ? "text-emerald-500 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
+        className={cn("flex flex-col items-center p-1 px-0.5 sm:px-1 transition-colors min-w-0 flex-1 text-center", isActive('/settings') ? "text-accent-500 dark:text-emerald-400 font-bold" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white")}
         title="Settings"
       >
         <Settings size={17} />
