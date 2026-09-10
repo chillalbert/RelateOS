@@ -311,7 +311,7 @@ export default function PublicProfileCollector() {
   // Loading spinner
   if (isLoading || isSearching) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950">
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#FDF3EC] dark:bg-zinc-950">
         <div className="w-12 h-12 border-4 border-accent-500 dark:border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-zinc-550 dark:text-zinc-400 font-bold text-xs tracking-tight uppercase">Scanning Orbit...</p>
       </div>
@@ -321,7 +321,7 @@ export default function PublicProfileCollector() {
   // Guest Handling View: If visitor is NOT logged in, freeze screen with a marketing card
   if (!firebaseUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 select-none">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[#FDF3EC] dark:bg-zinc-950 select-none">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -370,7 +370,7 @@ export default function PublicProfileCollector() {
 
   if (isBlocked) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 select-none">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[#FDF3EC] dark:bg-zinc-950 select-none">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -409,7 +409,7 @@ export default function PublicProfileCollector() {
   // Profile not found
   if (!hostUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[#FDF3EC] dark:bg-zinc-950">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -441,7 +441,7 @@ export default function PublicProfileCollector() {
   
   if (isBlockedByHost) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 select-none">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[#FDF3EC] dark:bg-zinc-950 select-none">
         <motion.div 
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
@@ -470,7 +470,7 @@ export default function PublicProfileCollector() {
   // Host Private Shield Check
   if (hostUser.is_private) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 select-none">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[#FDF3EC] dark:bg-zinc-950 select-none">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -497,7 +497,7 @@ export default function PublicProfileCollector() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 pt-[var(--sat)] select-none">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#FDF3EC] dark:bg-zinc-950 pt-[var(--sat)] select-none">
       <motion.div 
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
