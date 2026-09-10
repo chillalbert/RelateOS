@@ -273,7 +273,7 @@ export default function AdminPanel() {
             {/* Core Settings Card */}
             <section className="p-6 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-5 shadow-sm">
               <div className="flex items-center gap-2 pb-3 border-b border-zinc-100 dark:border-zinc-800">
-                <Sliders size={18} className="text-emerald-500" />
+                <Sliders size={18} className="text-accent-500 dark:text-emerald-400" />
                 <h2 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">Daily Rules & Rewards</h2>
               </div>
 
@@ -285,7 +285,7 @@ export default function AdminPanel() {
                 <select
                   value={config.dailyActionType}
                   onChange={e => setConfig({ ...config, dailyActionType: e.target.value })}
-                  className="w-full px-3 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
                 >
                   <option value="check_in">Daily Check-In</option>
                   <option value="note_edit">Note or AI Note Update</option>
@@ -308,7 +308,7 @@ export default function AdminPanel() {
                     max="365"
                     value={config.cycleLengthDays}
                     onChange={e => setConfig({ ...config, cycleLengthDays: parseInt(e.target.value) || 1 })}
-                    className="w-full px-3 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
                   />
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                     Days needed to trigger the next feature unlock.
@@ -326,7 +326,7 @@ export default function AdminPanel() {
                     max="1000"
                     value={config.auraPerDay}
                     onChange={e => setConfig({ ...config, auraPerDay: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
                   />
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                     Aura tokens granted per active day.
@@ -360,7 +360,7 @@ export default function AdminPanel() {
                         streakFreeze: parseInt(e.target.value) || 0
                       }
                     })}
-                    className="w-full px-3 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
                   />
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Default: 20 Aura</p>
                 </div>
@@ -382,7 +382,7 @@ export default function AdminPanel() {
                         customAccentColor: parseInt(e.target.value) || 0
                       }
                     })}
-                    className="w-full px-3 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
                   />
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Default: 30 Aura</p>
                 </div>
@@ -404,7 +404,7 @@ export default function AdminPanel() {
                         bonusEnrichment: parseInt(e.target.value) || 0
                       }
                     })}
-                    className="w-full px-3 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
                   />
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Default: 40 Aura</p>
                 </div>
@@ -421,7 +421,7 @@ export default function AdminPanel() {
                 <button
                   type="button"
                   onClick={addUnlockItem}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl bg-accent-500/10 text-accent-500 hover:bg-accent-500/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   <Plus size={14} />
                   <span>Add Item</span>
@@ -527,7 +527,7 @@ export default function AdminPanel() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full py-3.5 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                className="w-full py-3.5 px-4 rounded-2xl bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
               >
                 <Save size={18} />
                 <span>{saving ? 'Saving to Firestore...' : 'Save Gamification Settings'}</span>
