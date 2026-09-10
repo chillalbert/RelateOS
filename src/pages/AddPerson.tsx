@@ -23,6 +23,11 @@ export default function AddPerson() {
   const [birthMonth, setBirthMonth] = React.useState('');
   const [birthDay, setBirthDay] = React.useState('');
   const [birthYear, setBirthYear] = React.useState('');
+  const [dateMode, setDateMode] = React.useState<'birthday' | 'other'>('birthday');
+  const [otherEventLabel, setOtherEventLabel] = React.useState('');
+  const [otherEventDate, setOtherEventDate] = React.useState('');
+  const [otherEventYearUnknown, setOtherEventYearUnknown] = React.useState(false);
+  const [otherEventType, setOtherEventType] = React.useState<'custom' | 'anniversary'>('custom');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -33,29 +38,56 @@ export default function AddPerson() {
     setIsSubmitting(true);
     setError(null);
     try {
-      const yearStr = birthYear.trim();
-      const monthStr = birthMonth;
-      const dayStr = birthDay.trim().padStart(2, '0');
-      
-      const hasYear = yearStr.length > 0;
-      const birthdayStr = hasYear ? `${yearStr}-${monthStr}-${dayStr}` : `1900-${monthStr}-${dayStr}`;
-
       const peopleRef = collection(db, 'people');
-      await addDoc(peopleRef, {
-        ...formData,
-        birthday: birthdayStr,
-        birthYearUnknown: !hasYear,
-        user_id: firebaseUser.uid,
-        created_at: serverTimestamp(),
-        updated_at: serverTimestamp(),
-        reminder_settings: {
-          "30_days": true,
-          "7_days": true,
-          "morning": true
-        }
-      });
+      let docRef;
 
-      if (birthdayStr && !user?.initialTaskCompleted) {
+      if (dateMode === 'birthday') {
+        const yearStr = birthYear.trim();
+        const monthStr = birthMonth;
+        const dayStr = birthDay.trim().padStart(2, '0');
+        
+        const hasYear = yearStr.length > 0;
+        const birthdayStr = hasYear ? `${yearStr}-${monthStr}-${dayStr}` : `1900-${monthStr}-${dayStr}`;
+
+        docRef = await addDoc(peopleRef, {
+          ...formData,
+          birthday: birthdayStr,
+          birthYearUnknown: !hasYear,
+          user_id: firebaseUser.uid,
+          created_at: serverTimestamp(),
+          updated_at: serverTimestamp(),
+          reminder_settings: {
+            "30_days": true,
+            "7_days": true,
+            "morning": true
+          }
+        });
+      } else {
+        docRef = await addDoc(peopleRef, {
+          ...formData,
+          birthday: '1900-01-01',
+          birthYearUnknown: true,
+          birthday_unset: true,
+          user_id: firebaseUser.uid,
+          created_at: serverTimestamp(),
+          updated_at: serverTimestamp(),
+          reminder_settings: {
+            "30_days": true,
+            "7_days": true,
+            "morning": true
+          }
+        });
+
+        await addDoc(collection(db, 'people', docRef.id, 'events'), {
+          label: otherEventLabel.trim(),
+          date: otherEventDate,
+          year_unknown: otherEventYearUnknown,
+          type: otherEventType,
+          created_at: serverTimestamp()
+        });
+      }
+
+      if (!user?.initialTaskCompleted) {
         const userRef = doc(db, 'users', firebaseUser.uid);
         await updateDoc(userRef, {
           initialTaskCompleted: true,
@@ -107,7 +139,7 @@ export default function AddPerson() {
             <input
               type="text"
               required
-              className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500"
+              className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
               placeholder="e.g. Sarah Jenkins"
               value={formData.name || ''}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -119,62 +151,139 @@ export default function AddPerson() {
               <label className="text-xs font-bold uppercase text-zinc-400">Nickname</label>
               <input
                 type="text"
-                className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500"
+                className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
                 placeholder="Optional"
                 value={formData.nickname || ''}
                 onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold uppercase text-zinc-400 block">Birthday</label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <select
-                  required
-                  className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 appearance-none text-zinc-900 dark:text-zinc-100"
-                  value={birthMonth}
-                  onChange={(e) => setBirthMonth(e.target.value)}
+            <div className="space-y-3">
+              <div className="flex justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDateMode('birthday')}
+                  className={`flex-1 py-3 px-2 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+                    dateMode === 'birthday' 
+                    ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-lg' 
+                    : 'bg-white dark:bg-zinc-900 text-zinc-400 border border-zinc-100 dark:border-zinc-800 hover:border-zinc-300'
+                  }`}
                 >
-                  <option value="" disabled>Month</option>
-                  <option value="01">January</option>
-                  <option value="02">February</option>
-                  <option value="03">March</option>
-                  <option value="04">April</option>
-                  <option value="05">May</option>
-                  <option value="06">June</option>
-                  <option value="07">July</option>
-                  <option value="08">August</option>
-                  <option value="09">September</option>
-                  <option value="10">October</option>
-                  <option value="11">November</option>
-                  <option value="12">December</option>
-                </select>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  max="31"
-                  placeholder="Day"
-                  className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500"
-                  value={birthDay}
-                  onChange={(e) => setBirthDay(e.target.value)}
-                />
-                <input
-                  type="number"
-                  placeholder="Year (optional)"
-                  min="1900"
-                  max={new Date().getFullYear()}
-                  className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500"
-                  value={birthYear}
-                  onChange={(e) => setBirthYear(e.target.value)}
-                />
+                  I know their Birthday
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDateMode('other')}
+                  className={`flex-1 py-3 px-2 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+                    dateMode === 'other' 
+                    ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-lg' 
+                    : 'bg-white dark:bg-zinc-900 text-zinc-400 border border-zinc-100 dark:border-zinc-800 hover:border-zinc-300'
+                  }`}
+                >
+                  I only know another date
+                </button>
               </div>
+
+              {dateMode === 'birthday' ? (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-zinc-400 block">Birthday</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <select
+                      required
+                      className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 appearance-none text-zinc-900 dark:text-zinc-100"
+                      value={birthMonth}
+                      onChange={(e) => setBirthMonth(e.target.value)}
+                    >
+                      <option value="" disabled>Month</option>
+                      <option value="01">January</option>
+                      <option value="02">February</option>
+                      <option value="03">March</option>
+                      <option value="04">April</option>
+                      <option value="05">May</option>
+                      <option value="06">June</option>
+                      <option value="07">July</option>
+                      <option value="08">August</option>
+                      <option value="09">September</option>
+                      <option value="10">October</option>
+                      <option value="11">November</option>
+                      <option value="12">December</option>
+                    </select>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="31"
+                      placeholder="Day"
+                      className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
+                      value={birthDay}
+                      onChange={(e) => setBirthDay(e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Year (optional)"
+                      min="1900"
+                      max={new Date().getFullYear()}
+                      className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
+                      value={birthYear}
+                      onChange={(e) => setBirthYear(e.target.value)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold uppercase text-zinc-400">Occasion / Event Label</label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
+                      placeholder="e.g. Anniversary, First Met"
+                      value={otherEventLabel}
+                      onChange={(e) => setOtherEventLabel(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase text-zinc-400">Date</label>
+                      <input
+                        type="date"
+                        required
+                        className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 text-zinc-900 dark:text-zinc-100"
+                        value={otherEventDate}
+                        onChange={(e) => setOtherEventDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold uppercase text-zinc-400">Event Type</label>
+                      <select
+                        className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 appearance-none text-zinc-900 dark:text-zinc-100"
+                        value={otherEventType}
+                        onChange={(e) => setOtherEventType(e.target.value as 'custom' | 'anniversary')}
+                      >
+                        <option value="custom">Custom</option>
+                        <option value="anniversary">Anniversary</option>
+                      </select>
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer pt-1">
+                    <input
+                      type="checkbox"
+                      checked={otherEventYearUnknown}
+                      onChange={(e) => setOtherEventYearUnknown(e.target.checked)}
+                      className="rounded border-zinc-300 dark:border-zinc-700 text-accent-500 dark:text-emerald-500 focus:ring-accent-500 dark:focus:ring-emerald-500 w-4 h-4"
+                    />
+                    <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                      I don't know the year
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="space-y-1">
             <label className="text-xs font-bold uppercase text-zinc-400">Relationship Category</label>
             <select
-              className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 appearance-none"
+              className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 appearance-none"
               value={formData.category || ''}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
             >
@@ -189,7 +298,7 @@ export default function AddPerson() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold uppercase text-zinc-400">Importance Level</label>
-              <span className="text-[11px] font-semibold text-emerald-500 dark:text-emerald-400">
+              <span className="text-[11px] font-semibold text-accent-500 dark:text-emerald-400">
                 {formData.importance === 1 && "1 = Casual / Low"}
                 {formData.importance === 2 && "2 = Moderate"}
                 {formData.importance === 3 && "3 = Important"}
@@ -223,7 +332,7 @@ export default function AddPerson() {
             <label className="text-xs font-bold uppercase text-zinc-400">Interests (for AI jokes/facts)</label>
             <input
               type="text"
-              className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500"
+              className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
               placeholder="e.g. Eagles, Dodgers, Warriors"
               value={formData.interests || ''}
               onChange={(e) => setFormData({ ...formData, interests: e.target.value })}
@@ -233,7 +342,7 @@ export default function AddPerson() {
           <div className="space-y-1">
             <label className="text-xs font-bold uppercase text-zinc-400">Initial Notes</label>
             <textarea
-              className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 min-h-[100px]"
+              className="w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 min-h-[100px]"
               placeholder="Interests, gift ideas, or how you met..."
               value={formData.notes || ''}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -244,7 +353,7 @@ export default function AddPerson() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-bold text-lg shadow-xl shadow-emerald-500/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100"
+          className="w-full py-5 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-accent-500/20 dark:shadow-emerald-500/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100"
         >
           {isSubmitting ? (
             <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
