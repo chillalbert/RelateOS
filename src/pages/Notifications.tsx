@@ -411,7 +411,7 @@ export default function Notifications() {
   const getIcon = (type: string) => {
     switch (type) {
       case 'birthday': return <Calendar className="text-amber-500" size={20} />;
-      case 'group': return <Users className="text-emerald-500" size={20} />;
+      case 'group': return <Users className="text-accent-500 dark:text-emerald-400" size={20} />;
       case 'task': return <CheckCircle className="text-blue-500" size={20} />;
       default: return <Bell className="text-zinc-400" size={20} />;
     }
@@ -436,7 +436,7 @@ export default function Notifications() {
                     await markAsRead(n.id);
                   }
                 }}
-                className="text-[10px] font-black text-emerald-500 uppercase tracking-wider hover:underline"
+                className="text-[10px] font-black text-accent-500 dark:text-emerald-400 uppercase tracking-wider hover:underline"
               >
                 Mark all read
               </button>
@@ -452,7 +452,7 @@ export default function Notifications() {
             onClick={() => setActiveTab('notifications')}
             className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${
               activeTab === 'notifications'
-                ? 'bg-white dark:bg-zinc-700 text-emerald-555 dark:text-emerald-400 shadow-sm'
+                ? 'bg-white dark:bg-zinc-700 text-accent-600 dark:text-emerald-400 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
             }`}
           >
@@ -462,7 +462,7 @@ export default function Notifications() {
             onClick={() => setActiveTab('activities')}
             className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${
               activeTab === 'activities'
-                ? 'bg-white dark:bg-zinc-700 text-emerald-555 dark:text-emerald-400 shadow-sm'
+                ? 'bg-white dark:bg-zinc-700 text-accent-600 dark:text-emerald-400 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
             }`}
           >
@@ -522,7 +522,7 @@ export default function Notifications() {
                               <Link 
                                 to={notif.link}
                                 onClick={() => markAsRead(notif.id)}
-                                className="text-[10px] font-black text-emerald-500 uppercase tracking-wider hover:underline"
+                                className="text-[10px] font-black text-accent-500 dark:text-emerald-400 uppercase tracking-wider hover:underline"
                               >
                                 View Details
                               </Link>
@@ -615,7 +615,7 @@ export default function Notifications() {
                               <button
                                 onClick={() => handleAcceptRequest(invite.id, invite.sender_uid, invite.sender_name)}
                                 disabled={isAccepting || isDeclining}
-                                className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-[10px] font-black uppercase tracking-wider text-white rounded-xl cursor-pointer disabled:opacity-50"
+                                className="px-3 py-2 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-[10px] font-black uppercase tracking-wider text-white rounded-xl cursor-pointer disabled:opacity-50"
                               >
                                 {isAccepting ? 'Accepting...' : 'Accept'}
                               </button>
@@ -668,7 +668,7 @@ export default function Notifications() {
                           className="p-5 rounded-3xl border border-zinc-150 dark:border-zinc-700 bg-white dark:bg-zinc-800 border-t border-t-white/5 shadow-sm dark:shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-black text-sm uppercase shrink-0">
+                            <div className="w-11 h-11 rounded-full bg-accent-500/10 dark:bg-emerald-500/10 text-accent-500 dark:text-emerald-400 flex items-center justify-center font-black text-sm uppercase shrink-0">
                               {act.grabber_name?.charAt(0) || 'U'}
                             </div>
                             <div>
@@ -687,7 +687,7 @@ export default function Notifications() {
                               id={`req-back-btn-${act.id}`}
                               onClick={() => handleRequestBirthdayBack(act)}
                               disabled={!!isActionBusy || !!isBlockBusy}
-                              className="px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 dark:hover:bg-emerald-400/10 rounded-xl transition-all cursor-pointer disabled:opacity-50 border border-zinc-200 dark:border-zinc-700"
+                              className="px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 text-[10px] font-black uppercase tracking-wider text-accent-600 dark:text-emerald-400 hover:bg-accent-500/10 dark:hover:bg-emerald-400/10 rounded-xl transition-all cursor-pointer disabled:opacity-50 border border-zinc-200 dark:border-zinc-700"
                             >
                               {isActionBusy || 'Request Birthday Back'}
                             </button>
