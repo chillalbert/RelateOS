@@ -258,7 +258,7 @@ export default function GroupsDirectory() {
  <button 
  id="open-create-group-modal"
  onClick={() => setShowCreateModal(true)} 
- className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-sm font-bold shadow-lg shadow-emerald-500/10 cursor-pointer transition-all hover:scale-105 flex-1 sm:flex-initial"
+ className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-full text-sm font-bold shadow-lg shadow-accent-500/10 dark:shadow-emerald-500/10 cursor-pointer transition-all hover:scale-105 flex-1 sm:flex-initial"
  >
  <Plus size={18} />
  <span>Create hub</span>
@@ -267,9 +267,9 @@ export default function GroupsDirectory() {
  </header>
 
  {/* Terminology Explanation Card */}
- <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-2xl flex items-start gap-3">
- <Sparkles className="text-emerald-500 shrink-0 mt-0.5" size={18} />
- <div className="text-xs text-emerald-900 dark:text-emerald-200 space-y-1">
+ <div className="p-4 bg-accent-50 dark:bg-emerald-950/20 border border-accent-200 dark:border-emerald-800/40 rounded-2xl flex items-start gap-3">
+ <Sparkles className="text-accent-500 dark:text-emerald-400 shrink-0 mt-0.5" size={18} />
+ <div className="text-xs text-accent-900 dark:text-emerald-200 space-y-1">
  <p className="font-bold">Circles (Hubs) vs. Party Rooms:</p>
  <p className="leading-relaxed opacity-90">
  <strong>Friend Circles (Hubs)</strong> are permanent social groups for chatting, daily social deduction games, and Aura leaderboards. <strong>Party Rooms</strong> are temporary secret spaces for organizing surprise celebrations away from the birthday person.
@@ -278,7 +278,7 @@ export default function GroupsDirectory() {
  </div>
 
  {/* Aura Dashboard Banner */}
- <div className="relative p-6 rounded-3xl overflow-hidden bg-gradient-to-tr from-emerald-500 via-teal-600 to-indigo-600 text-white shadow-xl">
+ <div className="relative p-6 rounded-3xl overflow-hidden bg-gradient-to-tr from-accent-500 via-accent-600 dark:from-emerald-500 dark:via-teal-600 to-indigo-600 text-white shadow-xl">
  <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-4 translate-y-4">
  <Trophy size={180} />
  </div>
@@ -289,7 +289,7 @@ export default function GroupsDirectory() {
  <span>Your standing</span>
  </span>
  <h2 className="text-xl font-extrabold">All-Time Cumulative Aura</h2>
- <p className="text-emerald-100 text-sm max-w-md">Earned by answering daily social deduction questions and showing up for friends!</p>
+ <p className="text-accent-100 dark:text-emerald-100 text-sm max-w-md">Earned by answering daily social deduction questions and showing up for friends!</p>
  </div>
  <div className="flex items-center gap-3">
  <span className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-300 drop-shadow-sm font-mono leading-none">
@@ -305,7 +305,7 @@ export default function GroupsDirectory() {
  {/* Quick Join Container */}
  <div className="p-6 bg-white dark:bg-zinc-800 rounded-3xl border border-zinc-200/60 dark:border-zinc-700 border-t border-t-white/5 shadow-sm dark:shadow-lg space-y-4">
  <div className="flex items-center gap-2">
- <UserPlus className="text-emerald-500" size={20} />
+ <UserPlus className="text-accent-500 dark:text-emerald-400" size={20} />
  <h3 className="font-extrabold text-base">Join Circle with a Code</h3>
  </div>
  <form onSubmit={handleJoinGroup} className="flex gap-2.5">
@@ -317,7 +317,7 @@ export default function GroupsDirectory() {
  value={inviteCodeInput}
  onChange={(e) => setInviteCodeInput(e.target.value)}
  maxLength={9}
- className="w-full px-4 py-3.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-center text-lg font-black tracking-widest placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase"
+ className="w-full px-4 py-3.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-2xl text-center text-lg font-black tracking-widest placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 uppercase"
  />
  </div>
  <button 
@@ -365,7 +365,7 @@ export default function GroupsDirectory() {
 
  {loading ? (
  <div className="flex justify-center p-12">
- <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+ <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-500 dark:border-emerald-500"></div>
  </div>
  ) : groups.length > 0 ? (
  <div id="joined-groups-grid" className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -379,18 +379,18 @@ export default function GroupsDirectory() {
  >
  <Link 
  to={`/groups/${group.id}`}
- className="block p-5 bg-white dark:bg-zinc-800 rounded-3xl border border-zinc-200/60 dark:border-zinc-700 border-t border-t-white/5 shadow-sm dark:shadow-lg hover:shadow-md hover:border-emerald-500/20 dark:hover:border-emerald-500/20 transition-all"
+ className="block p-5 bg-white dark:bg-zinc-800 rounded-3xl border border-zinc-200/60 dark:border-zinc-700 border-t border-t-white/5 shadow-sm dark:shadow-lg hover:shadow-md hover:border-accent-500/20 dark:hover:border-emerald-500/20 transition-all"
  >
  <div className="flex justify-between items-start mb-3">
  <div className="space-y-1">
  <span className="inline-block text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 bg-zinc-100 dark:bg-zinc-950 text-zinc-500 dark:text-zinc-400 rounded-md border border-zinc-100 dark:border-zinc-700">
  {group.type || 'Friend Circle'}
  </span>
- <h4 className="font-extrabold text-base leading-tight group-hover:text-emerald-500 transition-colors">
+ <h4 className="font-extrabold text-base leading-tight group-hover:text-accent-500 dark:group-hover:text-emerald-400 transition-colors">
  {group.name}
  </h4>
  </div>
- <ChevronRight size={18} className="text-zinc-300 group-hover:text-emerald-500 transition-colors" />
+ <ChevronRight size={18} className="text-zinc-300 group-hover:text-accent-500 dark:group-hover:text-emerald-400 transition-colors" />
  </div>
 
  <div className="flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400 mb-4 font-medium">
@@ -470,7 +470,7 @@ export default function GroupsDirectory() {
  placeholder="e.g. Wednesday Hoop Club"
  value={groupName}
  onChange={(e) => setGroupName(e.target.value)}
- className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none rounded-xl text-sm font-semibold"
+ className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 focus:outline-none rounded-xl text-sm font-semibold"
  />
  </div>
 
@@ -480,7 +480,7 @@ export default function GroupsDirectory() {
  <select
  value={groupType}
  onChange={(e) => setGroupType(e.target.value)}
- className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+ className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
  >
  <option value="Friend Circle">Friend Circle</option>
  <option value="Sports Team">Sports Team</option>
@@ -496,7 +496,7 @@ export default function GroupsDirectory() {
  required
  value={triggerTime}
  onChange={(e) => setTriggerTime(e.target.value)}
- className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none rounded-xl text-sm font-semibold"
+ className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 focus:outline-none rounded-xl text-sm font-semibold"
  />
  </div>
  </div>
@@ -517,7 +517,7 @@ export default function GroupsDirectory() {
  id="submit-create-group"
  type="submit"
  disabled={createLoading || !groupName.trim()}
- className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-emerald-500/10 cursor-pointer"
+ className="flex-1 py-3 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-accent-500/10 dark:shadow-emerald-500/10 cursor-pointer"
  >
  {createLoading ? "Creating..." : "Create Hub"}
  </button>
