@@ -27,7 +27,7 @@ export default function FeatureLocked({ title = '?????', subtitle = 'Locked Feat
   const isFeatureNext = currentNextUnlock.id === 'deep_analytics';
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 pb-28 pt-[calc(1.5rem+var(--sat))] px-4 font-sans">
+    <div className="min-h-screen bg-[#FDF3EC] dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 pb-28 pt-[calc(1.5rem+var(--sat))] px-4 font-sans">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <header className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
