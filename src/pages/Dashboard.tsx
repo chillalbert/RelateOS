@@ -388,7 +388,7 @@ export default function Dashboard() {
  const giftHistory = person.gifts?.filter((g: any) => g.status === 'given').map((g: any) => g.name) || [];
  const message = await generateBirthdayMessage({
  name: person.name,
- age: (person.birthday && !person.birthYearUnknown) ? new Date().getFullYear() - new Date(person.birthday).getFullYear() : 'Unknown',
+ age: (person.birthday && !person.birthYearUnknown && !person.birthday_unset) ? new Date().getFullYear() - new Date(person.birthday).getFullYear() : 'Unknown',
  relationship: person.category,
  interests: person.interests || 'No specific interests mentioned',
  notes: person.notes || 'No specific notes mentioned'
@@ -519,6 +519,7 @@ export default function Dashboard() {
  };
 
  const upcoming = [...activePeople]
+ .filter(p => p.birthday && !p.birthday_unset)
  .sort((a, b) => getDaysUntil(a.birthday) - getDaysUntil(b.birthday))
  .slice(0, 5);
 
@@ -528,6 +529,7 @@ export default function Dashboard() {
 
  const currentMonth = new Date().getMonth();
  const birthdaysThisMonth = activePeople.filter(p => {
+ if (!p.birthday || p.birthday_unset) return false;
  const [y, m, d] = p.birthday.split('-').map(Number);
  return (m - 1) === currentMonth;
  }).sort((a, b) => {
@@ -761,7 +763,7 @@ export default function Dashboard() {
  referrerPolicy="no-referrer"
  />
  ) : (
- <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center font-black text-lg uppercase shadow-inner">
+ <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-accent-500 dark:from-emerald-500 to-teal-500 text-white flex items-center justify-center font-black text-lg uppercase shadow-inner">
  {getDisplayName(user)?.charAt(0) || 'U'}
  </div>
  )}
@@ -789,7 +791,7 @@ export default function Dashboard() {
  </Link>
  <button 
  onClick={() => setShowFriendsDrawer(true)}
- className="px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-emerald-500/10 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
+ className="px-3 py-1.5 rounded-full bg-gradient-to-r from-accent-500 dark:from-emerald-500 to-teal-500 text-white font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-accent-500/10 dark:shadow-emerald-500/10 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
  title="Friends List"
  >
  <Users size={14} />
@@ -802,7 +804,7 @@ export default function Dashboard() {
  <section className="space-y-2.5">
  <div className="flex items-center justify-between px-1">
  <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
- <Zap size={12} className="text-emerald-500 fill-emerald-500/20" />
+ <Zap size={12} className="text-accent-500 dark:text-emerald-500 fill-accent-500/20 dark:fill-emerald-500/20" />
  Quick Shortcuts
  </h2>
  <span className="text-[10px] font-bold text-zinc-400">Direct Actions</span>
@@ -810,13 +812,13 @@ export default function Dashboard() {
  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
  <Link
  to="/add"
- className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all flex items-center gap-3 group shadow-xs cursor-pointer active:scale-[0.98]"
+ className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-accent-500/50 dark:hover:border-emerald-500/50 transition-all flex items-center gap-3 group shadow-xs cursor-pointer active:scale-[0.98]"
  >
- <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0 group-hover:scale-105 transition-transform">
+ <div className="p-2.5 rounded-xl bg-accent-500/10 dark:bg-emerald-500/10 text-accent-600 dark:text-emerald-400 border border-accent-500/20 dark:border-emerald-500/20 shrink-0 group-hover:scale-105 transition-transform">
  <UserPlus size={18} />
  </div>
  <div className="min-w-0">
- <p className="text-xs font-extrabold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-emerald-500 transition-colors">
+ <p className="text-xs font-extrabold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-accent-500 dark:group-hover:text-emerald-400 transition-colors">
  Add Friend
  </p>
  <p className="text-[10px] font-medium text-zinc-400 truncate">New contact</p>
@@ -825,7 +827,7 @@ export default function Dashboard() {
 
  <Link
  to="/rooms/create"
- className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all flex items-center gap-3 group shadow-xs cursor-pointer active:scale-[0.98]"
+ className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-accent-500/50 dark:hover:border-emerald-500/50 transition-all flex items-center gap-3 group shadow-xs cursor-pointer active:scale-[0.98]"
  >
  <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0 group-hover:scale-105 transition-transform">
  <Sparkles size={18} />
@@ -854,7 +856,7 @@ export default function Dashboard() {
  }
  }
  }}
- className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all flex items-center gap-3 group shadow-xs text-left cursor-pointer active:scale-[0.98]"
+ className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-accent-500/50 dark:hover:border-emerald-500/50 transition-all flex items-center gap-3 group shadow-xs text-left cursor-pointer active:scale-[0.98]"
  >
  <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shrink-0 group-hover:scale-105 transition-transform relative">
  <CheckCircle2 size={18} />
@@ -874,7 +876,7 @@ export default function Dashboard() {
 
  <Link
  to="/calendar"
- className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all flex items-center gap-3 group shadow-xs cursor-pointer active:scale-[0.98]"
+ className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-accent-500/50 dark:hover:border-emerald-500/50 transition-all flex items-center gap-3 group shadow-xs cursor-pointer active:scale-[0.98]"
  >
  <div className="p-2.5 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shrink-0 group-hover:scale-105 transition-transform">
  <Calendar size={18} />
@@ -957,16 +959,16 @@ export default function Dashboard() {
  exit={{ opacity: 0, height: 0, y: -20 }}
  className="overflow-hidden"
  >
- <div className="p-5 bg-emerald-500/10 border border-emerald-500/20 rounded-3xl flex items-start gap-4 relative shadow-sm">
+ <div className="p-5 bg-accent-500/10 dark:bg-emerald-500/10 border border-accent-500/20 dark:border-emerald-500/20 rounded-3xl flex items-start gap-4 relative shadow-sm">
  <span className="text-2xl mt-0.5 select-none"></span>
  <div className="flex-1 space-y-3">
- <p className="text-xs font-semibold leading-relaxed text-emerald-850 dark:text-emerald-305">
+ <p className="text-xs font-semibold leading-relaxed text-accent-900 dark:text-emerald-305">
  Turn on home screen pings to catch group countdowns, live poll votes, and crew chat instantly.
  </p>
  <div className="flex items-center gap-2">
  <button
  onClick={handleEnablePush}
- className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm"
+ className="py-1.5 px-3 bg-accent-600 hover:bg-accent-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm"
  >
  Enable Alerts
  </button>
@@ -995,7 +997,7 @@ export default function Dashboard() {
  </div>
  <div className="relative z-10 space-y-4">
  <div className="flex items-center gap-2">
- <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+ <div className="w-2 h-2 bg-accent-500 dark:bg-emerald-500 rounded-full animate-pulse" />
  <span className="label-micro text-zinc-400 mb-0">Your Birthday Countdown</span>
  </div>
  <div className="flex justify-between items-end">
@@ -1013,13 +1015,13 @@ export default function Dashboard() {
  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Min</p>
  </div>
  <div className="text-center">
- <p className="text-4xl font-black tracking-tighter text-emerald-500">{countdown.seconds}</p>
+ <p className="text-4xl font-black tracking-tighter text-accent-500 dark:text-emerald-400">{countdown.seconds}</p>
  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Sec</p>
  </div>
  </div>
  <div className="text-right">
  <p className="text-xs font-bold text-zinc-400">Turning</p>
- <p className="text-2xl font-black text-emerald-500">{user?.birthday ? getTurningAge(user.birthday) : '?'}</p>
+ <p className="text-2xl font-black text-accent-500 dark:text-emerald-400">{user?.birthday ? getTurningAge(user.birthday) : '?'}</p>
  </div>
  </div>
  </div>
@@ -1049,10 +1051,10 @@ export default function Dashboard() {
  initial={{ opacity: 0, y: 10 }}
  animate={{ opacity: 1, y: 0 }}
  transition={{ delay: 0.1 }}
- className="p-6 rounded-2xl bg-emerald-500 text-white space-y-1 shadow-xl shadow-emerald-500/20 flex flex-col justify-between"
+ className="p-6 rounded-2xl bg-accent-500 dark:bg-emerald-500 text-white space-y-1 shadow-xl shadow-accent-500/20 dark:shadow-emerald-500/20 flex flex-col justify-between"
  >
  <div className="flex items-center justify-between">
- <p className="label-micro text-emerald-100 mb-0">Connection Streak</p>
+ <p className="label-micro text-accent-100 dark:text-emerald-100 mb-0">Connection Streak</p>
  <HelpTip 
  title="Connection Streak" 
  content="Your streak grows each day you check in with close friends or send birthday wishes!" 
@@ -1147,7 +1149,7 @@ export default function Dashboard() {
  <p className="text-[10px] font-bold text-zinc-400 uppercase">
  {person.birthday.split('-')[2]} {new Intl.DateTimeFormat('en-US', { month: 'short' }).format(new Date(2000, Number(person.birthday.split('-')[1]) - 1, 1))}
  </p>
- <p className="text-[10px] font-black text-emerald-500 uppercase mt-0.5">
+ <p className="text-[10px] font-black text-accent-500 dark:text-emerald-400 uppercase mt-0.5">
  {person.birthYearUnknown ? "" : `Turning ${getTurningAge(person.birthday)}`}
  </p>
  </div>
@@ -1209,8 +1211,8 @@ export default function Dashboard() {
  </div>
  </div>
  <div className="space-y-4">
- {upcoming.filter(p => getDaysUntil(p.birthday) <= 45).length > 0 ? (
- upcoming.filter(p => getDaysUntil(p.birthday) <= 45).map((person) => {
+ {upcoming.filter(p => !p.birthday_unset && getDaysUntil(p.birthday) <= 45).length > 0 ? (
+ upcoming.filter(p => !p.birthday_unset && getDaysUntil(p.birthday) <= 45).map((person) => {
  const daysLeft = getDaysUntil(person.birthday);
  const tasks = person.tasks || [];
  const completedTasks = tasks.filter((t: any) => t.completed).length;
@@ -1254,7 +1256,7 @@ export default function Dashboard() {
  <div className="flex items-center gap-2">
  <span className="text-[10px] text-zinc-400 uppercase font-bold"><AnimatedNumber value={daysLeft} /> days remaining</span>
  <div className="w-1 h-1 bg-zinc-300 rounded-full" />
- <span className="text-[10px] text-emerald-500 font-bold uppercase">{Math.round(progress)}% Ready</span>
+ <span className="text-[10px] text-accent-500 dark:text-emerald-400 font-bold uppercase">{Math.round(progress)}% Ready</span>
  </div>
  </div>
  </div>
@@ -1277,7 +1279,7 @@ export default function Dashboard() {
  <motion.div 
  initial={{ width: 0 }}
  animate={{ width: `${progress}%` }}
- className="h-full bg-emerald-500"
+ className="h-full bg-accent-500 dark:bg-emerald-500"
  />
  </div>
 
@@ -1285,7 +1287,7 @@ export default function Dashboard() {
  {daysLeft === 0 && person.lastWishedYear !== new Date().getFullYear() && (
  <button
  onClick={() => handleWishBirthday(person.id, person.name)}
- className="flex items-center justify-center gap-2 p-3 bg-emerald-500 text-white rounded-2xl font-bold text-xs shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+ className="flex items-center justify-center gap-2 p-3 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-2xl font-bold text-xs shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all"
  >
  <Heart size={14} fill="currentColor" />
  Wish Happy Birthday!
@@ -1318,7 +1320,7 @@ export default function Dashboard() {
  const t = tasks.find((t: any) => t.title === 'Gift Decision');
  if (t) toggleTask(person.id, t.id, false);
  }}
- className="text-[10px] font-bold text-emerald-500 uppercase hover:underline"
+ className="text-[10px] font-bold text-accent-500 dark:text-emerald-400 uppercase hover:underline"
  >
  Mark Done
  </button>
@@ -1352,7 +1354,7 @@ export default function Dashboard() {
  const t = tasks.find((t: any) => t.title === 'Card Message');
  if (t) toggleTask(person.id, t.id, false);
  }}
- className="text-[10px] font-bold text-emerald-500 uppercase hover:underline"
+ className="text-[10px] font-bold text-accent-500 dark:text-emerald-400 uppercase hover:underline"
  >
  Mark Done
  </button>
@@ -1408,7 +1410,7 @@ export default function Dashboard() {
  ((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name)[0]
  )}
  </div>
- <span className="text-sm font-bold flex items-center gap-1.5 group-hover:text-emerald-500 transition-colors">
+ <span className="text-sm font-bold flex items-center gap-1.5 group-hover:text-accent-500 dark:group-hover:text-emerald-400 transition-colors">
  {(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name}
  {person.host_uid && friendStreaks[person.host_uid] > 0 && (
  <span className="text-xs"> {friendStreaks[person.host_uid]}</span>
@@ -1621,7 +1623,7 @@ export default function Dashboard() {
  exit={{ scale: 0.9, opacity: 0 }}
  className="relative w-full max-w-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 border-t border-t-white/5 rounded-[40px] p-10 text-center space-y-8 shadow-2xl dark:shadow-lg"
  >
- <div className="w-20 h-20 bg-emerald-500 text-white rounded-3xl flex items-center justify-center mx-auto rotate-12 shadow-xl shadow-emerald-500/20">
+ <div className="w-20 h-20 bg-accent-500 dark:bg-emerald-500 text-white rounded-3xl flex items-center justify-center mx-auto rotate-12 shadow-xl shadow-accent-500/20 dark:shadow-emerald-500/20">
  <Cake size={40} />
  </div>
  
@@ -1635,7 +1637,7 @@ export default function Dashboard() {
  type="date"
  min="1900-01-01"
  max={new Date().toISOString().split('T')[0]}
- className="w-full p-5 rounded-2xl bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-center font-bold text-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+ className="w-full p-5 rounded-2xl bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 text-center font-bold text-lg focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 outline-none"
  onBlur={(e) => {
  if (e.target.value) handleSaveBirthday(e.target.value);
  }}
@@ -1680,7 +1682,7 @@ export default function Dashboard() {
  {/* Header */}
  <div className="flex justify-between items-center pb-4 border-b border-zinc-200 dark:border-zinc-800">
  <div className="flex items-center gap-2.5">
- <div className="p-2.5 bg-gradient-to-tr from-emerald-500 to-teal-500 text-white rounded-2xl shadow-md shadow-emerald-500/10">
+ <div className="p-2.5 bg-gradient-to-tr from-accent-500 dark:from-emerald-500 to-teal-500 text-white rounded-2xl shadow-md shadow-accent-500/10 dark:shadow-emerald-500/10">
  <Users size={18} />
  </div>
  <div>
@@ -1733,7 +1735,7 @@ export default function Dashboard() {
  <div className="flex gap-2">
  <button
  onClick={() => handleDrawerAcceptRequest(req.id, req.sender_uid, senderName)}
- className="flex-1 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-extrabold uppercase tracking-wider rounded-xl cursor-pointer"
+ className="flex-1 py-1.5 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-[9px] font-extrabold uppercase tracking-wider rounded-xl cursor-pointer"
  >
  Accept
  </button>
@@ -1816,14 +1818,14 @@ export default function Dashboard() {
  referrerPolicy="no-referrer"
  />
  ) : (
- <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
+ <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-accent-500 dark:from-emerald-500 to-teal-500 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
  {displayName.charAt(0)}
  </div>
  )}
  
  {/* Pulsing streak/live indicator */}
  {!isBlocked && (
- <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-zinc-900 rounded-full animate-pulse" />
+ <span className="absolute bottom-0 right-0 w-3 h-3 bg-accent-500 dark:bg-emerald-500 border-2 border-white dark:border-zinc-900 rounded-full animate-pulse" />
  )}
  </div>
 
