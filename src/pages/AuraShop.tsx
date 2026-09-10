@@ -138,7 +138,7 @@ export default function AuraShop() {
       name: 'Bonus AI Enrichment',
       cost: shopCosts.bonusEnrichment,
       icon: Brain,
-      iconBg: 'bg-emerald-500/10 text-emerald-500',
+      iconBg: 'bg-accent-500/10 dark:bg-emerald-500/10 text-accent-500 dark:text-emerald-400',
       description: 'Grants 1 instant AI Notes & Vision profile enrichment run outside normal cadence.',
       inventoryText: `Credits: ${user?.bonusEnrichmentCredits || 0}`,
       alreadyUnlocked: false,
@@ -293,7 +293,7 @@ export default function AuraShop() {
                         item.alreadyUnlocked
                           ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
                           : isAffordable
-                          ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm hover:scale-[1.02] active:scale-[0.98]'
+                          ? 'bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white shadow-sm hover:scale-[1.02] active:scale-[0.98]'
                           : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 cursor-not-allowed'
                       }`}
                     >
