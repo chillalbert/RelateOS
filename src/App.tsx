@@ -104,10 +104,10 @@ const RealtimeNotificationTracker = () => {
             setToast(null);
           }}
         >
-          <div className="bg-emerald-500 text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-3 border border-emerald-400 hover:bg-emerald-600 transition-all">
+          <div className="bg-accent-500 dark:bg-emerald-500 text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-3 border border-accent-400 dark:border-emerald-400 hover:bg-accent-600 dark:hover:bg-emerald-600 transition-all">
             <div className="flex items-center gap-2.5">
               <div className="text-left">
-                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-100">New Friend Request!</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-accent-100 dark:text-emerald-100">New Friend Request!</p>
                 <p className="text-sm font-extrabold">{toast.senderName} wants to connect.</p>
                 <p className="text-[10px] text-white/75 underline font-bold mt-1">Tap to review requests</p>
               </div>
@@ -145,7 +145,7 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
     <div 
       className={cn(
         "min-h-screen transition-all duration-500",
-        isCurrentRouteHighlighted && "ring-8 ring-emerald-500 scale-[0.98] rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.3)] bg-emerald-500/5 select-none pointer-events-none"
+        isCurrentRouteHighlighted && "ring-8 ring-accent-500 dark:ring-emerald-500 scale-[0.98] rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(194,102,75,0.3)] dark:shadow-[0_0_50px_rgba(16,185,129,0.3)] bg-accent-500/5 dark:bg-emerald-500/5 select-none pointer-events-none"
       )}
     >
       {children}
