@@ -233,7 +233,7 @@ export default function GroupsDirectory() {
  };
 
  return (
- <div id="groups-directory-page" className="pb-36 pt-[calc(1.5rem+var(--sat))] px-4 bg-zinc-50 dark:bg-black min-h-screen text-zinc-900 dark:text-zinc-50 font-sans">
+ <div id="groups-directory-page" className="pb-36 pt-[calc(1.5rem+var(--sat))] px-4 bg-[#FDF3EC] dark:bg-black min-h-screen text-zinc-900 dark:text-zinc-50 font-sans">
  <div className="max-w-2xl mx-auto space-y-8">
  
  {/* Header */}
