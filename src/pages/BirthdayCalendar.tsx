@@ -96,7 +96,7 @@ export default function BirthdayCalendar() {
   const calendarEntries = React.useMemo(() => {
     const entries: CalendarEntry[] = [];
     people.forEach((person) => {
-      if (person.birthday) {
+      if (person.birthday && !person.birthday_unset) {
         const [y, m, d] = person.birthday.split('-').map(Number);
         entries.push({
           personId: person.id,
@@ -219,7 +219,7 @@ export default function BirthdayCalendar() {
                     
                     <div className="ml-4 flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-bold group-hover:text-emerald-500 transition-colors flex items-center gap-1.5 text-zinc-900 dark:text-white truncate">
+                        <h3 className="font-bold group-hover:text-accent-500 dark:group-hover:text-emerald-400 transition-colors flex items-center gap-1.5 text-zinc-900 dark:text-white truncate">
                           {entry.personName}
                           {entry.isCloseFriend && (
                             <Star size={12} className="text-amber-500 fill-amber-500 flex-shrink-0 inline-block align-middle" />
