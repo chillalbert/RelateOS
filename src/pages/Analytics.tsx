@@ -362,7 +362,7 @@ export default function Analytics() {
         <section className="card-premium p-6 space-y-4 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Zap size={22} className="text-emerald-500" />
+              <Zap size={22} className="text-accent-500 dark:text-emerald-400" />
               <div>
                 <h2 className="font-bold text-base text-zinc-900 dark:text-zinc-100">User Relationship Score</h2>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">Personal relationship consistency & effort rating</p>
@@ -408,11 +408,11 @@ export default function Analytics() {
                     <div className="p-3 rounded-2xl bg-zinc-100/80 dark:bg-zinc-950/80 border border-zinc-200/60 dark:border-zinc-800/80 space-y-1.5">
                       <div className="flex items-center justify-between font-bold text-zinc-700 dark:text-zinc-300">
                         <span>Weighted Health (35%)</span>
-                        <span className="text-emerald-500 font-mono">{data?.userScoreBreakdown?.weightedHealthScore || 0}/100</span>
+                        <span className="text-accent-500 dark:text-emerald-400 font-mono">{data?.userScoreBreakdown?.weightedHealthScore || 0}/100</span>
                       </div>
                       <div className="h-1.5 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-emerald-500 rounded-full" 
+                          className="h-full bg-accent-500 dark:bg-emerald-500 rounded-full" 
                           style={{ width: `${data?.userScoreBreakdown?.weightedHealthScore || 0}%` }} 
                         />
                       </div>
@@ -480,7 +480,7 @@ export default function Analytics() {
         <section className="card-premium p-6 space-y-6 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl shadow-sm">
           <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
             <div className="flex items-center gap-2">
-              <HeartPulse size={22} className="text-emerald-500" />
+              <HeartPulse size={22} className="text-accent-500 dark:text-emerald-400" />
               <div>
                 <div className="flex items-center gap-1.5">
                   <h3 className="font-bold text-base">Relationship Health Overview</h3>
@@ -587,7 +587,7 @@ export default function Analytics() {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-emerald-500 transition-colors">
+                        <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-accent-500 dark:group-hover:text-emerald-400 transition-colors">
                           {item.person.name}
                         </p>
                         <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate leading-snug">
