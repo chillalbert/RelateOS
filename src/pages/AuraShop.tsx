@@ -148,7 +148,7 @@ export default function AuraShop() {
   ];
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 pb-32">
+    <div className="min-h-screen bg-[#FDF3EC] dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 pb-32">
       {/* Toast Banner */}
       {toast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] w-full max-w-sm px-4">
