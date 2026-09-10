@@ -76,7 +76,7 @@ export default function Vaults() {
         <div className="max-w-2xl mx-auto space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-500 rounded-xl text-white shadow-lg shadow-emerald-500/20">
+              <div className="p-2 bg-accent-500 dark:bg-emerald-500 rounded-xl text-white shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20">
                 <Shield size={24} />
               </div>
               <h1 className="text-2xl font-black tracking-tight">My Lockers</h1>
@@ -85,7 +85,7 @@ export default function Vaults() {
               <AuraHeaderBadge />
               <Link 
                 to="/rooms/create"
-                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/20"
+                className="flex items-center gap-1.5 px-4 py-2 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-accent-500/20 dark:shadow-emerald-500/20"
               >
                 <Plus size={16} /> Create Room
               </Link>
@@ -100,7 +100,7 @@ export default function Vaults() {
       <main className="p-6 max-w-2xl mx-auto space-y-6">
         {loading ? (
           <div className="flex justify-center py-20">
-            <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-accent-500 dark:border-emerald-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : vaults.length > 0 ? (
           <div className="grid gap-6">
@@ -125,10 +125,10 @@ export default function Vaults() {
                       </div>
                       <div className="relative z-10 space-y-4">
                         <div className="flex justify-between items-start">
-                          <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/40">
+                          <div className="w-12 h-12 rounded-2xl bg-accent-500 dark:bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-accent-500/40 dark:shadow-emerald-500/40">
                             <Shield size={24} />
                           </div>
-                          <div className="px-3 py-1 bg-emerald-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse">
+                          <div className="px-3 py-1 bg-accent-500 dark:bg-emerald-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse">
                             Ready to Open
                           </div>
                         </div>
@@ -136,7 +136,7 @@ export default function Vaults() {
                           <h3 className="text-2xl font-black tracking-tight">Happy Birthday!</h3>
                           <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs mt-1">Your secret locker is officially unlocked</p>
                         </div>
-                        <div className="pt-4 flex items-center gap-2 text-emerald-500 font-bold text-sm">
+                        <div className="pt-4 flex items-center gap-2 text-accent-500 dark:text-emerald-400 font-bold text-sm">
                           Open Locker <ChevronRight size={16} />
                         </div>
                       </div>
@@ -167,7 +167,7 @@ export default function Vaults() {
                             <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">{status}</span>
                           </div>
                           <div className="flex items-center gap-2 px-4 py-2 bg-zinc-50 dark:bg-zinc-800 rounded-xl border border-zinc-100 dark:border-zinc-700">
-                            <Calendar size={16} className="text-emerald-500" />
+                            <Calendar size={16} className="text-accent-500 dark:text-emerald-400" />
                             <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
                               {new Date(vault.person_birthday).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             </span>
@@ -179,7 +179,7 @@ export default function Vaults() {
                             <motion.div 
                               initial={{ width: 0 }}
                               animate={{ width: '40%' }}
-                              className="h-full bg-emerald-500"
+                              className="h-full bg-accent-500 dark:bg-emerald-500"
                             />
                           </div>
                           <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-3 text-center">
@@ -206,7 +206,7 @@ export default function Vaults() {
             </div>
             <Link 
               to="/rooms/create"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/20"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white rounded-2xl text-xs font-bold transition-all shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20"
             >
               <Plus size={16} /> Create Room
             </Link>
