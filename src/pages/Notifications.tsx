@@ -418,7 +418,7 @@ export default function Notifications() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black pb-24">
+    <div className="min-h-screen bg-[#FDF3EC] dark:bg-black pb-24">
       <header className="p-6 pt-[calc(1.5rem+var(--sat))] bg-white dark:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-700 sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
