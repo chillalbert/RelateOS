@@ -120,16 +120,16 @@ export default function StreakCalendarView({
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5 font-bold text-zinc-900 dark:text-zinc-200">
-              <Calendar size={14} className="text-emerald-500 dark:text-emerald-400" />
+              <Calendar size={14} className="text-accent-500 dark:text-emerald-400" />
               <span>Current Cycle Progress</span>
             </div>
             <span className="font-mono text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/80 px-2 py-0.5 rounded-full border border-zinc-200 dark:border-zinc-700/50">
               {completedCount} / {cycleLengthDays} Days
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-xl">
-            <Zap size={13} className="shrink-0 text-emerald-500 fill-emerald-500/20" />
-            <span>{taskPrefix} <strong className="font-bold text-emerald-800 dark:text-emerald-200">{taskLabel}</strong></span>
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-accent-700 dark:text-emerald-300 bg-accent-500/10 dark:bg-emerald-500/10 border border-accent-500/20 dark:border-emerald-500/20 px-2.5 py-1.5 rounded-xl">
+            <Zap size={13} className="shrink-0 text-accent-500 dark:text-emerald-500 fill-accent-500/20 dark:fill-emerald-500/20" />
+            <span>{taskPrefix} <strong className="font-bold text-accent-800 dark:text-emerald-200">{taskLabel}</strong></span>
           </div>
         </div>
       )}
