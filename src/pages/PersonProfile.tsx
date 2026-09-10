@@ -1045,7 +1045,7 @@ export default function PersonProfile() {
 
  if (isPermissionBlocked) {
  return (
- <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 select-none">
+ <div className="min-h-screen flex items-center justify-center p-6 bg-[#FDF3EC] dark:bg-zinc-950 select-none">
  <motion.div 
  initial={{ opacity: 0, scale: 0.95 }}
  animate={{ opacity: 1, scale: 1 }}
@@ -1080,7 +1080,7 @@ export default function PersonProfile() {
  // Verify both components are structurally null before rejecting lookup state
  if (!person && !originalPerson) {
  return (
- <div className="min-h-screen flex items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 select-none">
+ <div className="min-h-screen flex items-center justify-center p-6 bg-[#FDF3EC] dark:bg-zinc-950 select-none">
  <motion.div 
  initial={{ opacity: 0, scale: 0.95 }}
  animate={{ opacity: 1, scale: 1 }}
@@ -1122,7 +1122,7 @@ export default function PersonProfile() {
  };
 
  return (
- <div className="min-h-screen bg-zinc-50 dark:bg-black pb-24">
+ <div className="min-h-screen bg-[#FDF3EC] dark:bg-black pb-24">
  {/* Dismissible Hint/Explanation Card */}
  {!user?.hasSeenPersonProfileHint && (
  <div className="p-6 pb-0 max-w-2xl mx-auto">
