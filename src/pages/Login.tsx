@@ -161,7 +161,7 @@ export default function Login() {
         className="w-full max-w-md space-y-8"
       >
         <div className="text-center space-y-2">
-          <div className="inline-flex p-3 bg-emerald-500 text-white rounded-2xl shadow-lg shadow-emerald-500/20 mb-4">
+          <div className="inline-flex p-3 bg-accent-500 dark:bg-emerald-500 text-white rounded-2xl shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20 mb-4">
             <Heart size={32} fill="currentColor" />
           </div>
           <h1 className="text-4xl font-black tracking-tight">RelateOS</h1>
@@ -186,7 +186,7 @@ export default function Login() {
                   <input
                     type="email"
                     required
-                    className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500 text-sm text-zinc-950 dark:text-white outline-none"
+                    className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 text-sm text-zinc-950 dark:text-white outline-none"
                     placeholder="you@example.com"
                     value={resetEmail}
                     onChange={(e) => {
@@ -216,7 +216,7 @@ export default function Login() {
                     setError('');
                     setResetSuccess('');
                   }}
-                  className="text-xs text-emerald-500 font-bold hover:underline cursor-pointer"
+                  className="text-xs text-accent-500 dark:text-emerald-400 font-bold hover:underline cursor-pointer"
                 >
                   Back to Sign In
                 </button>
@@ -231,11 +231,11 @@ export default function Login() {
                     <div className="flex flex-col items-center space-y-3 pb-4 border-b border-zinc-100 dark:border-zinc-800">
                       <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Upload Profile Picture</span>
                       <div className="relative group">
-                        <div className="w-24 h-24 rounded-full border-4 border-emerald-500/20 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center transition-all duration-300 relative shadow-inner">
+                        <div className="w-24 h-24 rounded-full border-4 border-accent-500/20 dark:border-emerald-500/20 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center transition-all duration-300 relative shadow-inner">
                           {profilePicUrl ? (
                             <img src={profilePicUrl} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           ) : formData.name ? (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-emerald-500 to-teal-500 text-white text-3xl font-black uppercase">
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-accent-500 to-accent-600 dark:from-emerald-500 dark:to-teal-500 text-white text-3xl font-black uppercase">
                               {formData.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                             </div>
                           ) : (
@@ -278,7 +278,7 @@ export default function Login() {
                       <input
                         type="text"
                         required
-                        className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
+                        className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
                         placeholder="e.g., Alex Morgan"
                         value={formData.name || ''}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -291,7 +291,7 @@ export default function Login() {
                   <input
                     type="email"
                     required
-                    className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
                     value={formData.email || ''}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
@@ -308,7 +308,7 @@ export default function Login() {
                           setResetError('');
                           setResetSuccess('');
                         }}
-                        className="text-xs text-emerald-500 font-bold hover:underline cursor-pointer"
+                        className="text-xs text-accent-500 dark:text-emerald-400 font-bold hover:underline cursor-pointer"
                       >
                         Forgot password?
                       </button>
@@ -317,7 +317,7 @@ export default function Login() {
                   <input
                     type="password"
                     required
-                    className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
                     value={formData.password || ''}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   />
@@ -367,7 +367,7 @@ export default function Login() {
             {isLogin ? "Don't have an account?" : "Already have an account?"}{' '}
             <button 
               onClick={() => setIsLogin(!isLogin)}
-              className="text-emerald-500 font-bold hover:underline cursor-pointer"
+              className="text-accent-500 dark:text-emerald-400 font-bold hover:underline cursor-pointer"
             >
               {isLogin ? 'Sign Up' : 'Log In'}
             </button>
