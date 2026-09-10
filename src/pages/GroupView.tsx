@@ -484,7 +484,7 @@ export default function GroupView() {
  if (loading) {
  return (
  <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white">
- <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-500"></div>
+ <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent-500 dark:border-emerald-500"></div>
  </div>
  );
  }
@@ -493,7 +493,7 @@ export default function GroupView() {
  return (
  <div className="flex h-screen flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white gap-4">
  <p className="font-bold">Group Hub not found.</p>
- <Link to="/" className="text-emerald-500 font-extrabold uppercase tracking-widest text-xs">Back to Home</Link>
+ <Link to="/" className="text-accent-500 dark:text-emerald-400 font-extrabold uppercase tracking-widest text-xs">Back to Home</Link>
  </div>
  );
  }
@@ -526,7 +526,7 @@ export default function GroupView() {
  navigator.clipboard.writeText(shareUrl);
  alert('Invite link copied: ' + shareUrl);
  }}
- className="flex items-center gap-1 text-[11px] font-black text-emerald-500 hover:underline cursor-pointer"
+ className="flex items-center gap-1 text-[11px] font-black text-accent-500 dark:text-emerald-400 hover:underline cursor-pointer"
  >
  <span>Copy Invite Link </span>
  </button>
@@ -565,7 +565,7 @@ export default function GroupView() {
 
  {/* MUTUAL FRIENDS CAROUSEL BAR (Directly beneath the header) */}
  {showMutualFriendsCarousel && friendsNotInGroup.length > 0 && (
- <div className="mx-4 mt-3 p-3 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 rounded-2xl relative">
+ <div className="mx-4 mt-3 p-3 bg-accent-500/5 dark:bg-emerald-500/10 border border-accent-500/20 dark:border-emerald-500/20 rounded-2xl relative">
  <button
  onClick={() => setShowMutualFriendsCarousel(false)}
  className="absolute top-2.5 right-2.5 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-all cursor-pointer"
@@ -573,7 +573,7 @@ export default function GroupView() {
  >
  <X size={14} />
  </button>
- <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-450 flex items-center gap-1 px-1 mb-1.5 pr-6">
+ <p className="text-[10px] font-black uppercase tracking-widest text-accent-600 dark:text-emerald-450 flex items-center gap-1 px-1 mb-1.5 pr-6">
  <span>Add Mutual Friends </span>
  </p>
  <div className="flex overflow-x-auto scrollbar-hide gap-3 py-1">
@@ -601,7 +601,7 @@ export default function GroupView() {
  </div>
  <button
  onClick={() => handleAddFriendToGroup(friend.uid)}
- className="bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-lg whitespace-nowrap transition-all shadow-sm cursor-pointer"
+ className="bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-lg whitespace-nowrap transition-all shadow-sm cursor-pointer"
  >
  + Add
  </button>
@@ -667,7 +667,7 @@ export default function GroupView() {
  <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500">Locker Stories (24h Vibe)</span>
  <button 
  onClick={() => setShowStoryModal(true)}
- className="text-[11px] font-black text-emerald-500 flex items-center gap-1.5 hover:underline cursor-pointer"
+ className="text-[11px] font-black text-accent-500 dark:text-emerald-400 flex items-center gap-1.5 hover:underline cursor-pointer"
  >
  <Plus size={12} />
  <span>Post Story</span>
@@ -680,7 +680,7 @@ export default function GroupView() {
  onClick={() => setShowStoryModal(true)}
  className="flex-shrink-0 w-20 flex flex-col items-center gap-1 cursor-pointer snap-start"
  >
- <div className="w-14 h-14 rounded-full border-2 border-dashed border-zinc-300 dark:border-zinc-700 flex items-center justify-center bg-white dark:bg-zinc-900 text-zinc-400 hover:text-emerald-500 hover:border-emerald-500 transition-all">
+ <div className="w-14 h-14 rounded-full border-2 border-dashed border-zinc-300 dark:border-zinc-700 flex items-center justify-center bg-white dark:bg-zinc-900 text-zinc-400 hover:text-accent-500 dark:hover:text-emerald-400 hover:border-accent-500 dark:hover:border-emerald-500 transition-all">
  <Camera size={18} />
  </div>
  <span className="text-[9px] font-bold text-zinc-400">Post Vibe</span>
@@ -693,7 +693,7 @@ export default function GroupView() {
  className="flex-shrink-0 w-20 flex flex-col items-center gap-1 text-center snap-start"
  title={story.caption}
  >
- <div className="relative w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-emerald-400 to-teal-500">
+ <div className="relative w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-accent-400 dark:from-emerald-400 to-accent-500 dark:to-teal-500">
  <img 
  src={story.image_url} 
  alt={story.user_name}
@@ -778,12 +778,12 @@ export default function GroupView() {
  placeholder="Message the locker room..."
  value={newMessage}
  onChange={(e) => setNewMessage(e.target.value)}
- className="flex-1 py-3 px-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+ className="flex-1 py-3 px-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500"
  />
  <button 
  type="submit"
  disabled={!newMessage.trim()}
- className="p-3 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 hover:bg-emerald-500 disabled:opacity-40 rounded-full transition-all cursor-pointer shadow-md shadow-zinc-500/10"
+ className="p-3 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 hover:bg-accent-500 dark:hover:bg-emerald-500 disabled:opacity-40 rounded-full transition-all cursor-pointer shadow-md shadow-zinc-500/10"
  >
  <Send size={15} />
  </button>
@@ -809,7 +809,7 @@ export default function GroupView() {
  </div>
  <button 
  onClick={() => setShowEventModal(true)}
- className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 hover:bg-emerald-500 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+ className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 hover:bg-accent-500 dark:hover:bg-emerald-500 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
  >
  <Plus size={14} />
  <span>Plan Event</span>
@@ -834,7 +834,7 @@ export default function GroupView() {
  >
  <div className="space-y-2">
  <div className="flex items-center gap-2">
- <span className="text-[10px] uppercase tracking-widest font-mono font-black text-emerald-500 px-2 py-0.5 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-md">
+ <span className="text-[10px] uppercase tracking-widest font-mono font-black text-accent-500 dark:text-emerald-400 px-2 py-0.5 bg-accent-500/5 dark:bg-emerald-500/10 rounded-md">
  {formattedDate} • {evt.time}
  </span>
  </div>
@@ -916,7 +916,7 @@ export default function GroupView() {
  <div 
  key={lbUser.userId}
  className={`p-4 flex items-center justify-between gap-4 transition-colors ${
- isMe ? 'bg-emerald-500/5 dark:bg-emerald-500/10' : ''
+ isMe ? 'bg-accent-500/5 dark:bg-emerald-500/10' : ''
  }`}
  >
  <div className="flex items-center gap-3">
@@ -941,12 +941,12 @@ export default function GroupView() {
 
  <div>
  <span className="font-extrabold text-sm">{name}</span>
- {isMe && <span className="ml-1.5 text-[9px] uppercase font-black bg-emerald-500 text-white px-1.5 py-0.5 rounded-md leading-none">You</span>}
+ {isMe && <span className="ml-1.5 text-[9px] uppercase font-black bg-accent-500 dark:bg-emerald-500 text-white px-1.5 py-0.5 rounded-md leading-none">You</span>}
  </div>
  </div>
 
  <div className="flex items-center gap-1">
- <span className="text-base font-black font-mono text-emerald-500">
+ <span className="text-base font-black font-mono text-accent-500 dark:text-emerald-400">
  {lbUser.total_aura || 0}
  </span>
  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest pl-0.5">Aura</span>
@@ -996,7 +996,7 @@ export default function GroupView() {
  )}
  <div>
  <span className="font-extrabold text-sm">{name}</span>
- {isMe && <span className="ml-1.5 text-[9px] uppercase font-black bg-emerald-500 text-white px-1.5 py-0.5 rounded-md leading-none">You</span>}
+ {isMe && <span className="ml-1.5 text-[9px] uppercase font-black bg-accent-500 dark:bg-emerald-500 text-white px-1.5 py-0.5 rounded-md leading-none">You</span>}
  </div>
  </div>
 
@@ -1035,7 +1035,7 @@ export default function GroupView() {
  console.error("Error triggering friend request:", err);
  }
  }}
- className="px-3 py-1.5 bg-zinc-950 hover:bg-emerald-500 hover:text-white text-white dark:bg-zinc-50 dark:text-zinc-950 rounded-xl text-xs font-black transition-colors cursor-pointer"
+ className="px-3 py-1.5 bg-zinc-950 hover:bg-accent-500 dark:hover:bg-emerald-500 hover:text-white text-white dark:bg-zinc-50 dark:text-zinc-950 rounded-xl text-xs font-black transition-colors cursor-pointer"
  >
  + Add Friend
  </button>
@@ -1091,7 +1091,7 @@ export default function GroupView() {
  type="button"
  onClick={() => setStoryImageUrl(pr.url)}
  className={`relative aspect-square rounded-xl overflow-hidden border-2 cursor-pointer transition-all ${
- storyImageUrl === pr.url ? 'border-emerald-500 scale-95' : 'border-transparent opacity-80 hover:opacity-100'
+ storyImageUrl === pr.url ? 'border-accent-500 dark:border-emerald-500 scale-95' : 'border-transparent opacity-80 hover:opacity-100'
  }`}
  title={pr.label}
  >
@@ -1111,7 +1111,7 @@ export default function GroupView() {
  value={storyImageUrl}
  onChange={(e) => setStoryImageUrl(e.target.value)}
  required
- className="w-full px-3 py-2.5 mt-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none rounded-xl text-xs font-semibold"
+ className="w-full px-3 py-2.5 mt-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 focus:outline-none rounded-xl text-xs font-semibold"
  />
  </div>
 
@@ -1122,7 +1122,7 @@ export default function GroupView() {
  placeholder="e.g. Wednesday running squad early training! ‍"
  value={storyCaption}
  onChange={(e) => setStoryCaption(e.target.value)}
- className="w-full px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none rounded-xl text-xs font-semibold"
+ className="w-full px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 focus:outline-none rounded-xl text-xs font-semibold"
  />
  </div>
 
@@ -1137,7 +1137,7 @@ export default function GroupView() {
  <button 
  type="submit"
  disabled={storyLoading || !storyImageUrl}
- className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs shadow-md shadow-emerald-500/10"
+ className="flex-1 py-3 bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white font-bold rounded-xl text-xs shadow-md shadow-accent-500/10 dark:shadow-emerald-500/10"
  >
  {storyLoading ? "Posting..." : "Post Vibe"}
  </button>
@@ -1180,7 +1180,7 @@ export default function GroupView() {
  placeholder="e.g. Wednesday Basketball Classic Match"
  value={eventTitle}
  onChange={(e) => setEventTitle(e.target.value)}
- className="w-full px-3,5 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none rounded-xl text-xs font-semibold"
+ className="w-full px-3,5 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 focus:outline-none rounded-xl text-xs font-semibold"
  />
  </div>
 
@@ -1193,7 +1193,7 @@ export default function GroupView() {
  required
  value={eventDate}
  onChange={(e) => setEventDate(e.target.value)}
- className="w-full px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-1 focus:ring-emerald-500 rounded-xl text-xs font-bold"
+ className="w-full px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-1 focus:ring-accent-500 dark:focus:ring-emerald-500 rounded-xl text-xs font-bold"
  />
  </div>
  <div className="space-y-1.5">
@@ -1202,7 +1202,7 @@ export default function GroupView() {
  type="time" 
  value={eventTime}
  onChange={(e) => setEventTime(e.target.value)}
- className="w-full px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-1 focus:ring-emerald-500 rounded-xl text-xs font-bold"
+ className="w-full px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-1 focus:ring-accent-500 dark:focus:ring-emerald-500 rounded-xl text-xs font-bold"
  />
  </div>
  </div>
@@ -1214,7 +1214,7 @@ export default function GroupView() {
  placeholder="e.g. Downtown Central Court Arena"
  value={eventLocation}
  onChange={(e) => setEventLocation(e.target.value)}
- className="w-full px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+ className="w-full px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-accent-500 dark:focus:ring-emerald-500"
  />
  </div>
 
@@ -1225,7 +1225,7 @@ export default function GroupView() {
  placeholder="Be there 10 mins early for warmups!"
  value={eventDesc}
  onChange={(e) => setEventDesc(e.target.value)}
- className="w-full px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+ className="w-full px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-accent-500 dark:focus:ring-emerald-500"
  />
  </div>
 
@@ -1289,7 +1289,7 @@ export default function GroupView() {
  placeholder="e.g. Wednesday Basketball Classic"
  value={editName}
  onChange={(e) => setEditName(e.target.value)}
- className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none rounded-xl text-xs font-semibold animate-none"
+ className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-accent-500 dark:focus:ring-emerald-500 focus:outline-none rounded-xl text-xs font-semibold animate-none"
  />
  </div>
 
@@ -1300,7 +1300,7 @@ export default function GroupView() {
  required
  value={editTriggerTime}
  onChange={(e) => setEditTriggerTime(e.target.value)}
- className="w-full px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-1 focus:ring-emerald-500 rounded-xl text-xs font-bold"
+ className="w-full px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-1 focus:ring-accent-500 dark:focus:ring-emerald-500 rounded-xl text-xs font-bold"
  />
  </div>
 
@@ -1371,13 +1371,13 @@ export default function GroupView() {
  <div 
  key={item.id}
  className={`flex flex-col justify-between p-4 bg-zinc-100/40 dark:bg-zinc-900/40 border border-zinc-150 dark:border-zinc-800/80 rounded-2xl text-left transition-all ${
- isLocked ? 'opacity-40' : 'hover:border-emerald-500/30'
+ isLocked ? 'opacity-40' : 'hover:border-accent-500/30 dark:hover:border-emerald-500/30'
  }`}
  >
  <div>
  <div className="flex justify-between items-start gap-1 pb-1">
  <p className="font-extrabold text-[13px] text-zinc-900 dark:text-white leading-snug">{item.name}</p>
- <span className="text-[10px] font-black tracking-wider text-emerald-600 dark:text-emerald-450 bg-emerald-500/10 px-1.5 py-0.5 rounded flex-shrink-0">
+ <span className="text-[10px] font-black tracking-wider text-accent-600 dark:text-emerald-450 bg-accent-500/10 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded flex-shrink-0">
  {item.cost}
  </span>
  </div>
@@ -1394,7 +1394,7 @@ export default function GroupView() {
  className={`w-full py-2 font-extrabold text-xs rounded-xl cursor-pointer transition-all ${
  isLocked 
  ? 'bg-zinc-100 dark:bg-zinc-800/60 text-zinc-400 cursor-not-allowed' 
- : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm hover:scale-[1.02]'
+ : 'bg-accent-500 hover:bg-accent-600 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white shadow-sm hover:scale-[1.02]'
  }`}
  >
  {isLocked ? 'Locked ' : 'Unlock '}
