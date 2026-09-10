@@ -149,7 +149,7 @@ export default function BirthdayCalendar() {
   if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-32">
+    <div className="min-h-screen bg-[#FDF3EC] dark:bg-zinc-950 pb-32">
       <header className="p-6 pt-[calc(1.5rem+var(--sat))] bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
