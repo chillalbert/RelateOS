@@ -43,6 +43,7 @@ export default function TourOverlay() {
   const { firebaseUser, user } = useAuth();
   const { config } = useGamification();
   const [cardPosition, setCardPosition] = React.useState<CardPosition>({});
+  const cardRef = React.useRef<HTMLDivElement>(null);
 
   const currentStepInfo = tourStep !== null ? TOUR_STEPS[tourStep - 1] : null;
 
@@ -56,27 +57,35 @@ export default function TourOverlay() {
 
   const updatePosition = React.useCallback(() => {
     if (tourStep === null) return;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const padding = 16;
+    const gap = 16;
+    const cardWidth = Math.min(vw - padding * 2, 380);
+
+    // Measure actual rendered height via ref instead of hardcoded constant
+    const cardEl = cardRef.current;
+    const measuredHeight = cardEl ? (cardEl.getBoundingClientRect().height || cardEl.offsetHeight) : 220;
+    const cardHeight = measuredHeight > 0 ? measuredHeight : 220;
+
     const target = getTargetElement(tourStep);
     if (!target) {
+      const defaultBottom = Math.max(padding, Math.min(vh - cardHeight - padding, 120));
       setCardPosition({
         top: undefined,
-        left: undefined,
-        bottom: 120, // default offset above bottom navigation if no target is found
-        arrowDirection: undefined
+        left: Math.max(padding, (vw - cardWidth) / 2),
+        bottom: defaultBottom,
+        arrowDirection: undefined,
+        arrowStyle: {}
       });
       return;
     }
 
     const rect = target.getBoundingClientRect();
-    const cardWidth = 380;
-    const cardHeight = 220;
-    const gap = 16;
 
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
-    // Check if the target is part of the bottom navigation bar or near the bottom
-    const isBottomNav = target.closest('nav') !== null || rect.bottom > vh - 120;
+    // Rely solely on actual measured position to decide if target is near the bottom
+    const isBottomNav = rect.bottom > vh - 120;
 
     let top: number | undefined = undefined;
     let left: number | undefined = undefined;
@@ -84,18 +93,21 @@ export default function TourOverlay() {
     let arrowDirection: 'up' | 'down' | undefined = undefined;
     let arrowStyle: React.CSSProperties = {};
 
+    const targetCenterX = rect.left + rect.width / 2;
+    left = targetCenterX - (cardWidth / 2);
+    // Clamp horizontal position against viewport bounds
+    left = Math.max(padding, Math.min(vw - cardWidth - padding, left));
+
+    const arrowLeft = Math.max(24, Math.min(cardWidth - 24, targetCenterX - left));
+
     if (isBottomNav) {
       // Position directly ABOVE the item
       bottom = (vh - rect.top) + gap;
-      
-      const targetCenterX = rect.left + rect.width / 2;
-      left = targetCenterX - (Math.min(vw - 32, cardWidth) / 2);
-      
-      const padding = 16;
-      left = Math.max(padding, Math.min(vw - Math.min(vw - 32, cardWidth) - padding, left));
-      
+      // Clamp vertical position so top edge >= padding and bottom edge <= vh - padding
+      const maxBottom = Math.max(padding, vh - cardHeight - padding);
+      bottom = Math.max(padding, Math.min(maxBottom, bottom));
+
       arrowDirection = 'down';
-      const arrowLeft = targetCenterX - left;
       arrowStyle = {
         left: `${arrowLeft}px`,
         bottom: '-6px',
@@ -103,18 +115,13 @@ export default function TourOverlay() {
       };
     } else {
       // Position BELOW the item if it fits, else above
-      const targetCenterX = rect.left + rect.width / 2;
-      const targetBottomY = rect.bottom;
-
-      if (targetBottomY + cardHeight + gap < vh - 16) {
-        top = targetBottomY + gap;
-        left = targetCenterX - (Math.min(vw - 32, cardWidth) / 2);
-        
-        const padding = 16;
-        left = Math.max(padding, Math.min(vw - Math.min(vw - 32, cardWidth) - padding, left));
+      if (rect.bottom + cardHeight + gap < vh - padding) {
+        top = rect.bottom + gap;
+        // Clamp vertical position so top edge >= padding and bottom edge <= vh - padding
+        const maxTop = Math.max(padding, vh - cardHeight - padding);
+        top = Math.max(padding, Math.min(maxTop, top));
 
         arrowDirection = 'up';
-        const arrowLeft = targetCenterX - left;
         arrowStyle = {
           left: `${arrowLeft}px`,
           top: '-6px',
@@ -122,13 +129,11 @@ export default function TourOverlay() {
         };
       } else {
         bottom = (vh - rect.top) + gap;
-        left = targetCenterX - (Math.min(vw - 32, cardWidth) / 2);
-        
-        const padding = 16;
-        left = Math.max(padding, Math.min(vw - Math.min(vw - 32, cardWidth) - padding, left));
+        // Clamp vertical position so top edge >= padding and bottom edge <= vh - padding
+        const maxBottom = Math.max(padding, vh - cardHeight - padding);
+        bottom = Math.max(padding, Math.min(maxBottom, bottom));
 
         arrowDirection = 'down';
-        const arrowLeft = targetCenterX - left;
         arrowStyle = {
           left: `${arrowLeft}px`,
           bottom: '-6px',
@@ -146,20 +151,49 @@ export default function TourOverlay() {
     });
   }, [tourStep]);
 
+  // When step changes, ensure target is scrolled into view before measuring/positioning
   React.useEffect(() => {
     if (tourStep === null) return;
-    updatePosition();
 
+    const target = getTargetElement(tourStep);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    updatePosition();
+    const t1 = setTimeout(updatePosition, 100);
+    const t2 = setTimeout(updatePosition, 300);
+
+    const handleScroll = () => updatePosition();
     window.addEventListener('resize', updatePosition);
-    const interval = setInterval(updatePosition, 100);
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('scrollend', handleScroll);
+    const interval = setInterval(updatePosition, 150);
 
     return () => {
-      window.removeEventListener('resize', updatePosition);
+      clearTimeout(t1);
+      clearTimeout(t2);
       clearInterval(interval);
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('scrollend', handleScroll);
     };
   }, [tourStep, updatePosition]);
 
+  // Recalculate position when the card element resizes (e.g. content updates)
+  React.useEffect(() => {
+    if (!cardRef.current) return;
+    const observer = new ResizeObserver(() => {
+      updatePosition();
+    });
+    observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, [updatePosition, tourStep]);
+
   if (tourStep === null || !firebaseUser || !currentStepInfo) return null;
+
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 380;
+  const cardWidth = Math.min(vw - 32, 380);
 
   return (
     <AnimatePresence>
@@ -173,73 +207,80 @@ export default function TourOverlay() {
           onClick={skipTour}
         />
         
-        {/* Tour Dialog Card */}
-        <motion.div 
-          initial={{ y: 20, opacity: 0, scale: 0.95 }}
-          animate={{ y: 0, opacity: 1, scale: 1 }}
-          exit={{ y: 20, opacity: 0, scale: 0.95 }}
-          className="absolute bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 p-6 rounded-[28px] shadow-2xl pointer-events-auto space-y-4 transition-all duration-300"
+        {/* Tour Dialog Card Positioning Wrapper */}
+        <div 
+          ref={cardRef}
+          className="absolute pointer-events-auto transition-all duration-300"
           style={{
             top: cardPosition.top !== undefined ? `${cardPosition.top}px` : undefined,
-            left: cardPosition.left !== undefined ? `${cardPosition.left}px` : '50%',
+            left: cardPosition.left !== undefined 
+              ? `${cardPosition.left}px` 
+              : `${Math.max(16, (vw - cardWidth) / 2)}px`,
             bottom: cardPosition.bottom !== undefined ? `${cardPosition.bottom}px` : undefined,
-            transform: cardPosition.left !== undefined ? undefined : 'translateX(-50%)',
-            width: typeof window !== 'undefined' ? `${Math.min(window.innerWidth - 32, 380)}px` : '380px',
+            width: `${cardWidth}px`,
           }}
         >
-          {/* Visual Pointer/Arrow */}
-          {cardPosition.arrowDirection && (
-            <div 
-              className={`absolute w-3 h-3 bg-white dark:bg-zinc-900 border-zinc-150 dark:border-zinc-800 ${
-                cardPosition.arrowDirection === 'up' ? 'border-l border-t' : 'border-r border-b'
-              }`}
-              style={cardPosition.arrowStyle}
-            />
-          )}
+          {/* Animated Tour Dialog Card Content */}
+          <motion.div 
+            initial={{ y: 20, opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 20, opacity: 0, scale: 0.95 }}
+            className="relative bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 p-6 rounded-[28px] shadow-2xl space-y-4"
+          >
+            {/* Visual Pointer/Arrow */}
+            {cardPosition.arrowDirection && (
+              <div 
+                className={`absolute w-3 h-3 bg-white dark:bg-zinc-900 border-zinc-150 dark:border-zinc-800 ${
+                  cardPosition.arrowDirection === 'up' ? 'border-l border-t' : 'border-r border-b'
+                }`}
+                style={cardPosition.arrowStyle}
+              />
+            )}
 
-          <div className="flex justify-between items-center">
-            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 flex items-center gap-1.5">
-              <Sparkles size={12} className="animate-pulse" /> Workspace Tour • Step {tourStep} of {TOUR_STEPS.length}
-            </span>
-            <button 
-              onClick={skipTour}
-              className="text-[10px] font-black uppercase tracking-wider text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
-            >
-              Skip
-            </button>
-          </div>
-
-          <div className="space-y-1">
-            <h3 className="text-base font-black text-zinc-900 dark:text-white">
-              {displayTitle}
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
-              {displayDescription}
-            </p>
-          </div>
-
-          <div className="flex justify-between items-center pt-2">
-            <div className="flex gap-1 flex-wrap">
-              {TOUR_STEPS.map((_, index) => {
-                const s = index + 1;
-                return (
-                  <div 
-                    key={s} 
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                      s === tourStep ? 'w-5 bg-emerald-500' : 'w-1.5 bg-zinc-200 dark:bg-zinc-800'
-                    }`}
-                  />
-                );
-              })}
+            <div className="flex justify-between items-center">
+              <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 flex items-center gap-1.5">
+                <Sparkles size={12} className="animate-pulse" /> Workspace Tour • Step {tourStep} of {TOUR_STEPS.length}
+              </span>
+              <button 
+                onClick={skipTour}
+                className="text-[10px] font-black uppercase tracking-wider text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+              >
+                Skip
+              </button>
             </div>
-            <button
-              onClick={nextTourStep}
-              className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-1 transition-all shadow-md shadow-emerald-500/10 cursor-pointer"
-            >
-              {tourStep === TOUR_STEPS.length ? "Finish" : "Next"} <ChevronRight size={12} />
-            </button>
-          </div>
-        </motion.div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-zinc-900 dark:text-white">
+                {displayTitle}
+              </h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
+                {displayDescription}
+              </p>
+            </div>
+
+            <div className="flex justify-between items-center pt-2">
+              <div className="flex gap-1 flex-wrap">
+                {TOUR_STEPS.map((_, index) => {
+                  const s = index + 1;
+                  return (
+                    <div 
+                      key={s} 
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        s === tourStep ? 'w-5 bg-emerald-500' : 'w-1.5 bg-zinc-200 dark:bg-zinc-800'
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+              <button
+                onClick={nextTourStep}
+                className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-1 transition-all shadow-md shadow-emerald-500/10 cursor-pointer"
+              >
+                {tourStep === TOUR_STEPS.length ? "Finish" : "Next"} <ChevronRight size={12} />
+              </button>
+            </div>
+          </motion.div>
+        </div>
       </div>
     </AnimatePresence>
   );
