@@ -22,9 +22,8 @@ export default function FeatureLocked({ title = '?????', subtitle = 'Locked Feat
   const unlockSequence = config?.unlockSequence || [];
   const userProgressIndex = typeof user?.unlockProgressCount === 'number' ? user.unlockProgressCount : 0;
   
-  // Identify what feature the user is currently unlocking next
-  const currentNextUnlock = unlockSequence[userProgressIndex] || unlockSequence[0] || { id: 'deep_analytics', name: 'Deep Analytics' };
-  const isFeatureNext = currentNextUnlock.id === 'deep_analytics';
+  // Identify what feature the user is currently unlocking next (guarded against out-of-bounds)
+  const currentNextUnlock = userProgressIndex < unlockSequence.length ? unlockSequence[userProgressIndex] : undefined;
 
   return (
     <div className="min-h-screen bg-[#FDF3EC] dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 pb-28 pt-[calc(1.5rem+var(--sat))] px-4 font-sans">
@@ -64,13 +63,36 @@ export default function FeatureLocked({ title = '?????', subtitle = 'Locked Feat
             </div>
           </div>
 
-          <div className="space-y-2 max-w-sm mx-auto">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">
-              Unlock the next feature by completing your daily cycle!
-            </h2>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
-              Keep up your daily task momentum to finish your current cycle and reveal what's behind this tab.
-            </p>
+          <div className="space-y-3 max-w-sm mx-auto">
+            {currentNextUnlock ? (
+              <>
+                <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">
+                  Unlock the next feature by completing your daily cycle!
+                </h2>
+                {currentNextUnlock.description && (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/20 text-left space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                      <Sparkles size={12} /> Next Unlock Teaser
+                    </span>
+                    <p className="text-xs text-zinc-700 dark:text-zinc-200 font-medium leading-relaxed italic">
+                      "{currentNextUnlock.description}"
+                    </p>
+                  </div>
+                )}
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
+                  Keep up your daily task momentum to finish your current cycle and reveal what's behind this tab.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">
+                  You've unlocked everything!
+                </h2>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium">
+                  You've unlocked all features in the current unlock sequence. Keep maintaining your daily cycles to build your streak and earn Aura!
+                </p>
+              </>
+            )}
           </div>
 
           {/* Streak requirement & Progress Indicator card */}
@@ -85,7 +107,9 @@ export default function FeatureLocked({ title = '?????', subtitle = 'Locked Feat
                     Cycle Unlock Progress
                   </p>
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    Finish your cycle to unlock the next mystery feature
+                    {currentNextUnlock
+                      ? "Finish your cycle to unlock the next mystery feature"
+                      : "All sequence features unlocked! Keep your streak alive"}
                   </p>
                 </div>
               </div>
