@@ -131,8 +131,19 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       try {
         const unlockSeq = config.unlockSequence || [];
         const userProgress = typeof user.unlockProgressCount === 'number' ? user.unlockProgressCount : 0;
-        const currentUnlock = unlockSeq[userProgress] || unlockSeq[0] || { id: 'deep_analytics' };
-        const featureToUnlock = currentUnlock.id || 'deep_analytics';
+
+        // Guard: if all features in the sequence are already unlocked, do nothing
+        if (userProgress >= unlockSeq.length) {
+          const userRef = doc(db, 'users', firebaseUser.uid);
+          await updateDoc(userRef, {
+            pendingUnlockReady: false
+          });
+          return;
+        }
+
+        const currentUnlock = unlockSeq[userProgress];
+        if (!currentUnlock?.id) return;
+        const featureToUnlock = currentUnlock.id;
 
         const userRef = doc(db, 'users', firebaseUser.uid);
         await updateDoc(userRef, {
@@ -240,7 +251,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
 
       const auraEarned = config.auraPerDay || 10;
-      const isCycleComplete = newCount >= config.cycleLengthDays;
+      const isCycleComplete = config.cycleLengthDays > 0 && newCount > 0 && newCount % config.cycleLengthDays === 0;
 
       // 6. Write updates to users/{userId}
       const updatePayload: Record<string, any> = {
