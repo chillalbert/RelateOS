@@ -60,7 +60,7 @@ export default function DailyCompletionPopup({ data, onClose }: DailyCompletionP
             {/* Background Decorative Glow */}
             <div
               className={`absolute -top-12 -right-12 w-32 h-32 rounded-full blur-3xl pointer-events-none ${
-                isCycleComplete ? 'bg-amber-500/30' : 'bg-emerald-500/20'
+                isCycleComplete ? 'bg-amber-500/30' : 'bg-accent-500/20 dark:bg-emerald-500/20'
               }`}
             />
 
@@ -79,7 +79,7 @@ export default function DailyCompletionPopup({ data, onClose }: DailyCompletionP
                 className={`p-3 rounded-2xl flex-shrink-0 flex items-center justify-center ${
                   isCycleComplete
                     ? 'bg-amber-500 text-zinc-950 ring-4 ring-amber-500/20'
-                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'bg-accent-500/10 dark:bg-emerald-500/10 text-accent-400 dark:text-emerald-400 border border-accent-500/20 dark:border-emerald-500/20'
                 }`}
               >
                 {isCycleComplete ? <Trophy size={24} /> : <Zap size={24} />}
@@ -129,7 +129,7 @@ export default function DailyCompletionPopup({ data, onClose }: DailyCompletionP
                 onClick={() => setShowCalendar(!showCalendar)}
                 className="flex items-center gap-1 text-xs font-mono text-zinc-300 hover:text-white font-bold px-2.5 py-1.5 rounded-xl bg-white/10 border border-white/10 hover:bg-white/15 transition-all cursor-pointer"
               >
-                <Calendar size={13} className="text-emerald-400" />
+                <Calendar size={13} className="text-accent-400 dark:text-emerald-400" />
                 <span>Cycle</span>
                 {showCalendar ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
               </button>
@@ -143,7 +143,7 @@ export default function DailyCompletionPopup({ data, onClose }: DailyCompletionP
                   animate={{ width: `${progressPercent}%` }}
                   transition={{ duration: 0.8, ease: 'easeOut' }}
                   className={`h-full rounded-full ${
-                    isCycleComplete ? 'bg-amber-400' : 'bg-emerald-400'
+                    isCycleComplete ? 'bg-amber-400' : 'bg-accent-400 dark:bg-emerald-400'
                   }`}
                 />
               </div>
