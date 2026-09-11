@@ -182,20 +182,20 @@ export function getAIAccent(color?: 'violet' | 'emerald' | 'amber' | 'sky' | 'ro
       };
     case 'emerald':
       return {
-        text: 'text-accent-600 dark:text-emerald-400',
-        textMuted: 'text-accent-500 dark:text-emerald-500',
-        bgLight: 'bg-accent-50 dark:bg-emerald-950/40',
-        border: 'border-accent-200 dark:border-emerald-800/60',
-        borderLight: 'border-accent-100 dark:border-emerald-900/40',
-        bgSolid: 'bg-accent-500 dark:bg-emerald-600',
-        bgSolidHover: 'hover:bg-accent-600 dark:hover:bg-emerald-700',
-        ring: 'ring-accent-500/20 dark:ring-emerald-500/20',
-        focusRing: 'focus:ring-accent-500 dark:focus:ring-emerald-500',
-        gradientFrom: 'from-accent-500/20 dark:from-emerald-950/30',
+        text: 'text-emerald-600 dark:text-emerald-400',
+        textMuted: 'text-emerald-500 dark:text-emerald-500',
+        bgLight: 'bg-emerald-50 dark:bg-emerald-950/40',
+        border: 'border-emerald-200 dark:border-emerald-800/60',
+        borderLight: 'border-emerald-100 dark:border-emerald-900/40',
+        bgSolid: 'bg-emerald-500 dark:bg-emerald-600',
+        bgSolidHover: 'hover:bg-emerald-600 dark:hover:bg-emerald-700',
+        ring: 'ring-emerald-500/20',
+        focusRing: 'focus:ring-emerald-500',
+        gradientFrom: 'from-emerald-500/20 dark:from-emerald-950/30',
         gradientTo: 'to-teal-500/10 dark:to-teal-950/10',
-        badge: 'bg-accent-50 dark:bg-emerald-950/40 text-accent-700 dark:text-emerald-300 border border-accent-100 dark:border-emerald-900/40',
-        iconBg: 'bg-accent-100 dark:bg-emerald-950/60',
-        iconText: 'text-accent-600 dark:text-emerald-400'
+        badge: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-900/40',
+        iconBg: 'bg-emerald-100 dark:bg-emerald-950/60',
+        iconText: 'text-emerald-600 dark:text-emerald-400'
       };
     case 'amber':
       return {
