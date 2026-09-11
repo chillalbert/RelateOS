@@ -32,12 +32,12 @@ const DEFAULT_CONFIG: GamificationConfig = {
     {
       id: 'aura_shop',
       name: 'Aura Shop',
-      description: 'Redeem Aura tokens for custom badges and themes'
+      description: 'A shop full of goodies is waiting — spend your hard-earned points on streak freezes, custom themes, and more.'
     },
     {
       id: 'deep_analytics',
       name: 'Advanced Insights',
-      description: 'Unlock detailed relationship trend reports'
+      description: 'Charts and trends that show you the real story behind your relationships.'
     }
   ],
   currentUnlockIndex: 0
