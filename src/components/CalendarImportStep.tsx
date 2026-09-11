@@ -475,7 +475,7 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
       >
         {state === 'default' && (
           <div className="space-y-6">
-            <div className="w-16 h-16 bg-emerald-500 text-white rounded-3xl flex items-center justify-center mx-auto rotate-12 shadow-xl shadow-emerald-500/20">
+            <div className="w-16 h-16 bg-accent-500 dark:bg-emerald-500 text-white rounded-3xl flex items-center justify-center mx-auto rotate-12 shadow-xl shadow-accent-500/20 dark:shadow-emerald-500/20">
               <Calendar size={32} />
             </div>
 
@@ -567,7 +567,7 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
             {/* Manual fallback button in case auto-close doesn't fire */}
             <button
               onClick={() => onCompleteRef.current()}
-              className="w-full py-3 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-500/20 hover:opacity-90 transition-opacity"
+              className="w-full py-3 bg-accent-500 dark:bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20 hover:opacity-90 transition-opacity"
             >
               Go to Dashboard →
             </button>
