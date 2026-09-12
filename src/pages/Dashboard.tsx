@@ -30,8 +30,6 @@ import HelpTip from '../components/HelpTip';
 import EmptyState from '../components/EmptyState';
 import StreakCalendarView from '../components/StreakCalendarView';
 import { getDaysUntil, formatDate, cn, getConnectionScore, getPreciseCountdown, getTurningAge, getDisplayName, getAIAccent } from '../lib/utils';
-import { calculateRelationshipHealthScore } from '../lib/healthScore';
-import { HealthScoreCompactBadge } from '../components/HealthScoreBadge';
 import { Gift, MessageSquare, Sparkles as SparklesIcon, Trash2, ShieldAlert, Lock as LockIcon } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { db } from '../lib/firebase';
@@ -523,9 +521,7 @@ export default function Dashboard() {
  .sort((a, b) => getDaysUntil(a.birthday) - getDaysUntil(b.birthday))
  .slice(0, 5);
 
- const priorityPeople = [...activePeople]
- .sort((a, b) => b.importance - a.importance)
- .slice(0, 3);
+ const upcomingDeadlines = upcoming.filter(p => !p.birthday_unset && getDaysUntil(p.birthday) <= 45);
 
  const currentMonth = new Date().getMonth();
  const birthdaysThisMonth = activePeople.filter(p => {
@@ -537,6 +533,8 @@ export default function Dashboard() {
  const dayB = Number(b.birthday.split('-')[2]);
  return dayA - dayB;
  });
+
+ const hasNoBirthdaysTracked = birthdaysThisMonth.length === 0 && upcomingDeadlines.length === 0;
 
  const handleWishBirthday = async (personId: string, personName: string) => {
  if (!firebaseUser || !user) return;
@@ -1085,7 +1083,19 @@ export default function Dashboard() {
    </motion.div>
  </section>
 
- {/* Birthdays This Month */}
+        {hasNoBirthdaysTracked ? (
+          <section id="no-birthdays-tracked-section" className="space-y-4">
+            <EmptyState 
+              icon={Cake}
+              title="No birthdays tracked yet"
+              description="Add your first contact to start seeing countdowns, deadlines, and reminders here."
+              actionLabel="Add a Friend"
+              actionLink="/add"
+            />
+          </section>
+        ) : (
+          <>
+            {/* Birthdays This Month */}
  <section 
  id="birthdays-month-section" 
  className="space-y-4"
@@ -1211,8 +1221,8 @@ export default function Dashboard() {
  </div>
  </div>
  <div className="space-y-4">
- {upcoming.filter(p => !p.birthday_unset && getDaysUntil(p.birthday) <= 45).length > 0 ? (
- upcoming.filter(p => !p.birthday_unset && getDaysUntil(p.birthday) <= 45).map((person) => {
+ {upcomingDeadlines.length > 0 ? (
+ upcomingDeadlines.map((person) => {
  const daysLeft = getDaysUntil(person.birthday);
  const tasks = person.tasks || [];
  const completedTasks = tasks.filter((t: any) => t.completed).length;
@@ -1375,65 +1385,10 @@ export default function Dashboard() {
  )}
  </div>
  </section>
+          </>
+        )}
 
- {/* Priority Intelligence Section */}
- <section 
- id="priority-intelligence-section" 
- className="p-6 bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 border-t border-t-white/5 rounded-3xl shadow-sm dark:shadow-lg space-y-4"
- >
- <div className="flex items-center justify-between">
- <div className="flex items-center gap-2">
- <Star className="text-amber-500" size={18} fill="currentColor" />
- <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400">Priority Intelligence</h2>
- </div>
- <span className="label-micro">Algo v1.2</span>
- </div>
- <div className="space-y-6">
- {priorityPeople.map((person) => {
- const healthResult = calculateRelationshipHealthScore({
- person,
- memories: person.memories || [],
- gifts: person.gifts || []
- });
- return (
- <div key={person.id} className="space-y-2">
- <div className="flex items-center justify-between">
- <Link to={`/person/${person.id}`} className="flex items-center gap-3 group">
- <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold overflow-hidden">
- {((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url) ? (
- <img 
- src={(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.photo_url) || person.photo_url} 
- alt={person.name} 
- className="w-full h-full object-cover" 
- />
- ) : (
- ((person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name)[0]
- )}
- </div>
- <span className="text-sm font-bold flex items-center gap-1.5 group-hover:text-accent-500 dark:group-hover:text-emerald-400 transition-colors">
- {(person.host_uid && friendStreaks[person.host_uid] !== undefined && syncedProfiles[person.host_uid]?.name) || person.name}
- {person.host_uid && friendStreaks[person.host_uid] > 0 && (
- <span className="text-xs"> {friendStreaks[person.host_uid]}</span>
- )}
- </span>
- </Link>
- <HealthScoreCompactBadge input={{ person, memories: person.memories, gifts: person.gifts }} />
- </div>
- <div className="h-2 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
- <motion.div 
- initial={{ width: 0 }}
- animate={{ width: `${healthResult.score}%` }}
- transition={{ duration: 1, ease: "easeOut" }}
- className={cn("h-full rounded-full transition-all", healthResult.badgeStyle.barColor)}
- />
- </div>
- <p className="text-[10px] font-medium text-zinc-400 truncate">{healthResult.reason}</p>
- </div>
- );
- })}
- </div>
- <p className="text-[10px] text-zinc-400 text-center pt-2">Based on memories, interactions & how much you show up</p>
- </section>
+
 
 
 
