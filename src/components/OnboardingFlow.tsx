@@ -1230,7 +1230,7 @@ export default function OnboardingFlow() {
             >
               <div className="space-y-1">
                 <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
-                  Your interests
+                  Your interests (not required)
                 </h2>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 font-normal">
                   Add sports teams, music, and weekend activities so friends know what you like.
