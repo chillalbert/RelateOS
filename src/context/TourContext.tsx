@@ -35,7 +35,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     title: "Memory Vaults",
     route: "/vaults",
-    description: "Preserve cherished milestones. Store secure photos, logs, and shared memories safely within digital vaults."
+    description: "Secret Lockers — when a friend throws you a surprise party, everything they plan stays hidden here until your birthday, when it unlocks all at once."
   },
   {
     title: "Relationship Analytics",
