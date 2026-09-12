@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, PieChart, TrendingUp, Award, HeartPulse, AlertCircle, ChevronDown, ChevronUp, Zap } from 'lucide-react';
+import { ArrowLeft, PieChart, TrendingUp, Award, HeartPulse, AlertCircle, ChevronDown, ChevronUp, Zap, Star } from 'lucide-react';
 import { 
   BarChart, 
   Bar, 
@@ -183,6 +183,10 @@ export default function Analytics() {
           .sort((a, b) => a.healthResult.score - b.healthResult.score)
           .slice(0, 5);
 
+        const priorityIntelligence = [...peopleHealthScores]
+          .sort((a, b) => (Number(b.person.importance) || 0) - (Number(a.person.importance) || 0))
+          .slice(0, 3);
+
         // Calculate User Relationship Score (0-100)
         // 1. weightedHealthScore (35%)
         let weightedSum = 0;
@@ -331,6 +335,7 @@ export default function Analytics() {
           avgBadgeStyle,
           healthDistribution,
           needsAttention,
+          priorityIntelligence,
           userRelationshipScore,
           userScoreBreakdown
         });
@@ -612,6 +617,79 @@ export default function Analytics() {
               </div>
             )}
           </div>
+
+          {/* Priority Intelligence List (Highest Importance Contacts) */}
+          {data?.priorityIntelligence && data.priorityIntelligence.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800 pt-4">
+                <div className="flex items-center gap-1.5">
+                  <Star size={15} className="text-amber-500 fill-amber-500" />
+                  <h4 className="text-xs font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Priority Intelligence</h4>
+                </div>
+                <span className="text-[10px] font-bold text-zinc-400">Highest Importance Contacts</span>
+              </div>
+
+              <div className="space-y-3">
+                {data.priorityIntelligence.map((item: any) => {
+                  const person = item.person;
+                  const healthResult = item.healthResult;
+                  return (
+                    <div
+                      key={person.id}
+                      onClick={() => navigate(`/person/${person.id}`)}
+                      className="p-3.5 rounded-2xl bg-zinc-100/80 dark:bg-zinc-950/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-800/80 border border-zinc-200/60 dark:border-zinc-800/80 transition-all cursor-pointer space-y-2 group"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold shrink-0 overflow-hidden text-zinc-700 dark:text-zinc-300">
+                            {person.photo_url ? (
+                              <img src={person.photo_url} alt={person.name} className="w-full h-full object-cover" />
+                            ) : (
+                              (person.name || 'P')[0].toUpperCase()
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-accent-500 dark:group-hover:text-emerald-400 transition-colors">
+                              {person.name}
+                            </p>
+                            <p className="text-[10px] font-semibold text-zinc-400">
+                              Priority Level {person.importance || 3} / 5
+                            </p>
+                          </div>
+                        </div>
+
+                        <HealthScoreBadge 
+                          input={{ 
+                            person, 
+                            memories: person.memories, 
+                            reflections: person.reflections, 
+                            photos: person.photos, 
+                            gifts: person.gifts 
+                          }} 
+                          size="sm" 
+                          showDetailsOnHover={false} 
+                        />
+                      </div>
+
+                      <div className="h-1.5 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${healthResult.score}%` }}
+                          transition={{ duration: 1, ease: "easeOut" }}
+                          className={cn("h-full rounded-full transition-all", healthResult.badgeStyle.barColor)}
+                        />
+                      </div>
+
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate leading-snug">
+                        {healthResult.reason}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-zinc-400 text-center pt-1">Based on memories, interactions & how much you show up</p>
+            </div>
+          )}
         </section>
 
         {/* Monthly Distribution */}
