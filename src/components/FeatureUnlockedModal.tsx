@@ -33,13 +33,13 @@ const FEATURE_DEFAULTS: Record<string, { name: string; description: string; rout
   },
   vaults: {
     name: "Memory Vaults",
-    description: "Preserve cherished milestones, photos, and shared memories safely within digital vaults.",
+    description: "Secret Lockers — when a friend throws you a surprise party, everything they plan stays hidden here until your birthday, when it unlocks all at once.",
     route: "/vaults",
     IconComponent: Archive
   },
   memory_vaults: {
     name: "Memory Vaults",
-    description: "Preserve cherished milestones, photos, and shared memories safely within digital vaults.",
+    description: "Secret Lockers — when a friend throws you a surprise party, everything they plan stays hidden here until your birthday, when it unlocks all at once.",
     route: "/vaults",
     IconComponent: Archive
   },
