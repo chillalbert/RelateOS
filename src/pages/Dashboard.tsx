@@ -540,7 +540,7 @@ export default function Dashboard() {
  if (evt.date) {
  dates.push({
  date: evt.date,
- label: evt.title || evt.type || 'Event',
+ label: evt.label || evt.type || 'Event',
  isBirthday: false
  });
  }
