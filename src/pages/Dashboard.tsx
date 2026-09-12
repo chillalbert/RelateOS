@@ -452,7 +452,7 @@ export default function Dashboard() {
  .sort((a, b) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0))
  .slice(0, 10);
 
- // Fetch tasks and gifts for each person
+ // Fetch tasks, gifts, and events for each person
  const peopleWithDetails = await Promise.all(peopleData.map(async (p: any) => {
  const tasksRef = collection(db, 'people', p.id, 'tasks');
  const tSnapshot = await getDocs(tasksRef);
@@ -462,7 +462,16 @@ export default function Dashboard() {
  const gSnapshot = await getDocs(giftsRef);
  const gifts = gSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
- return { ...p, tasks, gifts };
+ let events: any[] = [];
+ try {
+ const eventsRef = collection(db, 'people', p.id, 'events');
+ const eSnapshot = await getDocs(eventsRef);
+ events = eSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+ } catch (err) {
+ console.error(`Failed to fetch events for person ${p.id}:`, err);
+ }
+
+ return { ...p, tasks, gifts, events };
  }));
 
  setPeople(peopleWithDetails);
@@ -516,24 +525,77 @@ export default function Dashboard() {
  }
  };
 
- const upcoming = [...activePeople]
- .filter(p => p.birthday && !p.birthday_unset)
- .sort((a, b) => getDaysUntil(a.birthday) - getDaysUntil(b.birthday))
- .slice(0, 5);
-
- const upcomingDeadlines = upcoming.filter(p => !p.birthday_unset && getDaysUntil(p.birthday) <= 45);
+ // Helper to extract all valid dates (birthday and events) for a person
+ const getPersonDates = (p: any) => {
+ const dates: { date: string; label: string; isBirthday: boolean }[] = [];
+ if (p.birthday && !p.birthday_unset) {
+ dates.push({
+ date: p.birthday,
+ label: 'Birthday',
+ isBirthday: true
+ });
+ }
+ if (p.events && Array.isArray(p.events)) {
+ p.events.forEach((evt: any) => {
+ if (evt.date) {
+ dates.push({
+ date: evt.date,
+ label: evt.title || evt.type || 'Event',
+ isBirthday: false
+ });
+ }
+ });
+ }
+ return dates;
+ };
 
  const currentMonth = new Date().getMonth();
- const birthdaysThisMonth = activePeople.filter(p => {
- if (!p.birthday || p.birthday_unset) return false;
- const [y, m, d] = p.birthday.split('-').map(Number);
+ const birthdaysThisMonth = activePeople.map(p => {
+ const dates = getPersonDates(p);
+ const monthDates = dates.filter(d => {
+ const [y, m, day] = d.date.split('-').map(Number);
  return (m - 1) === currentMonth;
  }).sort((a, b) => {
+ const dayA = Number(a.date.split('-')[2]);
+ const dayB = Number(b.date.split('-')[2]);
+ return dayA - dayB;
+ });
+
+ if (monthDates.length === 0) return null;
+ const qualifying = monthDates[0];
+ return {
+ ...p,
+ birthday: qualifying.date,
+ birthYearUnknown: qualifying.isBirthday ? p.birthYearUnknown : true,
+ eventLabel: qualifying.label
+ };
+ }).filter((p): p is any => Boolean(p))
+ .sort((a, b) => {
  const dayA = Number(a.birthday.split('-')[2]);
  const dayB = Number(b.birthday.split('-')[2]);
  return dayA - dayB;
  });
 
+ const upcomingDeadlines = activePeople.map(p => {
+ const dates = getPersonDates(p);
+ const qualifying = dates
+ .map(d => ({ ...d, daysLeft: getDaysUntil(d.date) }))
+ .filter(d => d.daysLeft <= 45)
+ .sort((a, b) => a.daysLeft - b.daysLeft);
+
+ if (qualifying.length === 0) return null;
+ const soonest = qualifying[0];
+ return {
+ ...p,
+ birthday: soonest.date,
+ birthYearUnknown: soonest.isBirthday ? p.birthYearUnknown : true,
+ eventLabel: soonest.label,
+ daysLeft: soonest.daysLeft
+ };
+ }).filter((p): p is any => Boolean(p))
+ .sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0));
+
+ const upcoming = upcomingDeadlines.slice(0, 5);
  const hasNoBirthdaysTracked = birthdaysThisMonth.length === 0 && upcomingDeadlines.length === 0;
 
  const handleWishBirthday = async (personId: string, personName: string) => {
@@ -1083,14 +1145,24 @@ export default function Dashboard() {
    </motion.div>
  </section>
 
-        {hasNoBirthdaysTracked ? (
-          <section id="no-birthdays-tracked-section" className="space-y-4">
+        {activePeople.length === 0 ? (
+          <section id="no-contacts-tracked-section" className="space-y-4">
             <EmptyState 
               icon={Cake}
-              title="No birthdays tracked yet"
+              title="Nothing tracked yet"
               description="Add your first contact to start seeing countdowns, deadlines, and reminders here."
               actionLabel="Add a Friend"
               actionLink="/add"
+            />
+          </section>
+        ) : (birthdaysThisMonth.length === 0 && upcomingDeadlines.length === 0) ? (
+          <section id="nothing-coming-up-section" className="space-y-4">
+            <EmptyState 
+              icon={Calendar}
+              title="Nothing coming up"
+              description="None of your contacts have a birthday or event in the next 45 days."
+              actionLabel="View Calendar"
+              actionLink="/calendar"
             />
           </section>
         ) : (
