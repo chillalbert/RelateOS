@@ -71,6 +71,7 @@ const TourContext = React.createContext<TourContextType | undefined>(undefined);
 
 export function TourProvider({ children }: { children: React.ReactNode }) {
   const [tourStep, setTourStepState] = React.useState<number | null>(null);
+  const capturedRoomUrlRef = React.useRef<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { firebaseUser, isLoading } = useAuth();
@@ -79,6 +80,10 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     if (isLoading) return;
     if (!firebaseUser) {
       setTourStepState(null);
+      capturedRoomUrlRef.current = null;
+      try {
+        sessionStorage.removeItem('tour_captured_room_url');
+      } catch (e) {}
     }
   }, [firebaseUser, isLoading]);
 
@@ -86,6 +91,20 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     if (!firebaseUser) {
       setTourStepState(null);
       return;
+    }
+    if (step === 1) {
+      if (location.pathname.startsWith('/rooms/')) {
+        const roomUrl = location.pathname + location.search;
+        capturedRoomUrlRef.current = roomUrl;
+        try {
+          sessionStorage.setItem('tour_captured_room_url', roomUrl);
+        } catch (e) {}
+      } else {
+        capturedRoomUrlRef.current = null;
+        try {
+          sessionStorage.removeItem('tour_captured_room_url');
+        } catch (e) {}
+      }
     }
     setTourStepState(step);
     if (step !== null) {
@@ -114,7 +133,18 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
           console.error("Failed to mark tourFinished:", err);
         }
       }
-      navigate('/');
+      let returnUrl = capturedRoomUrlRef.current;
+      if (!returnUrl) {
+        try {
+          returnUrl = sessionStorage.getItem('tour_captured_room_url');
+        } catch (e) {}
+      }
+      capturedRoomUrlRef.current = null;
+      try {
+        sessionStorage.removeItem('tour_captured_room_url');
+      } catch (e) {}
+
+      navigate(returnUrl || '/');
       setTimeout(() => {
         confetti({
           particleCount: 150,
@@ -134,7 +164,18 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
         console.error("Failed to mark tourFinished on skip:", err);
       }
     }
-    navigate('/');
+    let returnUrl = capturedRoomUrlRef.current;
+    if (!returnUrl) {
+      try {
+        returnUrl = sessionStorage.getItem('tour_captured_room_url');
+      } catch (e) {}
+    }
+    capturedRoomUrlRef.current = null;
+    try {
+      sessionStorage.removeItem('tour_captured_room_url');
+    } catch (e) {}
+
+    navigate(returnUrl || '/');
   };
 
   // Check if current route matches the active step's route
