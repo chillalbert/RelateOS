@@ -417,6 +417,68 @@ export default function GroupPlanning() {
     group?.roles?.[firebaseUser?.uid] === 'planner'
   ));
 
+  const [celebrantOffer, setCelebrantOffer] = React.useState<'hidden' | 'offer' | 'adding' | 'added'>('hidden');
+
+  React.useEffect(() => {
+    const uid = firebaseUser?.uid;
+    const rsvp = uid ? group?.rsvps?.[uid] : undefined;
+    const personName = group?.person_name;
+
+    if (
+      !firebaseUser ||
+      !uid ||
+      !group ||
+      isCrewAdminOrMod ||
+      rsvp !== 'going' ||
+      !personName ||
+      typeof personName !== 'string' ||
+      personName.trim() === '' ||
+      personName.trim().toLowerCase() === 'someone'
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const userDocRef = doc(db, 'users', uid);
+        const userSnap = await getDoc(userDocRef);
+        if (cancelled) return;
+        if (userSnap.exists()) {
+          const dismissed: string[] = userSnap.data()?.dismissed_celebrant_prompts || [];
+          if (id && dismissed.includes(id)) {
+            return;
+          }
+        }
+
+        const peopleQuery = query(collection(db, 'people'), where('user_id', '==', uid));
+        const peopleSnap = await getDocs(peopleQuery);
+        if (cancelled) return;
+
+        const normalizedTarget = personName.trim().toLowerCase();
+        const alreadyExists = peopleSnap.docs.some((d) => {
+          const pName = d.data()?.name;
+          return typeof pName === 'string' && pName.trim().toLowerCase() === normalizedTarget;
+        });
+
+        if (alreadyExists) {
+          return;
+        }
+
+        if (!cancelled) {
+          setCelebrantOffer('offer');
+        }
+      } catch (err) {
+        console.error('Error checking celebrant offer status:', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, firebaseUser?.uid, group?.rsvps?.[firebaseUser?.uid || ''], group?.person_name, isCrewAdminOrMod]);
+
   const myRsvp = group?.rsvps?.[firebaseUser?.uid] || 'maybe';
   const myVisibilityLevel = group?.visibility_by_status?.[myRsvp] || (myRsvp === 'going' ? 'full' : myRsvp === 'not_going' ? 'none' : 'limited');
 
@@ -3345,6 +3407,50 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
    }
  };
 
+  const handleAddCelebrant = async () => {
+    if (!firebaseUser?.uid || !group?.person_name || !id) return;
+    setCelebrantOffer('adding');
+    try {
+      const uid = firebaseUser.uid;
+      await addDoc(collection(db, 'people'), {
+        name: group.person_name,
+        user_id: uid,
+        birthday: group.person_birthday || '1900-01-01',
+        birthYearUnknown: group.person_birthday ? group.person_birthday.startsWith('1900-') : true,
+        birthday_unset: !group.person_birthday,
+        category: group.person_category || 'friend',
+        importance: 3,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp()
+      });
+
+      await updateDoc(doc(db, 'users', uid), {
+        dismissed_celebrant_prompts: arrayUnion(id)
+      });
+
+      setCelebrantOffer('added');
+    } catch (err) {
+      console.error('Error adding celebrant:', err);
+      setCelebrantOffer('offer');
+    }
+  };
+
+  const handleDismissCelebrant = async () => {
+    if (!firebaseUser?.uid || !id) {
+      setCelebrantOffer('hidden');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'users', firebaseUser.uid), {
+        dismissed_celebrant_prompts: arrayUnion(id)
+      });
+    } catch (err) {
+      console.error('Error dismissing celebrant prompt:', err);
+    } finally {
+      setCelebrantOffer('hidden');
+    }
+  };
+
  return (
  <div className="min-h-screen bg-[#FDF3EC] dark:bg-zinc-950 pb-24">
  <header className="p-4 sm:p-6 pt-[calc(1.25rem+var(--sat))] bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 relative">
@@ -3600,6 +3706,81 @@ Return ONLY a valid JSON array of 3 string questions. Output raw JSON array only
                   </div>
                 </div>
               </div>
+
+              {/* Celebrant Tracking Prompt */}
+              {!isCrewAdminOrMod && celebrantOffer !== 'hidden' && (
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-sm transition-all">
+                  {(celebrantOffer === 'offer' || celebrantOffer === 'adding') && (
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Calendar size={18} className="text-accent-600 dark:text-accent-400 shrink-0" />
+                          <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                            Keep track of {group?.person_name}&apos;s birthday?
+                          </h3>
+                        </div>
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                          Add them to your Dashboard so you get a reminder next year. You can add their birthday later.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleDismissCelebrant}
+                          className="px-3 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white cursor-pointer transition-colors"
+                        >
+                          Not now
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAddCelebrant}
+                          disabled={celebrantOffer === 'adding'}
+                          className="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-accent-600 hover:bg-accent-700 text-white dark:bg-accent-500 dark:hover:bg-accent-600 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
+                        >
+                          {celebrantOffer === 'adding' ? (
+                            <span>Adding...</span>
+                          ) : (
+                            <>
+                              <Plus size={16} />
+                              <span>Add {group?.person_name}</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {celebrantOffer === 'added' && (
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-accent-100 dark:bg-accent-950/60 text-accent-600 dark:text-accent-400 flex items-center justify-center shrink-0">
+                          <Check size={16} />
+                        </div>
+                        <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                          {group?.person_name} is on your Dashboard.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => navigate('/')}
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-accent-600 hover:bg-accent-700 text-white dark:bg-accent-500 dark:hover:bg-accent-600 shadow-sm transition-colors cursor-pointer"
+                        >
+                          View Dashboard
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCelebrantOffer('hidden')}
+                          aria-label="Close"
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* 2. Birthday Countdown Block */}
               {group?.person_birthday && (
