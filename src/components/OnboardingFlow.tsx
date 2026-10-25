@@ -104,56 +104,6 @@ function cleanName(summary: string): string {
     .join(' ');
 }
 
-function parseIcsText(text: string) {
-  const unfoldedText = text.replace(/\r?\n[ \t]/g, '');
-  const blocks = unfoldedText.split('BEGIN:VEVENT');
-  const contacts: { name: string; birthday: string }[] = [];
-
-  for (let i = 1; i < blocks.length; i++) {
-    const block = blocks[i].split('END:VEVENT')[0];
-    
-    let summary = '';
-    const summaryMatch = block.match(/^SUMMARY[;:][^\r\n]*/mi);
-    if (summaryMatch) {
-      const parts = summaryMatch[0].split(':');
-      parts.shift();
-      summary = parts.join(':').trim();
-    }
-
-    let dtstart = '';
-    const dtstartMatch = block.match(/^DTSTART[;:][^\r\n]*/mi);
-    if (dtstartMatch) {
-      const parts = dtstartMatch[0].split(':');
-      parts.shift();
-      dtstart = parts.join(':').trim();
-    }
-
-    let categories = '';
-    const categoriesMatch = block.match(/^CATEGORIES[;:][^\r\n]*/mi);
-    if (categoriesMatch) {
-      const parts = categoriesMatch[0].split(':');
-      parts.shift();
-      categories = parts.join(':').trim();
-    }
-
-    const isBirthdayCategory = categories.toLowerCase().includes('birthday');
-    const isBirthdaySummary = summary.toLowerCase().includes('birthday');
-
-    if ((isBirthdayCategory || isBirthdaySummary) && summary && dtstart) {
-      const cleanedName = cleanName(summary);
-      if (!cleanedName) continue;
-
-      const digitsMatch = dtstart.match(/\d{8}/);
-      if (digitsMatch) {
-        const digits = digitsMatch[0];
-        const birthdayDate = `${digits.substring(0, 4)}-${digits.substring(4, 6)}-${digits.substring(6, 8)}`;
-        contacts.push({ name: cleanedName, birthday: birthdayDate });
-      }
-    }
-  }
-  return contacts;
-}
-
 // Compact constellation progress bar shown inside step views
 function CompactConstellationIndicator({
   activeStepIndex,
@@ -680,73 +630,6 @@ export default function OnboardingFlow() {
     }
   };
 
-  const handleStep5FileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user) return;
-    setImportError(null);
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setImportState('loading');
-    try {
-      const text = await file.text();
-      const list = parseIcsText(text).map(c => ({ ...c, birthYearUnknown: false }));
-      if (list.length === 0) {
-        throw new Error("No birthday events found in your .ics file.");
-      }
-      
-      const peopleRef = collection(db, 'people');
-      let savedCount = 0;
-
-      await Promise.all(
-        list.map(async (contact) => {
-          try {
-            await addDoc(peopleRef, {
-              user_id: user.id,
-              name: contact.name,
-              birthday: contact.birthday,
-              birthYearUnknown: contact.birthYearUnknown,
-              category: 'friend',
-              importance: 5,
-              friendshipScore: 0,
-              notes: '',
-              interests: '',
-              nickname: '',
-              photo_url: '',
-              created_at: serverTimestamp(),
-              updated_at: serverTimestamp(),
-              reminder_settings: {
-                "30_days": true,
-                "7_days": true,
-                "morning": true
-              }
-            });
-            savedCount++;
-          } catch (e) {
-            console.error("Error saving contact: ", e);
-          }
-        })
-      );
-
-      setImportedCount(savedCount);
-      if (savedCount > 0 && !user.initialTaskCompleted) {
-        try {
-          const userRef = doc(db, 'users', user.id);
-          await updateDoc(userRef, {
-            initialTaskCompleted: true,
-            initialTaskCompletedDate: getLocalDateString(),
-            unlockedFeatures: arrayUnion('analytics')
-          });
-        } catch (e) {
-          console.error("Error setting initialTaskCompleted in file import:", e);
-        }
-      }
-      setImportState('success');
-    } catch (err: any) {
-      console.error(err);
-      setImportError(err.message || "An error occurred while parsing the .ics file.");
-      setImportState('default');
-    }
-  };
 
   const handleCompleteWithTour = async (wantsTour: boolean) => {
     if (!user) return;
@@ -1445,7 +1328,7 @@ export default function OnboardingFlow() {
                   Import birthdays
                 </h2>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 font-normal">
-                  Sync birthdays automatically from your Google Calendar or upload a .ics calendar file.
+                  Sync birthdays automatically from your Google Calendar.
                 </p>
               </div>
 
@@ -1486,20 +1369,6 @@ export default function OnboardingFlow() {
                     </div>
                     <ChevronRight size={16} className="text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
                   </button>
-
-                  <label className="w-full p-4 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex items-center justify-between transition-all cursor-pointer group">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-500">
-                        <User size={20} />
-                      </div>
-                      <div className="text-left">
-                        <h3 className="text-xs font-bold text-zinc-900 dark:text-white">Upload .ics calendar file</h3>
-                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">Select a calendar export file from your device.</p>
-                      </div>
-                    </div>
-                    <ChevronRight size={16} className="text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
-                    <input type="file" accept=".ics" className="hidden" onChange={handleStep5FileUpload} />
-                  </label>
 
                   {importError && (
                     <p className="text-xs text-red-500 font-medium px-1 text-center">{importError}</p>
