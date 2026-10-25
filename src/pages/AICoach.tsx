@@ -19,7 +19,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 import AuraHeaderBadge from '../components/AuraHeaderBadge';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { callCoachModel, parseCoachResponse } from '../services/geminiService';
 import { getDisplayName, getAIAccent } from '../lib/utils';
 
@@ -238,20 +238,6 @@ Return plain text only, no JSON.
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
 
-    // Save normal messages to Firestore
-    if (!updatedPrivateMode && firebaseUser) {
-      try {
-        const chatRef = collection(db, 'users', firebaseUser.uid, 'coach_messages');
-        await addDoc(chatRef, {
-          text: textToSend,
-          sender: 'user',
-          created_at: serverTimestamp()
-        });
-      } catch (err) {
-        console.warn("Could not save user message to Firestore:", err);
-      }
-    }
-
     setIsAiThinking(true);
 
     try {
@@ -332,21 +318,6 @@ Do NOT output \`\`\`json \`\`\` blocks, return only the raw JSON.
       };
 
       setMessages(prev => [...prev, aiMsg]);
-
-      // Save assistant message to Firestore if not private
-      if (!updatedPrivateMode && firebaseUser) {
-        try {
-          const chatRef = collection(db, 'users', firebaseUser.uid, 'coach_messages');
-          await addDoc(chatRef, {
-            text: aiReply,
-            sender: 'assistant',
-            action: aiAction || null,
-            created_at: serverTimestamp()
-          });
-        } catch (err) {
-          console.warn("Could not save assistant message to Firestore:", err);
-        }
-      }
 
       // Execute Action client-side if it is Create Contact
       if (aiAction && aiAction.type === 'createContact' && firebaseUser) {
