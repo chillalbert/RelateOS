@@ -102,56 +102,6 @@ function cleanName(summary: string): string {
     .join(' ');
 }
 
-function parseIcsText(text: string) {
-  const unfoldedText = text.replace(/\r?\n[ \t]/g, '');
-  const blocks = unfoldedText.split('BEGIN:VEVENT');
-  const contacts: { name: string; birthday: string }[] = [];
-
-  for (let i = 1; i < blocks.length; i++) {
-    const block = blocks[i].split('END:VEVENT')[0];
-    
-    let summary = '';
-    const summaryMatch = block.match(/^SUMMARY[;:][^\r\n]*/mi);
-    if (summaryMatch) {
-      const parts = summaryMatch[0].split(':');
-      parts.shift();
-      summary = parts.join(':').trim();
-    }
-
-    let dtstart = '';
-    const dtstartMatch = block.match(/^DTSTART[;:][^\r\n]*/mi);
-    if (dtstartMatch) {
-      const parts = dtstartMatch[0].split(':');
-      parts.shift();
-      dtstart = parts.join(':').trim();
-    }
-
-    let categories = '';
-    const categoriesMatch = block.match(/^CATEGORIES[;:][^\r\n]*/mi);
-    if (categoriesMatch) {
-      const parts = categoriesMatch[0].split(':');
-      parts.shift();
-      categories = parts.join(':').trim();
-    }
-
-    const isBirthdayCategory = categories.toLowerCase().includes('birthday');
-    const isBirthdaySummary = summary.toLowerCase().includes('birthday');
-
-    if ((isBirthdayCategory || isBirthdaySummary) && summary && dtstart) {
-      const cleanedName = cleanName(summary);
-      if (!cleanedName) continue;
-
-      const digitsMatch = dtstart.match(/\d{8}/);
-      if (digitsMatch) {
-        const digits = digitsMatch[0];
-        const birthdayDate = `${digits.substring(0, 4)}-${digits.substring(4, 6)}-${digits.substring(6, 8)}`;
-        contacts.push({ name: cleanedName, birthday: birthdayDate });
-      }
-    }
-  }
-  return contacts;
-}
-
 export default function CalendarImportStep({ onComplete, firebaseUserId }: CalendarImportStepProps) {
   const [state, setState] = React.useState<'default' | 'loading' | 'success'>('default');
   const [count, setCount] = React.useState(0);
@@ -436,23 +386,6 @@ export default function CalendarImportStep({ onComplete, firebaseUserId }: Calen
     } catch (err: any) {
       console.error("Google Calendar API error:", err?.message || JSON.stringify(err) || String(err));
       setErrorMessage(err.message || "An error occurred while importing from Google.");
-      setState('default');
-    }
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    setErrorMessage(null);
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setState('loading');
-    try {
-      const text = await file.text();
-      const list = parseIcsText(text).map(c => ({ ...c, birthYearUnknown: false }));
-      await saveContactsToFirestore(list);
-    } catch (err: any) {
-      console.error(err);
-      setErrorMessage(err.message || "An error occurred while parsing and importing the .ics file.");
       setState('default');
     }
   };
