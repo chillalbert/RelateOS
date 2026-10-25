@@ -119,7 +119,7 @@ export default function FeatureUnlockedModal() {
     featureDescription = fallback?.description || 'A new tab has been unlocked for your workspace. Check it out now!';
   }
 
-  const handleDismiss = async (navigateToRoute?: string) => {
+  const handleDismiss = async () => {
     if (isDismissing || !firebaseUser || !activeFeatureId) return;
     setIsDismissing(true);
     try {
@@ -132,9 +132,6 @@ export default function FeatureUnlockedModal() {
     } finally {
       setIsDismissing(false);
       setActiveFeatureId(null);
-      if (navigateToRoute) {
-        window.location.href = navigateToRoute;
-      }
     }
   };
 
@@ -183,11 +180,11 @@ export default function FeatureUnlockedModal() {
 
             {/* Action Button */}
             <button
-              onClick={() => handleDismiss(featureRoute)}
+              onClick={() => handleDismiss()}
               disabled={isDismissing}
               className="w-full py-3 px-4 bg-accent-500 hover:bg-accent-400 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-zinc-950 font-extrabold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-lg shadow-accent-500/20 dark:shadow-emerald-500/20 cursor-pointer active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              <span>Go check it out now</span>
+              <span>Got it</span>
               <ArrowRight size={16} className="stroke-[2.5]" />
             </button>
           </motion.div>
