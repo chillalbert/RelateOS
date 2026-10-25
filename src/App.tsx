@@ -145,7 +145,7 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
     <div 
       className={cn(
         "min-h-screen transition-all duration-500",
-        isCurrentRouteHighlighted && "ring-8 ring-accent-500 dark:ring-emerald-500 scale-[0.98] rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(194,102,75,0.3)] dark:shadow-[0_0_50px_rgba(16,185,129,0.3)] bg-accent-500/5 dark:bg-emerald-500/5 select-none pointer-events-none"
+        isCurrentRouteHighlighted && "rounded-3xl overflow-hidden select-none pointer-events-none"
       )}
     >
       {children}
