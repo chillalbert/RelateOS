@@ -348,7 +348,7 @@ export default function Analytics() {
     fetchData();
   }, [firebaseUser]);
 
-  if (loading) return <div className="flex items-center justify-center h-screen bg-zinc-950 text-zinc-400 font-medium">Loading analytics...</div>;
+  if (loading) return <div className="flex items-center justify-center h-screen bg-[#FDF3EC] dark:bg-zinc-950 text-zinc-500 dark:text-zinc-400 font-medium">Loading analytics...</div>;
 
   const COLORS = ['#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6'];
 
